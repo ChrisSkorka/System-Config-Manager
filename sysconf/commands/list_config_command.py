@@ -3,7 +3,7 @@
 from argparse import ArgumentParser, Namespace
 from typing import Self
 
-from lconfig.commands.command import Command, SubParsersAction
+from sysconf.commands.command import Command, SubParsersAction
 
 class ListConfigCommand (Command):
 
