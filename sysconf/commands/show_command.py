@@ -1,9 +1,12 @@
 # pyright: strict
 
 from argparse import ArgumentParser, Namespace
+from pathlib import Path
 from typing import Self
 
 from sysconf.commands.command import Command, SubParsersAction
+from sysconf.config.system_config import SystemConfig
+
 
 class ShowCommand (Command):
 
@@ -22,11 +25,28 @@ class ShowCommand (Command):
 
     @classmethod
     def add_arguments(cls, parser: ArgumentParser) -> ArgumentParser:
+
+        # optional positional argument
+        parser.add_argument(
+            'config_path',
+            type=Path,
+            nargs='?',
+            default=Path('~/.config/system.config.yaml'),
+            help='Path to the configuration file. Default: ~/.config/system.config.yaml',
+        )
+
         return parser
 
     @classmethod
     def create_from_arguments(cls, parsed_arguments: Namespace) -> Self:
-        return cls()
+        return cls(config_path=parsed_arguments.config_path)
+
+    def __init__(self, config_path: Path) -> None:
+        super().__init__()
+        self.config_path = config_path
 
     def run(self) -> None:
         print('Listing current system configuration...')
+
+        config = SystemConfig.create_from_file(self.config_path)
+        print(config)
