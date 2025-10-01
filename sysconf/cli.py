@@ -13,7 +13,7 @@ project_root_directory = current_script_path.parent.parent
 sys.path.append(str(project_root_directory))
 
 if True:  # prevent formatter from re-ordering these imports
-    from sysconf.commands.list_config_command import ListConfigCommand
+    from sysconf.commands.show_command import ShowCommand
     from sysconf.commands.command import Command
 
 """
@@ -36,7 +36,7 @@ def main():
     )
 
     commands: dict[str, Type[Command]] = {
-        ListConfigCommand.get_name(): ListConfigCommand,
+        ShowCommand.get_name(): ShowCommand,
     }
 
     for commandCls in commands.values():

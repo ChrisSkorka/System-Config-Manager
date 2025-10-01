@@ -5,17 +5,17 @@ from typing import Self
 
 from sysconf.commands.command import Command, SubParsersAction
 
-class ListConfigCommand (Command):
+class ShowCommand (Command):
 
     @staticmethod
     def get_name() -> str:
-        return 'list-config'
+        return 'show'
 
     @classmethod
     def get_subparser(cls, subparsers: 'SubParsersAction[ArgumentParser]') -> ArgumentParser:
         return subparsers.add_parser(
             cls.get_name(),
-            prog='List Current System Configuration',
+            prog='Shows the last applied System Configuration',
             description='',
             help='',
         )
