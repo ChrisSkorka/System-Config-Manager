@@ -14,6 +14,23 @@ class SystemExecutor(ABC):
         pass
 
 
+class LiveSystemExecutor(SystemExecutor):
+    """
+    Executor that actually runs system commands.
+
+    !Currently only printing to allow safe development & testing!
+    """
+
+    def exec(self, *command: str) -> int:
+        print('>', ' '.join(command))
+        try:
+            # completed = subprocess.run(command)
+            # return completed.returncode
+            return 0
+        except Exception:
+            return 1
+
+
 class PreviewSystemExecutor(SystemExecutor):
     """
     Executor that only prints the commands instead of executing them.

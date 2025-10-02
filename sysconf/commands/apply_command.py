@@ -1,18 +1,25 @@
+from abc import abstractmethod
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import Self
 
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.config.system_config import SystemConfig, SystemManager
-from sysconf.system.executor import PreviewSystemExecutor
+from sysconf.system.executor import LiveSystemExecutor, PreviewSystemExecutor, SystemExecutor
 from sysconf.utils.config_loader import load_config_from_file
 
 
-class PreviewCommand (Command):
+class AbstractApplyCommand (Command):
 
-    @staticmethod
-    def get_name() -> str:
-        return 'preview'
+    @abstractmethod
+    def getSystemExecutor(self) -> SystemExecutor:
+        """
+        Get the system executor to use for executing the command.
+
+        Returns:
+            SystemExecutor: The system executor to use.
+        """
+        pass
 
     @classmethod
     def get_subparser(cls, subparsers: 'SubParsersAction[ArgumentParser]') -> ArgumentParser:
@@ -69,15 +76,34 @@ class PreviewCommand (Command):
             old_path) if old_path else SystemConfig({})
 
     def run(self) -> None:
-        executor = PreviewSystemExecutor()
+        executor = self.getSystemExecutor()
         manager = SystemManager(self.old_config, self.new_config)
         actions = manager.get_actions()
 
         if not actions:
-            print('No changes required.')
+            print('# No changes required.')
             return
 
-        print('Planned actions:')
         for a in actions:
             print(f'# {a.get_description()}')
             a.run(executor)
+
+
+class PreviewCommand (AbstractApplyCommand):
+
+    @staticmethod
+    def get_name() -> str:
+        return 'preview'
+
+    def getSystemExecutor(self) -> SystemExecutor:
+        return PreviewSystemExecutor()
+
+
+class ApplyCommand (AbstractApplyCommand):
+
+    @staticmethod
+    def get_name() -> str:
+        return 'apply'
+
+    def getSystemExecutor(self) -> SystemExecutor:
+        return LiveSystemExecutor()
