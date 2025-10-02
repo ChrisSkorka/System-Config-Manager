@@ -4,6 +4,7 @@ from typing import Iterable, Self
 
 from sysconf.config.domains import Domain, DomainAction, DomainConfig, DomainManager
 from sysconf.config.serialization import YamlSerializable
+from sysconf.domains.dconf import DConfSetAction
 from sysconf.system.executor import SystemExecutor
 from sysconf.utils.diff import Diff
 
@@ -86,27 +87,8 @@ class GSettingsSetAction(GSettingsAction):
         super().__init__(schema, key)
         self.value = value
 
-    def encode_value(self, value: YamlSerializable) -> str:
-        match value:
-            case n if n is None:
-                return f"<@mb nothing>"  # todo: confirm
-            case b if isinstance(b, bool):
-                return 'true' if b else 'false'
-            case n if isinstance(n, (int, float)):
-                return f"{n}"
-            case s if isinstance(s, str):
-                return f"'{s}'"
-            case l if isinstance(l, list):
-                return f"[{', '.join(self.encode_value(v) for v in l)}]"
-            case d if isinstance(d, dict):
-                key_value_pairs = (
-                    f"'{k}': {self.encode_value(v)}" for k, v in d.items())
-                return f"{{ {', '.join(key_value_pairs)} }}"
-            case _:
-                assert False, f'Unsupported value type {type(value)}'
-
     def run(self, executor: SystemExecutor) -> None:
-        encoded_value = f'"{self.encode_value(self.value)}"'
+        encoded_value = DConfSetAction.encode_value(self.value)
         executor.exec('gsettings', 'set', self.schema, self.key, encoded_value)
         # assert code == 0, f'Error setting {self.schema} {self.key} = {encoded_value}'
 

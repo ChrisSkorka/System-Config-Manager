@@ -9,7 +9,6 @@ E.g. a major system update may add and remove system packages, but this tool wil
 
 ## Todo
 
-- preview & apply command
 - more domains
 - tests
 - default config location via env var
@@ -18,6 +17,7 @@ E.g. a major system update may add and remove system packages, but this tool wil
 - package registry system
 - basic config update commands (install, uninstall)
 - per user config (inc root/sudo)
+- dconf & gsettings validate is writtable
 
 ## Usage
 

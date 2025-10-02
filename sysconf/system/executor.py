@@ -1,6 +1,6 @@
 # pyright: strict
 
-# import subprocess
+import subprocess
 from abc import ABC, abstractmethod
 
 
@@ -22,7 +22,7 @@ class LiveSystemExecutor(SystemExecutor):
     """
 
     def exec(self, *command: str) -> int:
-        print('>', ' '.join(command))
+        print('>', subprocess.list2cmdline(command))
         try:
             # completed = subprocess.run(command)
             # return completed.returncode
@@ -37,5 +37,5 @@ class PreviewSystemExecutor(SystemExecutor):
     """
 
     def exec(self, *command: str) -> int:
-        print(' '.join(command))
+        print(subprocess.list2cmdline(command))
         return 0
