@@ -5,10 +5,12 @@ from typing import Iterable, Generic, Self, TypeVar
 from sysconf.config.serialization import YamlSerializable
 
 
-D = TypeVar('D', bound='Domain')
+D = TypeVar('D', bound='Domain', covariant=True)
+Config = TypeVar('Config', bound='DomainConfig')
+Manager = TypeVar('Manager', bound='DomainManager')
 
 
-class Domain(ABC):
+class Domain(ABC, Generic[Config, Manager]):
     """
     A domain represents a specific area of system configuration, such as
     apt packages, config files, or user settings.
@@ -16,10 +18,13 @@ class Domain(ABC):
     Each domain needs to implement:
     - A `Domain` (this class) which serves as generic ID for the following types
     - A `DomainConfig` which represents the configuration data for this domain
-    - A `Manager` which can compare two `DomainConfig`s and produce a list of `Action`s
-    - One or more `Action` which can be executed to apply a change to the system
+    - A `Manager` which can compare two `DomainConfig`s and produce a list of 
+      `Action`s
+    - One or more `Action`s which can be executed to apply a change to the
+      system
     """
 
+    # todo: rename to get_key(s)
     @staticmethod
     @abstractmethod
     def get_paths() -> Iterable[str]:
@@ -30,37 +35,39 @@ class Domain(ABC):
 
     @classmethod
     @abstractmethod
-    def get_config_from_data(cls, data: YamlSerializable) -> 'DomainConfig[Self]':
+    def get_config_from_data(cls, data: YamlSerializable) -> Config:
         """
         Create a new instance of the domain configuration from the given data.
 
         Args:
-            data (YamlSerializable): The data to create the domain configuration from.
+            data: The data to create the domain configuration from.
         Returns:
-            DomainConfig: A new instance of the domain configuration.
+            A new instance of the domain configuration.
         """
         pass
 
     @classmethod
     @abstractmethod
-    def get_manager(cls, old_config: 'DomainConfig[Self]', new_config: 'DomainConfig[Self]') -> 'DomainManager[Self]':
+    def get_manager(cls, old_config: Config, new_config: Config) -> Manager:
         """
         Get a manager for this domain.
 
         Args:
-            old_config (DomainConfig): The old configuration for this domain.
-            new_config (DomainConfig): The new configuration for this domain.
+            old_config: The old configuration for this domain.
+            new_config: The new configuration for this domain.
         Returns:
-            DomainManager: A manager for this domain.
+            A manager for this domain.
         """
         pass
 
 
+# todo: rename to DomainData
 class DomainConfig(ABC, Generic[D]):
     """
     Base class for all domain configurations.
 
-    This parses the configuration data for a specific domain and stores it in a structured way.
+    This parses the configuration data for a specific domain and stores it in a
+    structured way.
     """
 
     @classmethod
@@ -70,7 +77,7 @@ class DomainConfig(ABC, Generic[D]):
         Create a new instance of the domain configuration from the given data.
 
         Args:
-            data (YamlSerializable): The data to create the domain configuration from.
+            data: The data to create the domain configuration from.
         Returns:
             Self: A new instance of the domain configuration.
         """
@@ -114,11 +121,11 @@ class DomainManager(Generic[D], ABC):
     configuration.
     """
 
+    # todo: split into remove & set stages?
     @abstractmethod
-    def get_actions(self, old: DomainConfig[D], new: DomainConfig[D]) -> Iterable[DomainAction[D]]:
+    def get_actions(self) -> Iterable[DomainAction[D]]:
         """
         Get a list of actions to be performed to transform the system from the old configuration to
         the new configuration.
         """
         pass
-        # todo: make args instance vars?
