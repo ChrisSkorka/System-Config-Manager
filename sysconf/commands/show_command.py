@@ -6,6 +6,7 @@ from typing import Self
 
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.utils.config_loader import load_config_from_file
+from sysconf.utils.path import get_validated_file_path
 
 
 class ShowCommand (Command):
@@ -39,10 +40,17 @@ class ShowCommand (Command):
 
     @classmethod
     def create_from_arguments(cls, parsed_arguments: Namespace) -> Self:
-        return cls(config_path=parsed_arguments.config_path)
+
+        config_path = get_validated_file_path(
+            parsed_arguments.config_path,
+            '.yaml',
+        )
+
+        return cls(config_path=config_path)
 
     def __init__(self, config_path: Path) -> None:
         super().__init__()
+
         self.config_path = config_path
 
     def run(self) -> None:

@@ -9,6 +9,7 @@ from sysconf.commands.command import Command, SubParsersAction
 from sysconf.config.system_config import SystemConfig, SystemManager
 from sysconf.system.executor import LiveSystemExecutor, PreviewSystemExecutor, SystemExecutor
 from sysconf.utils.config_loader import load_config_from_file
+from sysconf.utils.path import get_validated_file_path
 
 
 class AbstractApplyCommand (Command):
@@ -44,8 +45,8 @@ class AbstractApplyCommand (Command):
         parser.add_argument(
             '--last-config',
             type=Path,
-            default=Path('./config/config.yaml'),
-            help='Path to the last applied configuration (default: ./config/config.yaml)',
+            default=Path('~/.config/config.yaml'),
+            help='Path to the last applied configuration (default: ~/.config/config.yaml)',
         )
 
         return parser
@@ -53,15 +54,16 @@ class AbstractApplyCommand (Command):
     @classmethod
     def create_from_arguments(cls, parsed_arguments: Namespace) -> Self:
 
-        path = parsed_arguments.config_file
-        assert isinstance(path, Path)
-        cls.validate_config_path(path)
+        new_path = get_validated_file_path(
+            parsed_arguments.config_file,
+            '.yaml',
+        )
+        old_path = get_validated_file_path(
+            parsed_arguments.last_config,
+            '.yaml',
+        )
 
-        old_path = parsed_arguments.last_config
-        assert isinstance(old_path, Path)
-        cls.validate_config_path(old_path)
-
-        return cls(new_path=path, old_path=old_path)
+        return cls(new_path=new_path, old_path=old_path)
 
     @staticmethod
     def validate_config_path(path: Path) -> None:
@@ -69,7 +71,9 @@ class AbstractApplyCommand (Command):
         assert path.is_file(), f'Path {path} is not a file'
         assert path.suffix == '.yaml', f'File {path} is not a YAML file'
 
-    def __init__(self, new_path: Path, old_path: Path | None):
+    def __init__(self, new_path: Path, old_path: Path | None) -> None:
+        super().__init__()
+
         self.new_path = new_path
         self.old_path = old_path
 

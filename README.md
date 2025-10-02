@@ -18,6 +18,7 @@ E.g. a major system update may add and remove system packages, but this tool wil
 - basic config update commands (install, uninstall)
 - per user config (inc root/sudo)
 - dconf & gsettings validate is writtable
+- handle errors (stop at partial config application? continue? how to record what was done?)
 
 ## Usage
 

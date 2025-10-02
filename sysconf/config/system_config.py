@@ -11,7 +11,9 @@ class SystemConfig:
     Represents the entire system configuration by aggregating multiple domain configurations.
     """
 
-    def __init__(self, data: dict[str, DomainConfig]):
+    def __init__(self, data: dict[str, DomainConfig]) -> None:
+        super().__init__()
+
         self.data: dict[str, DomainConfig] = data
 
     def __repr__(self) -> str:
@@ -36,8 +38,8 @@ class SystemManager:
         actions: list[DomainAction] = []
 
         domain_diff = Diff[str].create_from_iterables(
-            self.old_config.data.keys(),
-            self.new_config.data.keys(),
+            tuple(self.old_config.data.keys()),
+            tuple(self.new_config.data.keys()),
         )
 
         # remove domains

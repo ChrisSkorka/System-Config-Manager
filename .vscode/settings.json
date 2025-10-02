@@ -23,4 +23,5 @@
     "editor.rulers": [
         80
     ],
+    "python.analysis.diagnosticMode": "workspace",
 }

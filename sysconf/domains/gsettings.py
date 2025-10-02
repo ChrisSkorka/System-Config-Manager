@@ -37,7 +37,9 @@ class GSettingsConfig(DomainConfig):
     Domain config for gsettings values as a flat map of (schema,key) -> value
     """
 
-    def __init__(self, values: dict[GSettingPath, YamlSerializable]):
+    def __init__(self, values: dict[GSettingPath, YamlSerializable]) -> None:
+        super().__init__()
+
         self.values = values
 
     def __repr__(self) -> str:
@@ -68,7 +70,9 @@ class GSettingsAction(DomainAction):
     Base class for all gsettings actions.
     """
 
-    def __init__(self, schema: str, key: str):
+    def __init__(self, schema: str, key: str) -> None:
+        super().__init__()
+
         self.schema = schema
         self.key = key
 
@@ -83,14 +87,14 @@ class GSettingsSetAction(GSettingsAction):
         schema: str,
         key: str,
         value: YamlSerializable,
-    ):
+    ) -> None:
         super().__init__(schema, key)
+
         self.value = value
 
     def run(self, executor: SystemExecutor) -> None:
         encoded_value = DConfSetAction.encode_value(self.value)
         executor.exec('gsettings', 'set', self.schema, self.key, encoded_value)
-        # assert code == 0, f'Error setting {self.schema} {self.key} = {encoded_value}'
 
 
 class GSettingsAddAction(GSettingsSetAction):
@@ -113,8 +117,9 @@ class GSettingsUpdateAction(GSettingsSetAction):
         key: str,
         old_value: YamlSerializable,
         new_value: YamlSerializable,
-    ):
+    ) -> None:
         super().__init__(schema, key, new_value)
+
         self.old_value = old_value
         self.new_value = new_value
 
@@ -134,7 +139,6 @@ class GSettingsRemoveAction(GSettingsAction):
 
     def run(self, executor: SystemExecutor) -> None:
         executor.exec('gsettings', 'reset', self.schema, self.key)
-        # assert code == 0, f'Error resetting {schema} {key}'
 
 
 class GSettingsManager(DomainManager):
@@ -144,6 +148,7 @@ class GSettingsManager(DomainManager):
 
     def __init__(self, old: GSettingsConfig, new: GSettingsConfig) -> None:
         super().__init__()
+
         self.old = old
         self.new = new
 
@@ -151,8 +156,8 @@ class GSettingsManager(DomainManager):
         actions: list[GSettingsAction] = []
 
         diff = Diff[GSettingPath].create_from_iterables(
-            self.old.values.keys(),
-            self.new.values.keys(),
+            tuple(self.old.values.keys()),
+            tuple(self.new.values.keys()),
         )
 
         # removals

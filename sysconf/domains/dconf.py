@@ -34,7 +34,9 @@ class DConfConfig(DomainConfig):
     Domain config for dconf values as a flat map of (schema,key) -> value
     """
 
-    def __init__(self, values: dict[str, YamlSerializable]):
+    def __init__(self, values: dict[str, YamlSerializable]) -> None:
+        super().__init__()
+
         self.values = values
 
     def __repr__(self) -> str:
@@ -56,7 +58,9 @@ class DConfAction(DomainAction):
     Base class for all dconf actions.
     """
 
-    def __init__(self, path: str):
+    def __init__(self, path: str) -> None:
+        super().__init__()
+
         self.path = path
 
 
@@ -69,8 +73,9 @@ class DConfSetAction(DConfAction):
         self,
         path: str,
         value: YamlSerializable,
-    ):
+    ) -> None:
         super().__init__(path)
+
         self.value = value
 
     @classmethod
@@ -96,7 +101,6 @@ class DConfSetAction(DConfAction):
     def run(self, executor: SystemExecutor) -> None:
         encoded_value = self.encode_value(self.value)
         executor.exec('dconf', 'write', self.path, encoded_value)
-        # assert code == 0, f'Error setting {self.path} = {encoded_value}'
 
 
 class DConfAddAction(DConfSetAction):
@@ -118,13 +122,13 @@ class DConfUpdateAction(DConfSetAction):
         path: str,
         old_value: YamlSerializable,
         new_value: YamlSerializable,
-    ):
+    ) -> None:
         super().__init__(path, new_value)
+
         self.old_value = old_value
-        self.new_value = new_value
 
     def get_description(self) -> str:
-        return f'Update dconf: {self.path} = {self.old_value} -> {self.new_value}'
+        return f'Update dconf: {self.path} = {self.old_value} -> {self.value}'
 
 
 class DConfRemoveAction(DConfAction):
@@ -139,7 +143,6 @@ class DConfRemoveAction(DConfAction):
 
     def run(self, executor: SystemExecutor) -> None:
         executor.exec('dconf', 'reset', self.path)
-        # assert code == 0, f'Error resetting {self.path}'
 
 
 class DConfManager(DomainManager):
@@ -149,6 +152,7 @@ class DConfManager(DomainManager):
 
     def __init__(self, old: DConfConfig, new: DConfConfig) -> None:
         super().__init__()
+
         self.old = old
         self.new = new
 
@@ -156,8 +160,8 @@ class DConfManager(DomainManager):
         actions: list[DConfAction] = []
 
         diff = Diff[str].create_from_iterables(
-            self.old.values.keys(),
-            self.new.values.keys(),
+            tuple(self.old.values.keys()),
+            tuple(self.new.values.keys()),
         )
 
         # removals

@@ -1,6 +1,6 @@
 # pyright: strict
 
-from typing import Generic, Iterable, TypeVar
+from typing import Generic, Sequence, TypeVar
 
 T = TypeVar('T')
 
@@ -12,8 +12,27 @@ class Diff(Generic[T]):
     Notes:
     - The order of elements is preserved
     - intersection keeps the order of `b`
-    - union order is first items unique to `a`, then all items of `b`
+    - union order is first items unique to `a`, then all items of `b` with items
+      maintaining their order from their original collections
+    - This assumes that the collections do not contain duplicates
+
+    Attributes:
+        a: The first collection of items
+        b: The second collection of items
+        exclusive_a: Items in `a` but not in `b`
+        exclusive_b: Items in `b` but not in `a`
+        intersection: Items in both `a` and `b`
+        union: All items in `a` or `b` (without duplicates)
     """
+
+    __slots__ = (
+        'a',
+        'b',
+        'exclusive_a',
+        'exclusive_b',
+        'intersection',
+        'union',
+    )
 
     def __init__(
         self,
@@ -23,7 +42,9 @@ class Diff(Generic[T]):
         exclusive_b: list[T],
         intersection: list[T],
         union: list[T],
-    ):
+    ) -> None:
+        super().__init__()
+
         self.a = a
         self.b = b
         self.exclusive_a = exclusive_a
@@ -32,9 +53,16 @@ class Diff(Generic[T]):
         self.union = union
 
     @classmethod
-    def create_from_iterables(cls, a: Iterable[T], b: Iterable[T]) -> 'Diff[T]':
+    def create_from_iterables(cls, a: Sequence[T], b: Sequence[T]) -> 'Diff[T]':
         """
         Create a Diff object from two iterables, preserving order.
+
+        Args:
+            a: The first sequence of items
+            b: The second sequence of items
+        Returns:
+            A Diff object holding lists of items the two sequences have in
+            in common, and those they don't.
         """
         a = list(a)
         b = list(b)
