@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 from typing import Iterable, Generic, Self, TypeVar
 
-from sysconf.config.loader import YamlSerializable
+from sysconf.config.serialization import YamlSerializable
 
 
 D = TypeVar('D', bound='Domain')

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Self
 
 from sysconf.commands.command import Command, SubParsersAction
-from sysconf.config.system_config import SystemConfig
+from sysconf.utils.config_loader import load_config_from_file
 
 
 class ShowCommand (Command):
@@ -48,5 +48,5 @@ class ShowCommand (Command):
     def run(self) -> None:
         print('Listing current system configuration...')
 
-        config = SystemConfig.create_from_file(self.config_path)
+        config = load_config_from_file(self.config_path)
         print(config)

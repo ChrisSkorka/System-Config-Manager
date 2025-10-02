@@ -14,11 +14,11 @@ YamlSerializable = Union[
 ConfigDataType = dict[str, YamlSerializable]
 
 
-class YamlLoader:
+class YamlDeserializer:
     """
-    A loader for YAML configuration files.
+    A deserializer for YAML configuration files.
 
-    Currently only wrapt PyYAML, but will hopefully be extended to support features such as $ref 
+    Currently only wraps PyYAML, but will hopefully be extended to support features such as $ref
     which are not supported by vanilla yaml.
     """
 
