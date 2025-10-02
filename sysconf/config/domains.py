@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Iterable, Generic, Self, TypeVar
 
 from sysconf.config.serialization import YamlSerializable
+from sysconf.system.executor import SystemExecutor
 
 
 Config = TypeVar('Config', bound='DomainConfig')
@@ -26,9 +27,9 @@ class Domain(ABC, Generic[Config, Manager]):
     # todo: rename to get_key(s)
     @staticmethod
     @abstractmethod
-    def get_paths() -> Iterable[str]:
+    def get_key() -> str:
         """
-        Get the data paths relevant to this domain.
+        Get the domain key that identifies this domain.
         """
         pass
 
@@ -102,7 +103,7 @@ class DomainAction(ABC):
 
     @abstractmethod
     # todo: add a param to inject some system/shell executor
-    def run(self) -> None:
+    def run(self, executor: SystemExecutor) -> None:
         """
         Execute the action.
 

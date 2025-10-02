@@ -3,6 +3,7 @@ from typing import Iterable, Self
 
 from sysconf.config.domains import Domain, DomainAction, DomainConfig, DomainManager
 from sysconf.config.serialization import YamlSerializable
+from sysconf.system.executor import SystemExecutor
 
 GSettingPath = tuple[str, str]  # (schema, key)
 
@@ -13,8 +14,8 @@ class GSettings(Domain['GSettingsConfig', 'GSettingsManager']):
     """
 
     @staticmethod
-    def get_paths() -> Iterable[str]:
-        return ['gsettings']
+    def get_key() -> str:
+        return 'gsettings'
 
     @classmethod
     def get_config_from_data(cls, data: YamlSerializable) -> 'GSettingsConfig':
@@ -22,6 +23,9 @@ class GSettings(Domain['GSettingsConfig', 'GSettingsManager']):
 
     @classmethod
     def get_manager(cls, old_config: 'GSettingsConfig', new_config: 'GSettingsConfig') -> 'GSettingsManager':
+        assert isinstance(old_config, GSettingsConfig)
+        assert isinstance(new_config, GSettingsConfig)
+
         return GSettingsManager(old_config, new_config)
 
 
@@ -39,6 +43,10 @@ class GSettingsConfig(DomainConfig):
     @classmethod
     def create_from_data(cls, data: YamlSerializable) -> Self:
         values: dict[GSettingPath, YamlSerializable] = {}
+
+        # default to empty config when no data is provided
+        if data is None:
+            return cls(values)
 
         assert isinstance(data, dict)
 
@@ -95,9 +103,9 @@ class GSettingsSetAction(GSettingsAction):
             case _:
                 assert False, f'Unsupported value type {type(value)}'
 
-    def run(self) -> None:
+    def run(self, executor: SystemExecutor) -> None:
         encoded_value = self.encode_value(self.value)
-        print('gsettings', 'set', self.schema, self.key, encoded_value)
+        executor.exec('gsettings', 'set', self.schema, self.key, encoded_value)
         # assert code == 0, f'Error setting {self.schema} {self.key} = {encoded_value}'
 
 
@@ -107,7 +115,7 @@ class GSettingsAddAction(GSettingsSetAction):
     """
 
     def get_description(self) -> str:
-        return f'Add gsettings value {self.schema} {self.key} = {self.value}'
+        return f'Add gsettings: {self.key} = {self.value}'
 
 
 class GSettingsUpdateAction(GSettingsSetAction):
@@ -127,7 +135,7 @@ class GSettingsUpdateAction(GSettingsSetAction):
         self.new_value = new_value
 
     def get_description(self) -> str:
-        return f'Update gsettings value {self.schema} {self.key} = {self.old_value} -> {self.new_value}'
+        return f'Update gsettings: {self.key} = {self.old_value} -> {self.new_value}'
 
 
 class GSettingsRemoveAction(GSettingsAction):
@@ -138,10 +146,10 @@ class GSettingsRemoveAction(GSettingsAction):
     """
 
     def get_description(self) -> str:
-        return f'Remove gsettings value {self.schema} {self.key}'
+        return f'Remove gsettings: {self.key}'
 
-    def run(self) -> None:
-        print('gsettings', 'reset', self.schema, self.key)
+    def run(self, executor: SystemExecutor) -> None:
+        executor.exec('gsettings', 'reset', self.schema, self.key)
         # assert code == 0, f'Error resetting {schema} {key}'
 
 

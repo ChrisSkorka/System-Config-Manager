@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Type
 
 from sysconf.config import domain_registry
+from sysconf.config.domain_registry import domains_by_key
 from sysconf.config.domains import DomainConfig
 from sysconf.config.serialization import ConfigDataType
 from sysconf.config.system_config import SystemConfig
@@ -70,10 +71,22 @@ class SystemConfigParserV1(SystemConfigParser):
     """
 
     def parse_data(self, data: ConfigDataType) -> SystemConfig:
-        domain_map: dict[str, DomainConfig] = {}
-        for domain in domain_registry.domains:
-            for path in domain.get_paths():
-                domain_data = data.get(path, None)
-                if domain_data is not None:
-                    domain_map[path] = domain.get_config_from_data(domain_data)
+
+        assert isinstance(data, dict)
+
+        # version is not part of the config data
+        data = {k: v for k, v in data.items() if k != 'version'}
+
+        # validate keys
+        for key in data:
+            assert key in domain_registry.domains_by_key, \
+                f"Unknown domain key: {key}"
+
+        # parse domain data
+        domain_map: dict[str, DomainConfig] = {
+            key: domains_by_key[key].get_config_from_data(value)
+            for key, value
+            in data.items()
+        }
+
         return SystemConfig(domain_map)

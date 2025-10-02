@@ -13,8 +13,9 @@ project_root_directory = current_script_path.parent.parent
 sys.path.append(str(project_root_directory))
 
 if True:  # prevent formatter from re-ordering these imports
-    from sysconf.commands.show_command import ShowCommand
     from sysconf.commands.command import Command
+    from sysconf.commands.preview_command import PreviewCommand
+    from sysconf.commands.show_command import ShowCommand
 
 """
 This is the entry point for the linux configuration manager program. It parses 
@@ -37,6 +38,7 @@ def main():
 
     commands: dict[str, Type[Command]] = {
         ShowCommand.get_name(): ShowCommand,
+        PreviewCommand.get_name(): PreviewCommand,
     }
 
     for commandCls in commands.values():

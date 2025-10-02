@@ -8,4 +8,10 @@ domains: Iterable[Domain] = [
     GSettings(),
 ]
 
-# todo: check for path clashes
+domains_by_key: dict[str, Domain] = {
+    domain.get_key(): domain
+    for domain
+    in domains
+}
+
+# todo: check for key clashes
