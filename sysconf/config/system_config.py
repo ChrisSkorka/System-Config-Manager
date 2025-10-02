@@ -1,3 +1,5 @@
+# pyright: strict
+
 from typing import Iterable
 from sysconf.config import domain_registry
 from sysconf.config.domains import DomainAction, DomainConfig
@@ -31,9 +33,9 @@ class SystemManager:
         Returns:
             A list of actions to be performed.
         """
-        actions = []
+        actions: list[DomainAction] = []
 
-        domain_diff = Diff.create_from_iterables(
+        domain_diff = Diff[str].create_from_iterables(
             self.old_config.data.keys(),
             self.new_config.data.keys(),
         )

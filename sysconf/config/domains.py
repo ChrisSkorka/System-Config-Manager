@@ -1,3 +1,4 @@
+# pyright: strict
 
 from abc import ABC, abstractmethod
 from typing import Iterable, Generic, Self, TypeVar

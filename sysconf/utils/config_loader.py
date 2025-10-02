@@ -1,3 +1,5 @@
+# pyright: strict
+
 from pathlib import Path
 from sysconf.config.parser import SystemConfigParser
 from sysconf.config.serialization import YamlDeserializer

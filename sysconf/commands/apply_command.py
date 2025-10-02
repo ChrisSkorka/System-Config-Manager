@@ -1,3 +1,5 @@
+# pyright: strict
+
 from abc import abstractmethod
 from argparse import ArgumentParser, Namespace
 from pathlib import Path

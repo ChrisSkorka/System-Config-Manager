@@ -1,14 +1,15 @@
-from typing import Iterable
+# pyright: strict
 
-from sysconf.config.domains import Domain
+from typing import cast
+
+from sysconf.config.domains import Domain, DomainConfig, DomainManager
 from sysconf.domains.gsettings import GSettings
 
-
-domains: Iterable[Domain] = [
-    GSettings(),
+domains: list[Domain[DomainConfig, DomainManager]] = [
+    cast(Domain[DomainConfig, DomainManager], GSettings()),
 ]
 
-domains_by_key: dict[str, Domain] = {
+domains_by_key: dict[str, Domain[DomainConfig, DomainManager]] = {
     domain.get_key(): domain
     for domain
     in domains

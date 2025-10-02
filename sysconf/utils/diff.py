@@ -1,3 +1,5 @@
+# pyright: strict
+
 from typing import Generic, Iterable, TypeVar
 
 T = TypeVar('T')
@@ -39,7 +41,7 @@ class Diff(Generic[T]):
 
         exclusive_a = [item for item in a if item not in b]
         exclusive_b = [item for item in b if item not in a]
-        intersection = [item for item in b if item in a] # keep order of b
-        union = exclusive_a + b # prefer order of b
+        intersection = [item for item in b if item in a]  # keep order of b
+        union = exclusive_a + b  # prefer order of b
 
         return cls(a, b, exclusive_a, exclusive_b, intersection, union)
