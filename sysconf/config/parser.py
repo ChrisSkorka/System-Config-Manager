@@ -6,7 +6,7 @@ from typing import Type
 from sysconf.config import domain_registry
 from sysconf.config.domain_registry import domains_by_key
 from sysconf.config.domains import DomainConfig
-from sysconf.config.serialization import ConfigDataType
+from sysconf.config.serialization import YamlSerializable
 from sysconf.config.system_config import SystemConfig
 
 
@@ -18,13 +18,13 @@ class SystemConfigParser(ABC):
     """
 
     @abstractmethod
-    def parse_data(self, data: ConfigDataType) -> SystemConfig:
+    def parse_data(self, data: YamlSerializable) -> SystemConfig:
         """
         Parse the given data into a SystemConfig object.
 
         Also performs schema validation.
         Args:
-            data (ConfigDataType): The data to parse.
+            data (YamlSerializable): The data to parse.
         Returns:
             SystemConfig: The parsed & validated system configuration.
         """
@@ -40,7 +40,7 @@ class SystemConfigParser(ABC):
         }
 
     @staticmethod
-    def get_parser(data: ConfigDataType) -> 'SystemConfigParser':
+    def get_parser(data: YamlSerializable) -> 'SystemConfigParser':
         """
         Get the appropriate parser for the given data based on its version.
 
@@ -48,7 +48,7 @@ class SystemConfigParser(ABC):
         parser is responsible for validating the rest of the data.
 
         Args:
-            data (ConfigDataType): The data to get the parser for.
+            data (YamlSerializable): The data to get the parser for.
         Returns:
             SystemConfigParser: The appropriate parser for the given data.
         """
@@ -72,7 +72,7 @@ class SystemConfigParserV1(SystemConfigParser):
     System configuration parser for version 1.
     """
 
-    def parse_data(self, data: ConfigDataType) -> SystemConfig:
+    def parse_data(self, data: YamlSerializable) -> SystemConfig:
 
         assert isinstance(data, dict)
 

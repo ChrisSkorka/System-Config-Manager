@@ -12,7 +12,6 @@ YamlSerializable = Union[
     list['YamlSerializable'],
     dict[str, 'YamlSerializable']
 ]
-ConfigDataType = dict[str, YamlSerializable]
 
 
 class YamlDeserializer:
@@ -23,11 +22,11 @@ class YamlDeserializer:
     which are not supported by vanilla yaml.
     """
 
-    def get_data_from_file(self, path: Path) -> ConfigDataType:
+    def get_data_from_file(self, path: Path) -> YamlSerializable:
 
         with open(path, 'r') as f:
             return self.get_data(f.read())
 
-    def get_data(self, content: str) -> ConfigDataType:
+    def get_data(self, content: str) -> YamlSerializable:
         yaml_data = yaml.load(content, Loader=yaml.SafeLoader)
         return yaml_data
