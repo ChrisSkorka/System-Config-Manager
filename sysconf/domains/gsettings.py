@@ -25,7 +25,7 @@ class GSettings(Domain['GSettingsConfig', 'GSettingsManager']):
         return GSettingsManager(old_config, new_config)
 
 
-class GSettingsConfig(DomainConfig[GSettings]):
+class GSettingsConfig(DomainConfig):
     """
     Domain config for gsettings values as a flat map of (schema,key) -> value
     """
@@ -52,7 +52,7 @@ class GSettingsConfig(DomainConfig[GSettings]):
         return cls(values)
 
 
-class GSettingsAction(DomainAction[GSettings]):
+class GSettingsAction(DomainAction):
     """
     Base class for all gsettings actions.
     """
@@ -145,7 +145,7 @@ class GSettingsRemoveAction(GSettingsAction):
         # assert code == 0, f'Error resetting {schema} {key}'
 
 
-class GSettingsManager(DomainManager[GSettings]):
+class GSettingsManager(DomainManager):
     """
     Manager to compute the actions required to transform one GSettingsConfig into another.
     """

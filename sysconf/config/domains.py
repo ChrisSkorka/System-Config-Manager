@@ -5,7 +5,6 @@ from typing import Iterable, Generic, Self, TypeVar
 from sysconf.config.serialization import YamlSerializable
 
 
-D = TypeVar('D', bound='Domain', covariant=True)
 Config = TypeVar('Config', bound='DomainConfig')
 Manager = TypeVar('Manager', bound='DomainManager')
 
@@ -62,7 +61,7 @@ class Domain(ABC, Generic[Config, Manager]):
 
 
 # todo: rename to DomainData
-class DomainConfig(ABC, Generic[D]):
+class DomainConfig(ABC):
     """
     Base class for all domain configurations.
 
@@ -84,7 +83,7 @@ class DomainConfig(ABC, Generic[D]):
         pass
 
 
-class DomainAction(ABC, Generic[D]):
+class DomainAction(ABC):
     """
     Base class for all actions that can be performed on a domain.
     """
@@ -112,7 +111,7 @@ class DomainAction(ABC, Generic[D]):
         pass
 
 
-class DomainManager(Generic[D], ABC):
+class DomainManager(ABC):
     """
     Base class for all domain managers.
 
@@ -123,7 +122,7 @@ class DomainManager(Generic[D], ABC):
 
     # todo: split into remove & set stages?
     @abstractmethod
-    def get_actions(self) -> Iterable[DomainAction[D]]:
+    def get_actions(self) -> Iterable[DomainAction]:
         """
         Get a list of actions to be performed to transform the system from the old configuration to
         the new configuration.
