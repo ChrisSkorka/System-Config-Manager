@@ -116,16 +116,21 @@ class DomainManager(ABC):
     """
     Base class for all domain managers.
 
-    A domain manager is responsible for comparing two domain configurations and producing a list of
-    actions to be performed to transform the system from the old configuration to the new
-    configuration.
+    A domain manager is responsible for comparing two domain configurations and
+    producing a list of actions to be performed to transform the system from the
+    old configuration to the new configuration.
+
+    Notes:
+    - Removals should be generated in reverse order to how they were added
+    - Additions and updates should be processed in the order they are listed in
+      the new config
     """
 
     # todo: split into remove & set stages?
     @abstractmethod
     def get_actions(self) -> Iterable[DomainAction]:
         """
-        Get a list of actions to be performed to transform the system from the old configuration to
-        the new configuration.
+        Get a list of actions to be performed to transform the system from the
+        old configuration to the new configuration.
         """
         pass

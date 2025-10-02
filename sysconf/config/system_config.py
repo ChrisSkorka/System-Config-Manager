@@ -39,7 +39,8 @@ class SystemManager:
         )
 
         # remove domains
-        for key in domain_diff.exclusive_a:
+        # removals occur in reverse order to compared to when they were added
+        for key in reversed(domain_diff.exclusive_a):
 
             old_data = self.old_config.data[key]
             new_data = domain_registry.domains_by_key[key].get_config_from_data(

@@ -4,6 +4,7 @@ from typing import Iterable, Self
 from sysconf.config.domains import Domain, DomainAction, DomainConfig, DomainManager
 from sysconf.config.serialization import YamlSerializable
 from sysconf.system.executor import SystemExecutor
+from sysconf.utils.diff import Diff
 
 GSettingPath = tuple[str, str]  # (schema, key)
 
@@ -104,7 +105,7 @@ class GSettingsSetAction(GSettingsAction):
                 assert False, f'Unsupported value type {type(value)}'
 
     def run(self, executor: SystemExecutor) -> None:
-        encoded_value = self.encode_value(self.value)
+        encoded_value = f'"{self.encode_value(self.value)}"'
         executor.exec('gsettings', 'set', self.schema, self.key, encoded_value)
         # assert code == 0, f'Error setting {self.schema} {self.key} = {encoded_value}'
 
@@ -166,13 +167,19 @@ class GSettingsManager(DomainManager):
     def get_actions(self) -> Iterable[GSettingsAction]:
         actions: list[GSettingsAction] = []
 
+        diff = Diff[GSettingPath].create_from_iterables(
+            self.old.values.keys(),
+            self.new.values.keys(),
+        )
+
         # removals
-        for (schema, key) in self.old.values:
-            if (schema, key) not in self.new.values:
-                actions.append(GSettingsRemoveAction(schema, key))
+        for (schema, key) in reversed(diff.exclusive_a):
+            actions.append(GSettingsRemoveAction(schema, key))
 
         # adds/updates
-        for (schema, key), new_val in self.new.values.items():
+        for (schema, key) in diff.b:
+            new_val = self.new.values[(schema, key)]
+
             if (schema, key) not in self.old.values:
                 actions.append(GSettingsAddAction(schema, key, new_val))
             else:
