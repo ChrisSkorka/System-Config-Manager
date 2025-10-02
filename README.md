@@ -9,7 +9,6 @@ E.g. a major system update may add and remove system packages, but this tool wil
 
 ## Todo
 
-- first domain
 - preview & apply command
 - more domains
 - tests
@@ -17,6 +16,8 @@ E.g. a major system update may add and remove system packages, but this tool wil
 - split config into section
 - support $ref for split configs (use ruamel.yaml)
 - package registry system
+- basic config update commands (install, uninstall)
+- per user config (inc root/sudo)
 
 ## Usage
 
