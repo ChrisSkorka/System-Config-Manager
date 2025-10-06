@@ -1,6 +1,7 @@
 # pyright: strict
 
-from typing import Generic, Sequence, TypeVar
+import itertools
+from typing import Generic, Iterable, TypeVar
 
 T = TypeVar('T')
 
@@ -36,15 +37,16 @@ class Diff(Generic[T]):
 
     def __init__(
         self,
-        a: list[T],
-        b: list[T],
-        exclusive_a: list[T],
-        exclusive_b: list[T],
-        intersection: list[T],
-        union: list[T],
+        a: tuple[T, ...],
+        b: tuple[T, ...],
+        exclusive_a: tuple[T, ...],
+        exclusive_b: tuple[T, ...],
+        intersection: tuple[T, ...],
+        union: tuple[T, ...],
     ) -> None:
         super().__init__()
 
+        # todo make getters
         self.a = a
         self.b = b
         self.exclusive_a = exclusive_a
@@ -53,7 +55,7 @@ class Diff(Generic[T]):
         self.union = union
 
     @classmethod
-    def create_from_iterables(cls, a: Sequence[T], b: Sequence[T]) -> 'Diff[T]':
+    def create_from_iterables(cls, a: Iterable[T], b: Iterable[T]) -> 'Diff[T]':
         """
         Create a Diff object from two iterables, preserving order.
 
@@ -64,12 +66,14 @@ class Diff(Generic[T]):
             A Diff object holding lists of items the two sequences have in
             in common, and those they don't.
         """
-        a = list(a)
-        b = list(b)
+        a = tuple(a)
+        b = tuple(b)
 
-        exclusive_a = [item for item in a if item not in b]
-        exclusive_b = [item for item in b if item not in a]
-        intersection = [item for item in b if item in a]  # keep order of b
-        union = exclusive_a + b  # prefer order of b
+        exclusive_a = tuple(item for item in a if item not in b)
+        exclusive_b = tuple(item for item in b if item not in a)
+        intersection = tuple(
+            item for item in b if item in a  # keep order of b
+        )
+        union = tuple(itertools.chain(exclusive_a, b))  # prefer order of b
 
         return cls(a, b, exclusive_a, exclusive_b, intersection, union)

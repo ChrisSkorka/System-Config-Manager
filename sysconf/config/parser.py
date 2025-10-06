@@ -4,8 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Type
 
 from sysconf.config import domain_registry
-from sysconf.config.domain_registry import domains_by_key
-from sysconf.config.domains import DomainConfig
+from sysconf.config.domains import Domain, DomainConfig, DomainManager
 from sysconf.config.serialization import YamlSerializable
 from sysconf.config.system_config import SystemConfig
 
@@ -16,6 +15,11 @@ class SystemConfigParser(ABC):
 
     A parser converts the deserialized data (dicts, lists, scalars) into a SystemConfig object.
     """
+
+    def __init__(self, domains_by_key: dict[str, Domain[DomainConfig, DomainManager]]):
+        super().__init__()
+
+        self.domains_by_key = domains_by_key
 
     @abstractmethod
     def parse_data(self, data: YamlSerializable) -> SystemConfig:
@@ -64,7 +68,7 @@ class SystemConfigParser(ABC):
         assert version in parsers, \
             f"Unsupported version: {version}, supported versions: {list(parsers.keys())}"
 
-        return parsers[version]()
+        return parsers[version](domain_registry.domains_by_key)
 
 
 class SystemConfigParserV1(SystemConfigParser):
@@ -81,12 +85,12 @@ class SystemConfigParserV1(SystemConfigParser):
 
         # validate keys
         for key in data:
-            assert key in domain_registry.domains_by_key, \
+            assert key in self.domains_by_key, \
                 f"Unknown domain key: {key}"
 
         # parse domain data
         domain_map: dict[str, DomainConfig] = {
-            key: domains_by_key[key].get_config_from_data(value)
+            key: self.domains_by_key[key].get_config_from_data(value)
             for key, value
             in data.items()
         }

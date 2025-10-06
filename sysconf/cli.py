@@ -7,14 +7,16 @@ from argparse import ArgumentParser
 from typing import Type
 from pathlib import Path
 
+
 # Calculate the directory above this file to add to the Python path
 current_script_path = Path(os.path.abspath(__file__))
 project_root_directory = current_script_path.parent.parent
 sys.path.append(str(project_root_directory))
 
 if True:  # prevent formatter from re-ordering these imports
-    from sysconf.commands.apply_command import ApplyCommand, PreviewCommand
+    from sysconf.commands.apply_command import ApplyCommand
     from sysconf.commands.command import Command
+    from sysconf.commands.preview_command import PreviewCommand
     from sysconf.commands.show_command import ShowCommand
 
 """
@@ -25,10 +27,10 @@ run `cli.py --help` for instructions
 """
 
 
-def main():
+def main() -> None:
 
     parser = ArgumentParser(
-        prog='Linux Config Manager CLI',
+        prog='System Config Manager CLI',
         description='Tool suit to create, manage and apply system configurations from config files.',
     )
     subparsers = parser.add_subparsers(
@@ -43,7 +45,8 @@ def main():
     }
 
     for commandCls in commands.values():
-        commandCls.add_subparser(subparsers)
+        subparser = commandCls.get_subparser(subparsers)
+        commandCls.add_arguments(subparser)
 
     parsed_args = parser.parse_args()
     commands_name = parsed_args.command

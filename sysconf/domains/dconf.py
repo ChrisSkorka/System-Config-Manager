@@ -39,6 +39,11 @@ class DConfConfig(DomainConfig):
 
         self.values = values
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, DConfConfig):
+            return False
+        return self.values == other.values
+
     def __repr__(self) -> str:
         return f"DConfConfig({self.values})"
 

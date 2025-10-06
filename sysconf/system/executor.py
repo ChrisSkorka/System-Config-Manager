@@ -10,7 +10,6 @@ class SystemExecutor(ABC):
     Abstract base class for executing system commands.
     """
 
-    # todo remove return type
     @abstractmethod
     def exec(self, *command: str) -> None:
         pass
@@ -22,6 +21,9 @@ class LiveSystemExecutor(SystemExecutor):
 
     !Currently only printing to allow safe development & testing!
     """
+
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, LiveSystemExecutor)
 
     def exec(self, *command: str) -> None:
         print('>', subprocess.list2cmdline(command))
@@ -35,6 +37,9 @@ class PreviewSystemExecutor(SystemExecutor):
     """
     Executor that only prints the commands instead of executing them.
     """
+
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, PreviewSystemExecutor)
 
     def exec(self, *command: str) -> None:
         print(subprocess.list2cmdline(command))

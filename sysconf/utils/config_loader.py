@@ -4,9 +4,10 @@ from pathlib import Path
 from sysconf.config.parser import SystemConfigParser
 from sysconf.config.serialization import YamlDeserializer
 from sysconf.config.system_config import SystemConfig
+from sysconf.utils.file import FileReader
 
 
-def load_config_from_file(path: Path) -> SystemConfig:
+def load_config_from_file(file_reader: FileReader, path: Path) -> SystemConfig:
     """
     Load a SystemConfig from a YAML file.
 
@@ -21,7 +22,7 @@ def load_config_from_file(path: Path) -> SystemConfig:
         SystemConfig: The parsed system configuration.
     """
 
-    yaml_data = YamlDeserializer().get_data_from_file(path)
+    yaml_data = YamlDeserializer().get_data_from_file(file_reader, path)
     parser = SystemConfigParser.get_parser(yaml_data)
     system_config = parser.parse_data(yaml_data)
     return system_config

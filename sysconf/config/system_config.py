@@ -15,6 +15,11 @@ class SystemConfig:
         super().__init__()
 
         self.data: dict[str, DomainConfig] = data
+    
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SystemConfig):
+            return False
+        return self.data == other.data
 
     def __repr__(self) -> str:
         return f"SystemConfig({self.data})"
@@ -28,6 +33,12 @@ class SystemManager:
     def __init__(self, old_config: SystemConfig, new_config: SystemConfig):
         self.old_config = old_config
         self.new_config = new_config
+
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, SystemManager):
+            return False
+        return self.old_config == value.old_config \
+            and self.new_config == value.new_config
 
     def get_actions(self) -> Iterable[DomainAction]:
         """

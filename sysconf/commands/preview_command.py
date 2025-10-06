@@ -6,16 +6,16 @@ from typing import Self
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
 from sysconf.config.system_config import SystemManager
-from sysconf.system.executor import LiveSystemExecutor, SystemExecutor
+from sysconf.system.executor import PreviewSystemExecutor, SystemExecutor
 
 
-class ApplyCommand (Command):
+class PreviewCommand (Command):
 
     @staticmethod
     def get_name() -> str:
         """Get the name if this subcommand."""
 
-        return 'apply'
+        return 'preview'
 
     @classmethod
     def get_subparser(cls, subparsers: 'SubParsersAction[ArgumentParser]') -> ArgumentParser:
@@ -26,8 +26,10 @@ class ApplyCommand (Command):
 
         return subparsers.add_parser(
             cls.get_name(),
-            prog='Apply the configuration to the system',
-            description='Compare the current system configuration with the target configuration and execute the necessary commands.',
+            prog='Preview planned actions without executing',
+            description='Compare the current system configuration with the '
+            + 'target configuration and generate (but not execute) the '
+            + 'necessary commands.',
             help='',
         )
 
@@ -49,12 +51,11 @@ class ApplyCommand (Command):
         """
 
         comparative_parser = ComparativeConfigCommandParser.create_from_arguments(
-            parsed_arguments,
-        )
+            parsed_arguments)
 
         return cls(
             manager=comparative_parser.get_system_manager(),
-            executor=LiveSystemExecutor(),
+            executor=PreviewSystemExecutor(),
         )
 
     def __init__(self, manager: SystemManager, executor: SystemExecutor) -> None:
@@ -64,7 +65,7 @@ class ApplyCommand (Command):
         self.executor = executor
 
     def __eq__(self, value: object) -> bool:
-        if not isinstance(value, ApplyCommand):
+        if not isinstance(value, PreviewCommand):
             return False
 
         return self.manager == value.manager \
@@ -74,8 +75,7 @@ class ApplyCommand (Command):
         """
         Execute the command.
 
-        This will compare the two configurations and execute the required
-        actions.
+        This will compare the two configurations and print the planned actions.
         """
 
         actions = self.manager.get_actions()

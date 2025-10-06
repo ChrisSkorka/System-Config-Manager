@@ -5,6 +5,8 @@ from typing import Union
 
 import yaml
 
+from sysconf.utils.file import FileReader
+
 
 EndNode = Union[None, str, int, float, bool]
 YamlSerializable = Union[
@@ -22,10 +24,20 @@ class YamlDeserializer:
     which are not supported by vanilla yaml.
     """
 
-    def get_data_from_file(self, path: Path) -> YamlSerializable:
+    def get_data_from_file(self, file_reader: FileReader, path: Path) -> YamlSerializable:
+        """
+        Read YAML data from a file and return it as a Python object.
 
-        with open(path, 'r') as f:
-            return self.get_data(f.read())
+        Args:
+            file_reader (FileReader): The file reader to use.
+            path (Path): The path to the YAML file.
+
+        Returns:
+            YamlSerializable: The deserialized YAML data.
+        """
+
+        content: str = file_reader.get_file_contents(path)
+        return self.get_data(content)
 
     def get_data(self, content: str) -> YamlSerializable:
         yaml_data = yaml.load(content, Loader=yaml.SafeLoader)

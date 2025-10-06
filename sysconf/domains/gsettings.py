@@ -42,6 +42,11 @@ class GSettingsConfig(DomainConfig):
 
         self.values = values
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, GSettingsConfig):
+            return False
+        return self.values == other.values
+
     def __repr__(self) -> str:
         return f"GSettingsConfig({self.values})"
 

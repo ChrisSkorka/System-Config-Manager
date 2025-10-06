@@ -84,6 +84,9 @@ class DomainConfig(ABC):
         """
         pass
 
+    @abstractmethod
+    def __eq__(self, value: object, /) -> bool:
+        pass
 
 class DomainAction(ABC):
     """
@@ -103,7 +106,6 @@ class DomainAction(ABC):
         pass
 
     @abstractmethod
-    # todo: add a param to inject some system/shell executor
     def run(self, executor: SystemExecutor) -> None:
         """
         Execute the action.

@@ -40,6 +40,12 @@ class CommandArgumentParserBuilder (ABC):
         """
         pass  # pragma: no cover
 
+    @classmethod
+    @abstractmethod
+    def create_from_arguments(cls, parsed_arguments: Namespace) -> Self:
+        """Parse the arguments and create a new instance of the command."""
+        pass  # pragma: no cover
+
 
 class Command (CommandArgumentParserBuilder):
     """
@@ -48,12 +54,6 @@ class Command (CommandArgumentParserBuilder):
     This class is responsible for parsing the command line arguments, 
     instantiating dependencies, and executing the command.
     """
-
-    @classmethod
-    @abstractmethod
-    def create_from_arguments(cls, parsed_arguments: Namespace) -> Self:
-        """Parse the arguments and create a new instance of the command."""
-        pass  # pragma: no cover
 
     @staticmethod
     @abstractmethod
@@ -65,17 +65,6 @@ class Command (CommandArgumentParserBuilder):
             str: The name of the command.
         """
         pass  # pragma: no cover
-
-    @classmethod
-    def add_subparser(cls, subparsers: 'SubParsersAction[ArgumentParser]') -> None:
-        """
-        Add a subparser for the command to the given subparsers.
-
-        Args:
-            subparsers (_SubParsersAction): The subparsers to add the subparser to.
-        """
-        parser = cls.get_subparser(subparsers)
-        cls.add_arguments(parser)
 
     @classmethod
     @abstractmethod
