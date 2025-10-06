@@ -1,0 +1,1 @@
+# This enables test discovery for the commands test module
