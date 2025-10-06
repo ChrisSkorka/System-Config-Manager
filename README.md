@@ -19,6 +19,9 @@ E.g. a major system update may add and remove system packages, but this tool wil
 - per user config (inc root/sudo)
 - dconf & gsettings validate is writtable
 - handle errors (stop at partial config application? continue? how to record what was done?)
+- better assert error messages (no stack trace)
+- rollbacks
+- class for overall (cli) command
 
 ## Usage
 
@@ -120,3 +123,24 @@ user:
     # Shell
     ~/.bashrc: ./shell/bashrc
 ```
+
+## Domain-Based Design Pattern
+The system is built around **domains** - isolated areas of system configuration:
+- Each domain implements the `Domain[Config, Manager]` abstract base class in `sysconf/config/domains.py`
+- Domains must provide: `get_key()`, `get_config_from_data()`, `get_manager()`
+- Domain implementations live in `sysconf/domains/` (e.g., `gsettings.py`, `dconf.py`)
+- Register new domains in `sysconf/config/domain_registry.py`
+
+## Command Pattern with Mixin Architecture
+Commands use a sophisticated mixin system:
+- Base class: `Command` in `sysconf/commands/command.py`
+- Mixins: `CommandArgumentParserBuilder` for argument parsing
+- Example: `ComparativeConfigCommandParser` adds config comparison capabilities
+- Commands auto-register in `sysconf/cli.py` via the `commands` dict
+
+## Configuration Flow
+1. **Deserialize**: Load YAML config files into `SystemConfig` objects
+2. **Parse**: YAML → `SystemConfig` via version-specific parsers (`sysconf/config/parser.py`)
+3. **Compare**: Old vs New config using `SystemManager` (`sysconf/config/system_config.py`)
+4. **Plan**: Generate `DomainAction`s using `Diff` utility (`sysconf/utils/diff.py`)
+5. **Execute**: Actions through `SystemExecutor` abstraction (`sysconf/system/executor.py`)
