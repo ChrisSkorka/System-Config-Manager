@@ -32,7 +32,7 @@ class Domain(ABC, Generic[Config, Manager]):
         """
         Get the domain key that identifies this domain.
         """
-        pass
+        pass  # pragma: no cover
 
     @classmethod
     @abstractmethod
@@ -45,7 +45,7 @@ class Domain(ABC, Generic[Config, Manager]):
         Returns:
             A new instance of the domain configuration.
         """
-        pass
+        pass  # pragma: no cover
 
     @classmethod
     @abstractmethod
@@ -59,7 +59,7 @@ class Domain(ABC, Generic[Config, Manager]):
         Returns:
             A manager for this domain.
         """
-        pass
+        pass  # pragma: no cover
 
 
 # todo: rename to DomainData
@@ -82,11 +82,12 @@ class DomainConfig(ABC):
         Returns:
             Self: A new instance of the domain configuration.
         """
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def __eq__(self, value: object, /) -> bool:
-        pass
+        pass  # pragma: no cover
+
 
 class DomainAction(ABC):
     """
@@ -103,7 +104,7 @@ class DomainAction(ABC):
 
         This should not include the actual commands to be executed.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def run(self, executor: SystemExecutor) -> None:
@@ -112,7 +113,7 @@ class DomainAction(ABC):
 
         This will perform actual action including executing system commands.
         """
-        pass
+        pass # pragma: no cover
 
 
 class DomainManager(ABC):
@@ -136,4 +137,4 @@ class DomainManager(ABC):
         Get a list of actions to be performed to transform the system from the
         old configuration to the new configuration.
         """
-        pass
+        pass # pragma: no cover
