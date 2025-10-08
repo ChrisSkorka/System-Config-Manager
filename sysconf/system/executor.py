@@ -2,7 +2,6 @@
 
 import subprocess
 from abc import ABC, abstractmethod
-from typing import Sequence
 
 
 class SystemExecutor(ABC):
@@ -12,7 +11,7 @@ class SystemExecutor(ABC):
 
     @abstractmethod
     def exec(self, *command: str) -> None:
-        pass
+        pass  # pragma: no cover
 
 
 class LiveSystemExecutor(SystemExecutor):
@@ -26,11 +25,11 @@ class LiveSystemExecutor(SystemExecutor):
         return isinstance(value, LiveSystemExecutor)
 
     def exec(self, *command: str) -> None:
-        print('>', subprocess.list2cmdline(command))
-        completed = subprocess.run(command)
+        print(subprocess.list2cmdline(command))
+        process: subprocess.CompletedProcess[bytes] = subprocess.run(command)
 
-        if completed.returncode != 0:
-            raise CommandException(command, completed)
+        if process.returncode != 0:
+            raise CommandException(process)
 
 
 class PreviewSystemExecutor(SystemExecutor):
@@ -47,18 +46,17 @@ class PreviewSystemExecutor(SystemExecutor):
 
 class CommandException(Exception):
     """
-    Exception raised when a shell command fails.
+    Exception raised when a shell/cmd/cli command fails.
     """
 
     def __init__(
         self,
-        command: Sequence[str],
         process: subprocess.CompletedProcess[bytes],
     ) -> None:
-        command = subprocess.list2cmdline(command)
-        super().__init__(
-            f"Command '{command}' failed with exit code {process.returncode}"
-        )
+        super().__init__()
 
-        self.command: str = command
         self.process: subprocess.CompletedProcess[bytes] = process
+
+    def __str__(self) -> str:
+        cmdline = subprocess.list2cmdline(self.process.args)
+        return f"Command '{cmdline}' failed with exit code {self.process.returncode}"
