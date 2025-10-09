@@ -13,16 +13,13 @@ class DConf(Domain['DConfConfig', 'DConfManager']):
     Domain for dconf values, can set/reset values.
     """
 
-    @staticmethod
-    def get_key() -> str:
+    def get_key(self) -> str:
         return 'dconf'
 
-    @classmethod
-    def get_config_from_data(cls, data: YamlSerializable) -> 'DConfConfig':
+    def get_domain_config(self, data: YamlSerializable) -> 'DConfConfig':
         return DConfConfig.create_from_data(data)
 
-    @classmethod
-    def get_manager(cls, old_config: 'DConfConfig', new_config: 'DConfConfig') -> 'DConfManager':
+    def get_domain_manager(self, old_config: 'DConfConfig', new_config: 'DConfConfig') -> 'DConfManager':
         assert isinstance(old_config, DConfConfig)
         assert isinstance(new_config, DConfConfig)
 

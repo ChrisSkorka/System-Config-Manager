@@ -32,7 +32,7 @@ class SystemConfigParser(ABC):
         Returns:
             SystemConfig: The parsed & validated system configuration.
         """
-        pass
+        pass # pragma: no cover
 
     @staticmethod
     def get_parsers_by_version() -> dict[str, Type['SystemConfigParser']]:
@@ -90,7 +90,7 @@ class SystemConfigParserV1(SystemConfigParser):
 
         # parse domain data
         domain_map: dict[str, DomainConfig] = {
-            key: self.domains_by_key[key].get_config_from_data(value)
+            key: self.domains_by_key[key].get_domain_config(value)
             for key, value
             in data.items()
         }

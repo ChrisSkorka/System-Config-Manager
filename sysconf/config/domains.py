@@ -25,18 +25,15 @@ class Domain(ABC, Generic[Config, Manager]):
       system
     """
 
-    # todo: rename to get_key(s)
-    @staticmethod
     @abstractmethod
-    def get_key() -> str:
+    def get_key(self) -> str:
         """
         Get the domain key that identifies this domain.
         """
         pass  # pragma: no cover
 
-    @classmethod
     @abstractmethod
-    def get_config_from_data(cls, data: YamlSerializable) -> Config:
+    def get_domain_config(self, data: YamlSerializable) -> Config:
         """
         Create a new instance of the domain configuration from the given data.
 
@@ -47,9 +44,8 @@ class Domain(ABC, Generic[Config, Manager]):
         """
         pass  # pragma: no cover
 
-    @classmethod
     @abstractmethod
-    def get_manager(cls, old_config: Config, new_config: Config) -> Manager:
+    def get_domain_manager(self, old_config: Config, new_config: Config) -> Manager:
         """
         Get a manager for this domain.
 
@@ -62,7 +58,6 @@ class Domain(ABC, Generic[Config, Manager]):
         pass  # pragma: no cover
 
 
-# todo: rename to DomainData
 class DomainConfig(ABC):
     """
     Base class for all domain configurations.
@@ -104,7 +99,7 @@ class DomainAction(ABC):
 
         This should not include the actual commands to be executed.
         """
-        pass # pragma: no cover
+        pass  # pragma: no cover
 
     @abstractmethod
     def run(self, executor: SystemExecutor) -> None:
@@ -113,7 +108,7 @@ class DomainAction(ABC):
 
         This will perform actual action including executing system commands.
         """
-        pass # pragma: no cover
+        pass  # pragma: no cover
 
 
 class DomainManager(ABC):
@@ -137,4 +132,4 @@ class DomainManager(ABC):
         Get a list of actions to be performed to transform the system from the
         old configuration to the new configuration.
         """
-        pass # pragma: no cover
+        pass  # pragma: no cover

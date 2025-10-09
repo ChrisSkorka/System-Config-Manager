@@ -16,16 +16,13 @@ class GSettings(Domain['GSettingsConfig', 'GSettingsManager']):
     Domain for gsettings values, can set/reset values.
     """
 
-    @staticmethod
-    def get_key() -> str:
+    def get_key(self) -> str:
         return 'gsettings'
 
-    @classmethod
-    def get_config_from_data(cls, data: YamlSerializable) -> 'GSettingsConfig':
+    def get_domain_config(self, data: YamlSerializable) -> 'GSettingsConfig':
         return GSettingsConfig.create_from_data(data)
 
-    @classmethod
-    def get_manager(cls, old_config: 'GSettingsConfig', new_config: 'GSettingsConfig') -> 'GSettingsManager':
+    def get_domain_manager(self, old_config: 'GSettingsConfig', new_config: 'GSettingsConfig') -> 'GSettingsManager':
         assert isinstance(old_config, GSettingsConfig)
         assert isinstance(new_config, GSettingsConfig)
 

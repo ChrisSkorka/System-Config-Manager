@@ -15,7 +15,7 @@ class SystemConfig:
         super().__init__()
 
         self.data: dict[str, DomainConfig] = data
-    
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SystemConfig):
             return False
@@ -57,11 +57,12 @@ class SystemManager:
         # removals occur in reverse order to compared to when they were added
         for key in reversed(domain_diff.exclusive_a):
 
-            old_data = self.old_config.data[key]
-            new_data = domain_registry.domains_by_key[key].get_config_from_data(
-                None)
+            domain = domain_registry.domains_by_key[key]
 
-            manager = domain_registry.domains_by_key[key].get_manager(
+            old_data = self.old_config.data[key]
+            new_data = domain.get_domain_config(None)
+
+            manager = domain.get_domain_manager(
                 old_data,
                 new_data,
             )
@@ -72,12 +73,14 @@ class SystemManager:
         # listed in the new config
         for key in domain_diff.b:
 
+            domain = domain_registry.domains_by_key[key]
+
             old_data = self.old_config.data[key] \
                 if key in self.old_config.data \
-                else domain_registry.domains_by_key[key].get_config_from_data(None)
+                else domain.get_domain_config(None)
             new_data = self.new_config.data[key]
 
-            manager = domain_registry.domains_by_key[key].get_manager(
+            manager = domain.get_domain_manager(
                 old_data,
                 new_data,
             )
