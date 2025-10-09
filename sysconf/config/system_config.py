@@ -55,7 +55,7 @@ class SystemManager:
 
         # remove domains
         # removals occur in reverse order to compared to when they were added
-        for key in reversed(domain_diff.exclusive_a):
+        for key in reversed(domain_diff.exclusive_old):
 
             domain = domain_registry.domains_by_key[key]
 
@@ -71,7 +71,7 @@ class SystemManager:
         # add & update domains
         # add & update are combined so we can process them in the order they're
         # listed in the new config
-        for key in domain_diff.b:
+        for key in domain_diff.new:
 
             domain = domain_registry.domains_by_key[key]
 

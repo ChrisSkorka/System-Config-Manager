@@ -124,11 +124,11 @@ class AptManager(DomainManager):
         )
 
         # Packages to remove
-        for package in diff.exclusive_a:
+        for package in diff.exclusive_old:
             actions.append(AptRemoveAction(package))
 
         # Packages to install
-        for package in diff.exclusive_b:
+        for package in diff.exclusive_new:
             actions.append(AptInstallAction(package))
 
         return actions

@@ -163,11 +163,11 @@ class GSettingsManager(DomainManager):
         )
 
         # removals
-        for (schema, key) in reversed(diff.exclusive_a):
+        for (schema, key) in reversed(diff.exclusive_old):
             actions.append(GSettingsRemoveAction(schema, key))
 
         # adds/updates
-        for (schema, key) in diff.b:
+        for (schema, key) in diff.new:
             new_val = self.new.values[(schema, key)]
 
             if (schema, key) not in self.old.values:

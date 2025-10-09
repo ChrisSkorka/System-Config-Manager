@@ -167,11 +167,11 @@ class DConfManager(DomainManager):
         )
 
         # removals
-        for path in reversed(diff.exclusive_a):
+        for path in reversed(diff.exclusive_old):
             actions.append(DConfRemoveAction(path))
 
         # adds/updates
-        for path in diff.b:
+        for path in diff.new:
             new_val = self.new.values[path]
 
             if path not in self.old.values:
