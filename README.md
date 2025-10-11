@@ -9,19 +9,22 @@ E.g. a major system update may add and remove system packages, but this tool wil
 
 ## Todo
 
-- more domains
 - tests
 - default config location via env var
 - split config into section
 - support $ref for split configs (use ruamel.yaml)
 - package registry system
-- basic config update commands (install, uninstall)
-- per user config (inc root/sudo)
+- edit command
 - dconf & gsettings validate is writtable
 - handle errors (stop at partial config application? continue? how to record what was done?)
+  - track progress & store intermediate config as last config
+- rollbacks command: apply config before current
 - better assert error messages (no stack trace)
-- rollbacks
 - class for overall (cli) command
+- relative and home paths
+  - '$pwd' -> source file path?
+  - cwd
+- logging
 
 ## Usage
 

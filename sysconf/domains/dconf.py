@@ -102,7 +102,7 @@ class DConfSetAction(DConfAction):
 
     def run(self, executor: SystemExecutor) -> None:
         encoded_value = self.encode_value(self.value)
-        executor.exec('dconf', 'write', self.path, encoded_value)
+        executor.command('dconf', 'write', self.path, encoded_value)
 
 
 class DConfAddAction(DConfSetAction):
@@ -144,7 +144,7 @@ class DConfRemoveAction(DConfAction):
         return f'Remove dconf: {self.path}'
 
     def run(self, executor: SystemExecutor) -> None:
-        executor.exec('dconf', 'reset', self.path)
+        executor.command('dconf', 'reset', self.path)
 
 
 class DConfManager(DomainManager):

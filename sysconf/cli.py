@@ -8,7 +8,7 @@ from typing import Type
 from pathlib import Path
 
 
-# Calculate the directory above this file to add to the Python path
+# Add the parent directory of this file to the Python path to enable imports
 current_script_path = Path(os.path.abspath(__file__))
 project_root_directory = current_script_path.parent.parent
 sys.path.append(str(project_root_directory))

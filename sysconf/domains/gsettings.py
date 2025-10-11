@@ -96,7 +96,13 @@ class GSettingsSetAction(GSettingsAction):
 
     def run(self, executor: SystemExecutor) -> None:
         encoded_value = DConfSetAction.encode_value(self.value)
-        executor.exec('gsettings', 'set', self.schema, self.key, encoded_value)
+        executor.command(
+            'gsettings',
+            'set',
+            self.schema,
+            self.key,
+            encoded_value,
+        )
 
 
 class GSettingsAddAction(GSettingsSetAction):
@@ -140,7 +146,7 @@ class GSettingsRemoveAction(GSettingsAction):
         return f'Remove gsettings: {self.key}'
 
     def run(self, executor: SystemExecutor) -> None:
-        executor.exec('gsettings', 'reset', self.schema, self.key)
+        executor.command('gsettings', 'reset', self.schema, self.key)
 
 
 class GSettingsManager(DomainManager):

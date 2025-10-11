@@ -1,16 +1,10 @@
 # pyright: strict
 
-from typing import cast
-
 from sysconf.config.domains import Domain, DomainConfig, DomainManager
-from sysconf.domains.apt import Apt
-from sysconf.domains.dconf import DConf
-from sysconf.domains.gsettings import GSettings
+from sysconf.domains.builtins import builtin_domains
 
 domains: list[Domain[DomainConfig, DomainManager]] = [
-    cast(Domain[DomainConfig, DomainManager], GSettings()),
-    cast(Domain[DomainConfig, DomainManager], DConf()),
-    cast(Domain[DomainConfig, DomainManager], Apt()),
+    *builtin_domains,
 ]
 
 domains_by_key: dict[str, Domain[DomainConfig, DomainManager]] = {

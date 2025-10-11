@@ -66,6 +66,7 @@ class DomainConfig(ABC):
     structured way.
     """
 
+    # todo remove, this method is never called on the abstract type
     @classmethod
     @abstractmethod
     def create_from_data(cls, data: YamlSerializable) -> Self:
