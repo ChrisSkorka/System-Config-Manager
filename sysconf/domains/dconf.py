@@ -84,18 +84,18 @@ class DConfSetAction(DConfAction):
     def encode_value(cls, value: YamlSerializable) -> str:
         match value:
             case n if n is None:
-                return f"<@mb nothing>"  # todo: confirm
+                return f'<@mb nothing>'  # todo: confirm
             case b if isinstance(b, bool):
                 return 'true' if b else 'false'
             case n if isinstance(n, (int, float)):
-                return f"{n}"
+                return f'{n}'
             case s if isinstance(s, str):
-                return f"'{s}'"
+                return f'"{s}"'
             case l if isinstance(l, list):
                 return f"[{', '.join(cls.encode_value(v) for v in l)}]"
             case d if isinstance(d, dict):
                 key_value_pairs = (
-                    f"'{k}': {cls.encode_value(v)}" for k, v in d.items())
+                    f'"{k}": {cls.encode_value(v)}' for k, v in d.items())
                 return f"{{ {', '.join(key_value_pairs)} }}"
             case _:
                 assert False, f'Unsupported value type {type(value)}'
