@@ -15,7 +15,8 @@ def create_gsettings_domain() -> MapDomain[YamlSerializable]:
     """
 
     def add_action_factory(path: tuple[str, ...], new_value: YamlSerializable) -> GSettingsAddAction:
-        assert len(path) == 2
+        assert len(path) == 2, \
+            f'Expected path length 2 (schema, key), got {len(path)}: {path}'
         return GSettingsAddAction(
             path[0],
             path[1],
@@ -23,7 +24,8 @@ def create_gsettings_domain() -> MapDomain[YamlSerializable]:
         )
 
     def update_action_factory(path: tuple[str, ...], old_value: YamlSerializable, new_value: YamlSerializable) -> GSettingsUpdateAction:
-        assert len(path) == 2
+        assert len(path) == 2, \
+            f'Expected path length 2 (schema, key), got {len(path)}: {path}'
         return GSettingsUpdateAction(
             path[0],
             path[1],
@@ -32,7 +34,8 @@ def create_gsettings_domain() -> MapDomain[YamlSerializable]:
         )
 
     def remove_action_factory(path: tuple[str, ...], old_value: YamlSerializable) -> GSettingsRemoveAction:
-        assert len(path) == 2
+        assert len(path) == 2, \
+            f'Expected path length 2 (schema, key), got {len(path)}: {path}'
         return GSettingsRemoveAction(
             path[0],
             path[1],
@@ -41,10 +44,11 @@ def create_gsettings_domain() -> MapDomain[YamlSerializable]:
 
     return MapDomain[YamlSerializable](
         'gsettings',
+        path_depth=2,
+        get_value=lambda v: v,
         add_action_factory=add_action_factory,
         update_action_factory=update_action_factory,
         remove_action_factory=remove_action_factory,
-        get_value=lambda v: v,
     )
 
 

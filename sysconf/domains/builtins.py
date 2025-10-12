@@ -31,47 +31,56 @@ builtin_domains: list[Domain] = cast(
         # ),
         create_list_shell_domain(
             key='apt',
+            path_depth=0,
             add_script='sudo apt install -y "$value"',
             remove_script='sudo apt remove -y "$value"',
         ),
         create_list_shell_domain(
             key='snap',
+            path_depth=0,
             add_script='sudo snap install "$value"',
             remove_script='sudo snap remove "$value"',
         ),
         create_list_shell_domain(
             key='snap-classic',
+            path_depth=0,
             add_script='sudo snap install --classic "$value"',
             remove_script='sudo snap remove "$value"',
         ),
         create_list_shell_domain(
             key='pip',
+            path_depth=0,
             add_script='pip install --break-system-packages "$value"',
             remove_script='pip uninstall --break-system-packages -y "$value"',
         ),
         create_list_shell_domain(
             key='groups',
+            path_depth=0,
             add_script='sudo groupadd "$value"',
             remove_script='sudo groupdel "$value"',
         ),
         create_list_shell_domain(
             key='user-groups',
+            path_depth=1,
             add_script='sudo usermod -aG "$value" "$key"',
             remove_script='echo "Removing group from user not implemented"; exit 1;',
         ),
         create_map_shell_domain(
             key='git-config-global',
+            path_depth=1,
             add_script='git config --global "$key" "$value"',
             update_script='git config --global "$key" "$value"',
             remove_script='git config --global --unset "$key"',
         ),
         create_list_shell_domain(
             key='vscode-extensions',
+            path_depth=0,
             add_script='code --install-extension "$value"',
             remove_script='code --uninstall-extension "$value"',
         ),
         create_map_shell_domain(
             key='symlinks',
+            path_depth=1,
             add_script=unindent("""
                 rm -f $key;
                 ln -sf $value $key;
@@ -84,6 +93,7 @@ builtin_domains: list[Domain] = cast(
         ),
         create_list_shell_domain(
             key='apt-repository',
+            path_depth=0,
             add_script=unindent("""
                 sudo add-apt-repository -y "$value";
                 sudo apt update;
@@ -95,6 +105,7 @@ builtin_domains: list[Domain] = cast(
         ),
         create_map_shell_domain(
             key='apt-source-list',
+            path_depth=1,
             add_script=unindent("""
                 echo "$value" | sudo tee /etc/apt/sources.list.d/$key > /dev/null; 
                 sudo chmod 644 /etc/apt/sources.list.d/$key;
@@ -112,6 +123,7 @@ builtin_domains: list[Domain] = cast(
         ),
         create_map_shell_domain(
             key='apt-keyring',
+            path_depth=1,
             add_script=unindent("""
                 sudo install -m 0755 -d $(dirname "$key"); 
                 echo "$value" | sudo tee "$key" > /dev/null; 

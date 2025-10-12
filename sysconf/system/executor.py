@@ -47,6 +47,7 @@ class LiveSystemExecutor(SystemExecutor):
         cmd_line = subprocess.list2cmdline(command)
         print('$', cmd_line)
         process: subprocess.CompletedProcess[bytes] = subprocess.run(command)
+        print()  # empty line
 
         if process.returncode != 0:
             raise CommandException(cmd_line, process)
@@ -57,6 +58,7 @@ class LiveSystemExecutor(SystemExecutor):
             script,
             shell=True,
         )
+        print()  # empty line
 
         if process.returncode != 0:
             raise CommandException(script, process)
@@ -72,9 +74,11 @@ class PreviewSystemExecutor(SystemExecutor):
 
     def command(self, *command: str) -> None:
         print(subprocess.list2cmdline(command))
+        print()  # empty line
 
     def shell(self, script: str) -> None:
         print(script)
+        print()  # empty line
 
 
 class CommandException(Exception):

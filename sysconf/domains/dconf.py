@@ -36,10 +36,11 @@ def create_dconf_domain() -> MapDomain[str]:
 
     return MapDomain[YamlSerializable](
         'dconf',
+        path_depth=1,
+        get_value=lambda v: v,
         add_action_factory=add_action_factory,
         update_action_factory=update_action_factory,
         remove_action_factory=remove_action_factory,
-        get_value=lambda v: v,
     )
 
 

@@ -4,6 +4,7 @@
 from typing import Callable, Iterable, Self
 from sysconf.config.domains import Domain, DomainAction, DomainConfig, DomainManager
 from sysconf.config.serialization import YamlSerializable
+from sysconf.utils.data import get_flattened_dict
 from sysconf.utils.diff import Diff
 
 
@@ -18,12 +19,16 @@ class ListDomain(Domain):
     def __init__(
         self,
         key: str,
+        path_depth: int,
+        get_value: Callable[[YamlSerializable], Value],
         add_action_factory: ActionFactory,
         remove_action_factory: ActionFactory,
     ) -> None:
         super().__init__()
 
         self._key = key
+        self.path_depth = path_depth
+        self.get_value = get_value
         self.add_action_factory = add_action_factory
         self.remove_action_factory = remove_action_factory
 
@@ -31,7 +36,7 @@ class ListDomain(Domain):
         return self._key
 
     def get_domain_config(self, data: YamlSerializable) -> 'ListConfig':
-        return ListConfig.create_from_data(data)
+        return ListConfig.create_from_data(data, self.path_depth, self.get_value)
 
     def get_domain_manager(self, old_config: DomainConfig, new_config: DomainConfig) -> 'ListManager':
         assert isinstance(old_config, ListConfig)
@@ -53,43 +58,28 @@ class ListConfig(DomainConfig):
         self.values: tuple[PathValuePair, ...] = values
 
     @classmethod
-    def create_from_data(cls, data: YamlSerializable) -> Self:
+    def create_from_data(
+        cls,
+        data: YamlSerializable,
+        path_depth: int,
+        get_value: Callable[[YamlSerializable], Value],
+    ) -> Self:
         if data is None:
             return cls(())
 
         assert isinstance(data, list) or isinstance(data, dict)
 
-        values: tuple[PathValuePair, ...] = tuple(
-            cls.get_key_value_pairs((), data),
+        flattened_map = get_flattened_dict(data, path_depth)
+
+        # flatten doct of lists into list of (keys, item) pairs
+        values: tuple[tuple[Path, Value], ...] = tuple(
+            (keys, get_value(item))
+            for keys, items in flattened_map.items()
+            if isinstance(items, list)
+            for item in items
         )
+
         return cls(values)
-
-    @staticmethod
-    def get_key_value_pairs(keys: tuple[str, ...], value: YamlSerializable) -> Iterable[PathValuePair]:
-
-        # base case:
-        if isinstance(value, list):
-
-            # todo: validate that all items are scalar
-
-            yield from (
-                (keys, str(item))
-                for item in value
-            )
-
-        # recursive case:
-        elif isinstance(value, dict):
-            for key in value:
-                yield from ListConfig.get_key_value_pairs(
-                    keys + (key,),
-                    value[key],
-                )
-
-        else:
-            raise ValueError(
-                f'Invalid value type for list config: {type(value)} ({value}). '
-                + 'Scalar values can only occur immediately inside a list'
-            )
 
     def __eq__(self, value: object, /) -> bool:
         if not isinstance(value, ListConfig):

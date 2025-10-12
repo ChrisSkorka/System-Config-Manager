@@ -4,6 +4,7 @@
 from typing import Any, Callable, Generic, Iterable, Protocol, Self, TypeVar, cast
 from sysconf.config.domains import Domain, DomainAction, DomainConfig, DomainManager
 from sysconf.config.serialization import YamlSerializable
+from sysconf.utils.data import get_flattened_dict
 from sysconf.utils.diff import Diff
 
 
@@ -41,24 +42,26 @@ class MapDomain(Generic[Value], Domain):
     def __init__(
         self,
         key: str,
+        path_depth: int,
+        get_value: Callable[[YamlSerializable], Value],
         add_action_factory: AddActionFactory[Value],
         update_action_factory: UpdateActionFactory[Value],
         remove_action_factory: RemoveActionFactory[Value],
-        get_value: Callable[[YamlSerializable], Value],
     ) -> None:
         super().__init__()
 
         self._key = key
+        self.path_depth = path_depth
+        self.get_value = get_value
         self.add_action_factory = add_action_factory
         self.update_action_factory = update_action_factory
         self.remove_action_factory = remove_action_factory
-        self.get_value = get_value
 
     def get_key(self) -> str:
         return self._key
 
     def get_domain_config(self, data: YamlSerializable) -> 'MapConfig[Value]':
-        return MapConfig[Value].create_from_data(data, self.get_value)
+        return MapConfig[Value].create_from_data(data, self.path_depth, self.get_value)
 
     def get_domain_manager(self, old_config: DomainConfig, new_config: DomainConfig) -> 'MapManager[Value]':
         assert isinstance(old_config, MapConfig)
@@ -87,6 +90,7 @@ class MapConfig(Generic[Value], DomainConfig):
     def create_from_data(
         cls,
         data: YamlSerializable,
+        path_depth: int,
         get_value: Callable[[YamlSerializable], Value],
     ) -> Self:
         if data is None:
@@ -94,31 +98,18 @@ class MapConfig(Generic[Value], DomainConfig):
 
         assert isinstance(data, dict)
 
-        values: dict[Path, Value] = dict(
-            cls.get_key_value_pairs((), data, get_value),
+        flattened_map: dict[Path, YamlSerializable] = get_flattened_dict(
+            data,
+            path_depth,
         )
+
+        # convert leave nodes to values
+        values = {
+            keys: get_value(value)
+            for keys, value in flattened_map.items()
+        }
+
         return cls(values)
-
-    @staticmethod
-    def get_key_value_pairs(
-        keys: tuple[str, ...],
-        data: YamlSerializable,
-        get_value: Callable[[YamlSerializable], Value],
-        # todo: add depth limit
-    ) -> Iterable[tuple[Path, Value]]:
-
-        # base case:
-        if not isinstance(data, dict):
-            yield (keys, get_value(data))
-
-        # recursive case:
-        else:
-            for key in data:
-                yield from MapConfig.get_key_value_pairs(
-                    keys + (key,),
-                    data[key],
-                    get_value,
-                )
 
     def __eq__(self, other: object, /) -> bool:
         if not isinstance(other, MapConfig):

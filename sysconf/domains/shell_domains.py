@@ -9,6 +9,7 @@ from sysconf.system.executor import SystemExecutor
 
 def create_list_shell_domain(
     key: str,
+    path_depth: int,
     add_script: str,
     remove_script: str,
 ) -> ListDomain:
@@ -31,6 +32,8 @@ def create_list_shell_domain(
 
     return ListDomain(
         key,
+        path_depth,
+        str,
         add_action_factory,
         remove_action_factory,
     )
@@ -38,6 +41,7 @@ def create_list_shell_domain(
 
 def create_map_shell_domain(
     key: str,
+    path_depth: int,
     add_script: str,
     update_script: str,
     remove_script: str,
@@ -70,6 +74,7 @@ def create_map_shell_domain(
 
     return MapDomain[str](
         key=key,
+        path_depth=path_depth,
         add_action_factory=add_action_factory,
         update_action_factory=update_action_factory,
         remove_action_factory=remove_action_factory,
