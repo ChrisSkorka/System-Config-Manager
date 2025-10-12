@@ -3,124 +3,124 @@
 
 from typing import cast
 
-from sysconf.config.domains import Domain, DomainConfig, DomainManager
-from sysconf.domains.dconf import DConf
-from sysconf.domains.gsettings import GSettings
-from sysconf.domains.list_domain import ListDomain
-from sysconf.domains.map_domain import MapDomain
+from sysconf.config.domains import Domain
+from sysconf.domains.dconf import create_dconf_domain
+from sysconf.domains.gsettings import create_gsettings_domain
+from sysconf.domains.shell_domains import create_list_shell_domain, create_map_shell_domain
+from sysconf.utils.str import unindent
 
 
-builtin_domains: list[Domain[DomainConfig, DomainManager]] = cast(
-    list[Domain[DomainConfig, DomainManager]],
+builtin_domains: list[Domain] = cast(
+    list[Domain],
     [
-        DConf(),
-        GSettings(),
+        create_dconf_domain(),
+        create_gsettings_domain(),
         # can't use these as is becuase they're not encoding the structured values
         # these would need the values to be strings in the dconf format
-        # MapDomain(
+        # create_map_shell_domain(
         #     key='dconf',
         #     add_script='dconf write $key "$value"',
         #     update_script='dconf write $key "$value"',
         #     remove_script='dconf reset $key',
         # ),
-        # MapDomain(
+        # create_map_shell_domain(
         #     key='gsettings',
         #     add_script='gsettings set $key1 $key2 "$value"',
         #     update_script='gsettings set $key1 $key2 "$value"',
         #     remove_script='gsettings reset $key1 $key2',
         # ),
-        ListDomain(
+        create_list_shell_domain(
             key='apt',
-            add_script='sudo apt install -y "$item"',
-            remove_script='sudo apt remove -y "$item"',
+            add_script='sudo apt install -y "$value"',
+            remove_script='sudo apt remove -y "$value"',
         ),
-        ListDomain(
+        create_list_shell_domain(
             key='snap',
-            add_script='sudo snap install "$item"',
-            remove_script='sudo snap remove "$item"',
+            add_script='sudo snap install "$value"',
+            remove_script='sudo snap remove "$value"',
         ),
-        ListDomain(
+        create_list_shell_domain(
             key='snap-classic',
-            add_script='sudo snap install --classic "$item"',
-            remove_script='sudo snap remove "$item"',
+            add_script='sudo snap install --classic "$value"',
+            remove_script='sudo snap remove "$value"',
         ),
-        ListDomain(
+        create_list_shell_domain(
             key='pip',
-            add_script='pip install --break-system-packages "$item"',
-            remove_script='pip uninstall --break-system-packages -y "$item"',
+            add_script='pip install --break-system-packages "$value"',
+            remove_script='pip uninstall --break-system-packages -y "$value"',
         ),
-        ListDomain(
+        create_list_shell_domain(
             key='groups',
-            add_script='sudo groupadd "$item"',
-            remove_script='sudo groupdel "$item"',
+            add_script='sudo groupadd "$value"',
+            remove_script='sudo groupdel "$value"',
         ),
-        ListDomain(
+        create_list_shell_domain(
             key='user-groups',
-            add_script='sudo usermod -aG "$item" "$key"',
+            add_script='sudo usermod -aG "$value" "$key"',
             remove_script='echo "Removing group from user not implemented"; exit 1;',
         ),
-        MapDomain(
+        create_map_shell_domain(
             key='git-config-global',
             add_script='git config --global "$key" "$value"',
             update_script='git config --global "$key" "$value"',
             remove_script='git config --global --unset "$key"',
         ),
-        ListDomain(
+        create_list_shell_domain(
             key='vscode-extensions',
-            add_script='code --install-extension "$item"',
-            remove_script='code --uninstall-extension "$item"',
+            add_script='code --install-extension "$value"',
+            remove_script='code --uninstall-extension "$value"',
         ),
-        MapDomain(
+        create_map_shell_domain(
             key='symlinks',
-            add_script="""
+            add_script=unindent("""
                 rm -f $key;
                 ln -sf $value $key;
-            """,
-            update_script="""
+            """),
+            update_script=unindent("""
                 rm -f $key;
                 ln -sf $value $key;
-            """,
+            """),
             remove_script='rm -f $key',
         ),
-        ListDomain(
+        create_list_shell_domain(
             key='apt-repository',
-            add_script="""
-                sudo add-apt-repository -y "$item";
+            add_script=unindent("""
+                sudo add-apt-repository -y "$value";
                 sudo apt update;
-            """,
-            remove_script="""
-                sudo add-apt-repository -r -y "$item";
+            """),
+            remove_script=unindent("""
+                sudo add-apt-repository -r -y "$value";
                 sudo apt update;
-            """,
+            """),
         ),
-        MapDomain(
+        create_map_shell_domain(
             key='apt-source-list',
-            add_script="""
+            add_script=unindent("""
                 echo "$value" | sudo tee /etc/apt/sources.list.d/$key > /dev/null; 
                 sudo chmod 644 /etc/apt/sources.list.d/$key;
                 sudo apt update;
-            """,
-            update_script="""
+            """),
+            update_script=unindent("""
                 echo "$value" | sudo tee /etc/apt/sources.list.d/$key > /dev/null; 
                 sudo chmod 644 /etc/apt/sources.list.d/$key;
                 sudo apt update;
-            """,
-            remove_script="""
+            """),
+            remove_script=unindent("""
                 sudo rm -f /etc/apt/sources.list.d/$key; 
                 sudo apt update;
-            """,
+            """),
         ),
-        MapDomain(
+        create_map_shell_domain(
             key='apt-keyring',
-            add_script="""
+            add_script=unindent("""
                 sudo install -m 0755 -d $(dirname "$key"); 
                 echo "$value" | sudo tee "$key" > /dev/null; 
                 sudo chmod 644 "$key";
-            """,
-            update_script="""
+            """),
+            update_script=unindent("""
                 echo "$value" | sudo tee "$key" > /dev/null; 
                 sudo chmod 644 "$key";
-            """,
+            """),
             remove_script='sudo rm -f "$key"',
         ),
     ],

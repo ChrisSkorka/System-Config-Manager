@@ -1,196 +1,153 @@
 # pyright: strict
 
 
-from typing import Iterable, Self
+from typing import Any, Callable, Generic, Iterable, Protocol, Self, TypeVar, cast
 from sysconf.config.domains import Domain, DomainAction, DomainConfig, DomainManager
 from sysconf.config.serialization import YamlSerializable
-from sysconf.system.executor import SystemExecutor
 from sysconf.utils.diff import Diff
 
 
 Path = tuple[str, ...]  # (keys, ...)
+Value = TypeVar('Value', contravariant=True)
 
 
-class MapDomain(Domain['MapConfig', 'MapManager']):
+class AddActionFactory(Protocol, Generic[Value]):
+    @staticmethod
+    def __call__(
+        path: Path,
+        new_value: Value,
+    ) -> DomainAction: ...
+
+
+class UpdateActionFactory(Protocol, Generic[Value]):
+    @staticmethod
+    def __call__(
+        path: Path,
+        old_value: Value,
+        new_value: Value,
+    ) -> DomainAction: ...
+
+
+class RemoveActionFactory(Protocol, Generic[Value]):
+    @staticmethod
+    def __call__(
+        path: Path,
+        old_value: Value,
+    ) -> DomainAction: ...
+
+
+class MapDomain(Generic[Value], Domain):
 
     def __init__(
         self,
         key: str,
-        add_script: str,
-        update_script: str,
-        remove_script: str,
+        add_action_factory: AddActionFactory[Value],
+        update_action_factory: UpdateActionFactory[Value],
+        remove_action_factory: RemoveActionFactory[Value],
+        get_value: Callable[[YamlSerializable], Value],
     ) -> None:
         super().__init__()
 
         self._key = key
-        self.add_script = add_script
-        self.update_script = update_script
-        self.remove_script = remove_script
+        self.add_action_factory = add_action_factory
+        self.update_action_factory = update_action_factory
+        self.remove_action_factory = remove_action_factory
+        self.get_value = get_value
 
     def get_key(self) -> str:
         return self._key
 
-    def get_domain_config(self, data: YamlSerializable) -> 'MapConfig':
-        return MapConfig.create_from_data(data)
+    def get_domain_config(self, data: YamlSerializable) -> 'MapConfig[Value]':
+        return MapConfig[Value].create_from_data(data, self.get_value)
 
-    def get_domain_manager(self, old_config: 'MapConfig', new_config: 'MapConfig') -> 'MapManager':
+    def get_domain_manager(self, old_config: DomainConfig, new_config: DomainConfig) -> 'MapManager[Value]':
+        assert isinstance(old_config, MapConfig)
+        assert isinstance(new_config, MapConfig)
+
+        old_config = cast(MapConfig[Value], old_config)
+        new_config = cast(MapConfig[Value], new_config)
+
         return MapManager(
             old=old_config,
             new=new_config,
-            add_script=self.add_script,
-            update_script=self.update_script,
-            remove_script=self.remove_script,
+            add_action_factory=self.add_action_factory,
+            update_action_factory=self.update_action_factory,
+            remove_action_factory=self.remove_action_factory,
         )
 
 
-class MapConfig(DomainConfig):
+class MapConfig(Generic[Value], DomainConfig):
 
-    def __init__(self, values: dict[Path, str]) -> None:
+    def __init__(self, values: dict[Path, Value]) -> None:
         super().__init__()
 
-        self.values: dict[Path, str] = values
+        self.values: dict[Path, Value] = values
 
     @classmethod
-    def create_from_data(cls, data: YamlSerializable) -> Self:
+    def create_from_data(
+        cls,
+        data: YamlSerializable,
+        get_value: Callable[[YamlSerializable], Value],
+    ) -> Self:
         if data is None:
             return cls({})
 
         assert isinstance(data, dict)
 
-        values: dict[Path, str] = dict(
-            cls.get_key_value_pairs((), data),
+        values: dict[Path, Value] = dict(
+            cls.get_key_value_pairs((), data, get_value),
         )
         return cls(values)
 
     @staticmethod
-    def get_key_value_pairs(keys: tuple[str, ...], value: YamlSerializable) -> Iterable[tuple[Path, str]]:
+    def get_key_value_pairs(
+        keys: tuple[str, ...],
+        data: YamlSerializable,
+        get_value: Callable[[YamlSerializable], Value],
+        # todo: add depth limit
+    ) -> Iterable[tuple[Path, Value]]:
 
         # base case:
-        if not isinstance(value, dict):
-            yield (keys, str(value))
+        if not isinstance(data, dict):
+            yield (keys, get_value(data))
 
         # recursive case:
         else:
-            for key in value:
+            for key in data:
                 yield from MapConfig.get_key_value_pairs(
                     keys + (key,),
-                    value[key],
+                    data[key],
+                    get_value,
                 )
 
-    def __eq__(self, value: object, /) -> bool:
-        if not isinstance(value, MapConfig):
+    def __eq__(self, other: object, /) -> bool:
+        if not isinstance(other, MapConfig):
             return False
-        return self.values == value.values
+
+        other = cast(MapConfig[Any], other)
+
+        return self.values == other.values
 
 
-class MapAction(DomainAction):
-
-    @staticmethod
-    def get_interpolated_script(
-        script: str,
-        keys: tuple[str, ...],
-        value: str,
-    ) -> str:
-        # create a mapping of variable names to values
-        variables: dict[str, str] = {
-            f'$key{i+1}': key
-            for i, key
-            in enumerate(keys)
-        }
-        if len(keys) > 0:
-            variables['$key'] = keys[0]
-        variables['$value'] = value
-
-        # perform the interpolation, replacing variable names with values
-        interpolated_script = script
-        for name, value in variables.items():
-            interpolated_script = interpolated_script.replace(name, value)
-
-        return interpolated_script
-
-
-class MapAddAction(MapAction):
-
-    def __init__(self, keys: tuple[str, ...], value: str, script: str) -> None:
-        super().__init__()
-
-        self.keys = keys
-        self.value = value
-        self.script = script
-
-    def get_description(self) -> str:
-        return f'Update {'.'.join(self.keys)} = {self.value}'
-
-    def run(self, executor: SystemExecutor) -> None:
-        script = MapAction.get_interpolated_script(
-            self.script,
-            self.keys,
-            self.value,
-        )
-        executor.shell(script)
-
-
-class MapUpdateAction(MapAction):
-
-    def __init__(self, keys: tuple[str, ...], value: str, script: str) -> None:
-        super().__init__()
-
-        self.keys = keys
-        self.value = value
-        self.script = script
-
-    def get_description(self) -> str:
-        return f'Add {'.'.join(self.keys)} = {self.value}'
-
-    def run(self, executor: SystemExecutor) -> None:
-        script = MapAction.get_interpolated_script(
-            self.script,
-            self.keys,
-            self.value,
-        )
-        executor.shell(script)
-
-
-class MapRemoveAction(MapAction):
-
-    def __init__(self, keys: tuple[str, ...], item: str, script: str) -> None:
-        super().__init__()
-
-        self.keys = keys
-        self.item = item
-        self.script = script
-
-    def get_description(self) -> str:
-        return f'Remove {'.'.join(self.keys)} = {self.item}'
-
-    def run(self, executor: SystemExecutor) -> None:
-        script = MapAction.get_interpolated_script(
-            self.script,
-            self.keys,
-            self.item,
-        )
-        executor.shell(script)
-
-
-class MapManager(DomainManager):
+class MapManager(Generic[Value], DomainManager):
 
     def __init__(
         self,
-        old: MapConfig,
-        new: MapConfig,
-        add_script: str,
-        update_script: str,
-        remove_script: str,
+        old: MapConfig[Value],
+        new: MapConfig[Value],
+        add_action_factory: AddActionFactory[Value],
+        update_action_factory: UpdateActionFactory[Value],
+        remove_action_factory: RemoveActionFactory[Value],
     ) -> None:
         super().__init__()
 
         self.old = old
         self.new = new
-        self.add_script = add_script
-        self.update_script = update_script
-        self.remove_script = remove_script
+        self.add_action_factory = add_action_factory
+        self.update_action_factory = update_action_factory
+        self.remove_action_factory = remove_action_factory
 
-    def get_actions(self) -> Iterable[MapAction]:
+    def get_actions(self) -> Iterable[DomainAction]:
 
         diff: Diff[tuple[str, ...]] = Diff[tuple[str, ...]].create_from_iterables(
             self.old.values.keys(),
@@ -199,17 +156,18 @@ class MapManager(DomainManager):
 
         # removals first, in reverse order
         for path in reversed(diff.exclusive_old):
-            value = self.old.values[path]
-            yield MapRemoveAction(path, value, self.remove_script)
+            old_value = self.old.values[path]
+            yield self.remove_action_factory(path, old_value)
 
         # additions next, in normal order
         for path in diff.new:
-            value = self.new.values[path]
+            new_value = self.new.values[path]
 
             # if path is in both old & new, update value if changed
             if path in self.old.values:
-                if self.old.values[path] != value:
-                    yield MapUpdateAction(path, value, self.update_script)
+                old_value = self.old.values[path]
+                if old_value != new_value:
+                    yield self.update_action_factory(path, old_value, new_value)
             # if path is only in new, add it
             else:
-                yield MapAddAction(path, value, self.add_script)
+                yield self.add_action_factory(path, new_value)

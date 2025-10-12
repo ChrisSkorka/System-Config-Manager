@@ -1,29 +1,31 @@
 # pyright: strict
 
 
-from typing import Iterable, Self
+from typing import Callable, Iterable, Self
 from sysconf.config.domains import Domain, DomainAction, DomainConfig, DomainManager
 from sysconf.config.serialization import YamlSerializable
-from sysconf.system.executor import SystemExecutor
 from sysconf.utils.diff import Diff
 
 
-PathValuePair = tuple[tuple[str, ...], str]  # ((keys, ...), value)
+Path = tuple[str, ...]  # (keys, ...)
+Value = str
+PathValuePair = tuple[Path, Value]
+ActionFactory = Callable[[Path, Value], DomainAction]
 
 
-class ListDomain(Domain['ListConfig', 'ListManager']):
+class ListDomain(Domain):
 
     def __init__(
         self,
         key: str,
-        add_script: str,
-        remove_script: str,
+        add_action_factory: ActionFactory,
+        remove_action_factory: ActionFactory,
     ) -> None:
         super().__init__()
 
         self._key = key
-        self.add_script = add_script
-        self.remove_script = remove_script
+        self.add_action_factory = add_action_factory
+        self.remove_action_factory = remove_action_factory
 
     def get_key(self) -> str:
         return self._key
@@ -31,12 +33,15 @@ class ListDomain(Domain['ListConfig', 'ListManager']):
     def get_domain_config(self, data: YamlSerializable) -> 'ListConfig':
         return ListConfig.create_from_data(data)
 
-    def get_domain_manager(self, old_config: 'ListConfig', new_config: 'ListConfig') -> 'ListManager':
+    def get_domain_manager(self, old_config: DomainConfig, new_config: DomainConfig) -> 'ListManager':
+        assert isinstance(old_config, ListConfig)
+        assert isinstance(new_config, ListConfig)
+
         return ListManager(
             old_config,
             new_config,
-            self.add_script,
-            self.remove_script,
+            self.add_action_factory,
+            self.remove_action_factory,
         )
 
 
@@ -92,91 +97,23 @@ class ListConfig(DomainConfig):
         return self.values == value.values
 
 
-class ListAction(DomainAction):
-
-    @staticmethod
-    def get_interpolated_script(
-        script: str,
-        keys: tuple[str, ...],
-        item: str,
-    ) -> str:
-        # create a mapping of variable names to values
-        variables: dict[str, str] = {
-            f'$key{i+1}': key
-            for i, key
-            in enumerate(keys)
-        }
-        if len(keys) > 0:
-            variables['$key'] = keys[0]
-        variables['$item'] = item
-
-        # perform the interpolation, replacing variable names with values
-        interpolated_script = script
-        for name, value in variables.items():
-            interpolated_script = interpolated_script.replace(name, value)
-
-        return interpolated_script
-
-
-class ListAddAction(ListAction):
-
-    def __init__(self, keys: tuple[str, ...], item: str, script: str) -> None:
-        super().__init__()
-
-        self.keys = keys
-        self.item = item
-        self.script = script
-
-    def get_description(self) -> str:
-        return f'Add {'.'.join(self.keys)} = {self.item}'
-
-    def run(self, executor: SystemExecutor) -> None:
-        script = ListAction.get_interpolated_script(
-            self.script,
-            self.keys,
-            self.item,
-        )
-        executor.shell(script)
-
-
-class ListRemoveAction(ListAction):
-
-    def __init__(self, keys: tuple[str, ...], item: str, script: str) -> None:
-        super().__init__()
-
-        self.keys = keys
-        self.item = item
-        self.script = script
-
-    def get_description(self) -> str:
-        return f'Remove {'.'.join(self.keys)} = {self.item}'
-
-    def run(self, executor: SystemExecutor) -> None:
-        script = ListAction.get_interpolated_script(
-            self.script,
-            self.keys,
-            self.item,
-        )
-        executor.shell(script)
-
-
 class ListManager(DomainManager):
 
     def __init__(
         self,
         old: ListConfig,
         new: ListConfig,
-        add_script: str,
-        remove_script: str,
+        add_action_factory: ActionFactory,
+        remove_action_factory: ActionFactory,
     ) -> None:
         super().__init__()
 
         self.old = old
         self.new = new
-        self.add_script = add_script
-        self.remove_script = remove_script
+        self.add_action_factory = add_action_factory
+        self.remove_action_factory = remove_action_factory
 
-    def get_actions(self) -> Iterable[ListAction]:
+    def get_actions(self) -> Iterable[DomainAction]:
         diff: Diff[PathValuePair] = Diff[PathValuePair].create_from_iterables(
             self.old.values,
             self.new.values,
@@ -184,8 +121,8 @@ class ListManager(DomainManager):
 
         # removals first, in reverse order
         for keys, item in reversed(diff.exclusive_old):
-            yield ListRemoveAction(keys, item, self.remove_script)
+            yield self.remove_action_factory(keys, item)
 
         # additions next, in normal order
         for keys, item in diff.exclusive_new:
-            yield ListAddAction(keys, item, self.add_script)
+            yield self.add_action_factory(keys, item)

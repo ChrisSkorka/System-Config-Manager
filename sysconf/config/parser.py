@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Type
 
 from sysconf.config import domain_registry
-from sysconf.config.domains import Domain, DomainConfig, DomainManager
+from sysconf.config.domains import Domain, DomainConfig
 from sysconf.config.serialization import YamlSerializable
 from sysconf.config.system_config import SystemConfig
 
@@ -16,7 +16,7 @@ class SystemConfigParser(ABC):
     A parser converts the deserialized data (dicts, lists, scalars) into a SystemConfig object.
     """
 
-    def __init__(self, domains_by_key: dict[str, Domain[DomainConfig, DomainManager]]):
+    def __init__(self, domains_by_key: dict[str, Domain]):
         super().__init__()
 
         self.domains_by_key = domains_by_key
@@ -32,7 +32,7 @@ class SystemConfigParser(ABC):
         Returns:
             SystemConfig: The parsed & validated system configuration.
         """
-        pass # pragma: no cover
+        pass  # pragma: no cover
 
     @staticmethod
     def get_parsers_by_version() -> dict[str, Type['SystemConfigParser']]:

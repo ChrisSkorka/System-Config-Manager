@@ -1,17 +1,13 @@
 # pyright: strict
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Generic, Self, TypeVar
+from typing import Iterable
 
 from sysconf.config.serialization import YamlSerializable
 from sysconf.system.executor import SystemExecutor
 
 
-Config = TypeVar('Config', bound='DomainConfig')
-Manager = TypeVar('Manager', bound='DomainManager')
-
-
-class Domain(ABC, Generic[Config, Manager]):
+class Domain(ABC):
     """
     A domain represents a specific area of system configuration, such as
     apt packages, config files, or user settings.
@@ -33,7 +29,7 @@ class Domain(ABC, Generic[Config, Manager]):
         pass  # pragma: no cover
 
     @abstractmethod
-    def get_domain_config(self, data: YamlSerializable) -> Config:
+    def get_domain_config(self, data: YamlSerializable) -> 'DomainConfig':
         """
         Create a new instance of the domain configuration from the given data.
 
@@ -45,7 +41,7 @@ class Domain(ABC, Generic[Config, Manager]):
         pass  # pragma: no cover
 
     @abstractmethod
-    def get_domain_manager(self, old_config: Config, new_config: Config) -> Manager:
+    def get_domain_manager(self, old_config: 'DomainConfig', new_config: 'DomainConfig') -> 'DomainManager':
         """
         Get a manager for this domain.
 
@@ -66,20 +62,7 @@ class DomainConfig(ABC):
     structured way.
     """
 
-    # todo remove, this method is never called on the abstract type
-    @classmethod
-    @abstractmethod
-    def create_from_data(cls, data: YamlSerializable) -> Self:
-        """
-        Create a new instance of the domain configuration from the given data.
-
-        Args:
-            data: The data to create the domain configuration from.
-        Returns:
-            Self: A new instance of the domain configuration.
-        """
-        pass  # pragma: no cover
-
+    # todo remove?
     @abstractmethod
     def __eq__(self, value: object, /) -> bool:
         pass  # pragma: no cover
