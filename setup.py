@@ -1,7 +1,12 @@
 from setuptools import setup, find_packages
 
+root_package = 'sysconf'
+
 setup(
-    name='sysconf',
+    name=root_package,
     version='0.1',
-    packages=find_packages('sysconf'),
+    packages=[root_package] + [
+        f"{root_package}.{item}" 
+        for item in find_packages(where=root_package)
+    ],
 )
