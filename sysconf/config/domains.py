@@ -53,6 +53,22 @@ class Domain(ABC):
         """
         pass  # pragma: no cover
 
+    @abstractmethod
+    def get_action(
+        self, 
+        old_entry: 'DomainConfigEntry | None', 
+        new_entry: 'DomainConfigEntry | None',
+    ) -> 'DomainAction | None':
+        """
+        Get an action to transform the old entry into the new entry.
+
+        Args:
+            old_entry: The old configuration entry.
+            new_entry: The new configuration entry.
+        Returns:
+            An action to transform the old entry into the new entry.
+        """
+        pass  # pragma: no cover
 
 class DomainConfig(ABC):
     """
@@ -65,6 +81,39 @@ class DomainConfig(ABC):
     # todo remove?
     @abstractmethod
     def __eq__(self, value: object, /) -> bool:
+        pass  # pragma: no cover
+
+    @abstractmethod
+    def get_config_entries(self) -> Iterable['DomainConfigEntry']:
+        """
+        Get all configuration entries in this domain configuration.
+
+        Returns:
+            An iterable of all configuration entries.
+        """
+        pass  # pragma: no cover
+
+
+ConfigEntryId = tuple[str, ...]
+
+
+class DomainConfigEntry(ABC):
+
+    @abstractmethod
+    def get_id(self) -> ConfigEntryId:
+        """
+        Get a unique identifier for this entry.
+
+        This is used to match this entry against a counterpart in another system
+        configuration.
+        """
+        pass  # pragma: no cover
+
+    @abstractmethod
+    def get_domain(self) -> Domain:
+        """
+        Get the domain this entry belongs to.
+        """
         pass  # pragma: no cover
 
 

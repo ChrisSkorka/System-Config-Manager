@@ -2,7 +2,7 @@
 
 
 from typing import Callable, Iterable, Self
-from sysconf.config.domains import Domain, DomainAction, DomainConfig, DomainManager
+from sysconf.config.domains import Domain, DomainAction, DomainConfig, DomainConfigEntry, DomainManager
 from sysconf.config.serialization import YamlSerializable
 from sysconf.utils.data import get_flattened_dict
 from sysconf.utils.diff import Diff
@@ -36,7 +36,7 @@ class ListDomain(Domain):
         return self._key
 
     def get_domain_config(self, data: YamlSerializable) -> 'ListConfig':
-        return ListConfig.create_from_data(data, self.path_depth, self.get_value)
+        return ListConfig.create_from_data(self, data, self.path_depth, self.get_value)
 
     def get_domain_manager(self, old_config: DomainConfig, new_config: DomainConfig) -> 'ListManager':
         assert isinstance(old_config, ListConfig)
@@ -49,23 +49,45 @@ class ListDomain(Domain):
             self.remove_action_factory,
         )
 
+    def get_action(
+        self,
+        old_entry: 'DomainConfigEntry | None',
+        new_entry: 'DomainConfigEntry | None',
+    ) -> DomainAction | None:
+        assert old_entry is None or isinstance(old_entry, ListConfigEntry)
+        assert new_entry is None or isinstance(new_entry, ListConfigEntry)
+        assert old_entry is not None or new_entry is not None
+
+        if old_entry and new_entry:
+            return None  # no update action for list entries
+        if old_entry and not new_entry:
+            return self.remove_action_factory(old_entry.path, old_entry.value)
+        if not old_entry and new_entry:
+            return self.add_action_factory(new_entry.path, new_entry.value)
+
 
 class ListConfig(DomainConfig):
 
-    def __init__(self, values: tuple[PathValuePair, ...]) -> None:
+    def __init__(
+        self,
+        domain: ListDomain,
+        values: tuple[PathValuePair, ...],
+    ) -> None:
         super().__init__()
 
+        self.domain = domain
         self.values: tuple[PathValuePair, ...] = values
 
     @classmethod
     def create_from_data(
         cls,
+        domain: ListDomain,
         data: YamlSerializable,
         path_depth: int,
         get_value: Callable[[YamlSerializable], Value],
     ) -> Self:
         if data is None:
-            return cls(())
+            raise NotImplementedError('todo')
 
         assert isinstance(data, list) or isinstance(data, dict)
 
@@ -79,12 +101,54 @@ class ListConfig(DomainConfig):
             for item in items
         )
 
-        return cls(values)
+        return cls(domain, values)
 
     def __eq__(self, value: object, /) -> bool:
         if not isinstance(value, ListConfig):
             return False
         return self.values == value.values
+
+    def get_config_entries(self) -> Iterable['DomainConfigEntry']:
+        return [
+            ListConfigEntry(
+                domain=self.domain,
+                path=keys,
+                value=value,
+            )
+            for keys, value in self.values
+        ]
+
+
+class ListConfigEntry(DomainConfigEntry):
+
+    def __init__(
+        self,
+        domain: ListDomain,
+        path: tuple[str, ...],
+        value: str,
+    ) -> None:
+        super().__init__()
+
+        self.domain = domain
+        self.path = path
+        self.value = value
+
+    def __eq__(self, value: object, /) -> bool:
+        if not isinstance(value, ListConfigEntry):
+            return False
+
+        return self.domain == value.domain \
+            and self.path == value.path \
+            and self.value == value.value
+
+    def __repr__(self) -> str:
+        return f'ListConfigEntry({self.domain.get_key()}, {self.path}, {self.value})'
+
+    def get_id(self) -> tuple[str, ...]:
+        return (self.domain.get_key(), *self.path, self.value)
+
+    def get_domain(self) -> ListDomain:
+        return self.domain
 
 
 class ListManager(DomainManager):

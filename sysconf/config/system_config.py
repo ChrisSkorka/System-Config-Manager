@@ -1,8 +1,7 @@
 # pyright: strict
 
 from typing import Iterable
-from sysconf.config import domain_registry
-from sysconf.config.domains import DomainAction, DomainConfig
+from sysconf.config.domains import ConfigEntryId, DomainAction, DomainConfigEntry
 from sysconf.utils.diff import Diff
 
 
@@ -11,18 +10,23 @@ class SystemConfig:
     Represents the entire system configuration by aggregating multiple domain configurations.
     """
 
-    def __init__(self, data: dict[str, DomainConfig]) -> None:
+    def __init__(self, config_entries: dict[ConfigEntryId, DomainConfigEntry]) -> None:
         super().__init__()
 
-        self.data: dict[str, DomainConfig] = data
+        self.config_entries = config_entries
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SystemConfig):
             return False
-        return self.data == other.data
+
+        return self.config_entries == other.config_entries
 
     def __repr__(self) -> str:
-        return f"SystemConfig({self.data})"
+        return f'SystemConfig({self.config_entries})'
+
+    @classmethod
+    def create_from_config_entries(cls, entries: Iterable[DomainConfigEntry]) -> 'SystemConfig':
+        return cls({entry.get_id(): entry for entry in entries})
 
 
 class SystemManager:
@@ -48,42 +52,37 @@ class SystemManager:
         """
         actions: list[DomainAction] = []
 
-        domain_diff = Diff[str].create_from_iterables(
-            tuple(self.old_config.data.keys()),
-            tuple(self.new_config.data.keys()),
+        domain_diff = Diff[ConfigEntryId].create_from_iterables(
+            self.old_config.config_entries.keys(),
+            self.new_config.config_entries.keys(),
         )
 
         # remove domains
         # removals occur in reverse order to compared to when they were added
-        for key in reversed(domain_diff.exclusive_old):
+        for entry_id in reversed(domain_diff.exclusive_old):
 
-            domain = domain_registry.domains_by_key[key]
-
-            old_data = self.old_config.data[key]
-            new_data = domain.get_domain_config(None)
-
-            manager = domain.get_domain_manager(
-                old_data,
-                new_data,
-            )
-            actions.extend(manager.get_actions())
+            old_entry = self.old_config.config_entries[entry_id]
+            domain = old_entry.get_domain()
+            action = domain.get_action(old_entry, None)
+            if action is not None:
+                actions.append(action)
 
         # add & update domains
         # add & update are combined so we can process them in the order they're
         # listed in the new config
         for key in domain_diff.new:
 
-            domain = domain_registry.domains_by_key[key]
+            old_entry = self.old_config.config_entries[key] \
+                if key in self.old_config.config_entries \
+                else None
+            new_entry = self.new_config.config_entries[key]
 
-            old_data = self.old_config.data[key] \
-                if key in self.old_config.data \
-                else domain.get_domain_config(None)
-            new_data = self.new_config.data[key]
+            domain = new_entry.get_domain()
+            if old_entry is not None:
+                assert domain == old_entry.get_domain()
 
-            manager = domain.get_domain_manager(
-                old_data,
-                new_data,
-            )
-            actions.extend(manager.get_actions())
+            action = domain.get_action(old_entry, new_entry)
+            if action is not None:
+                actions.append(action)
 
         return actions

@@ -2,7 +2,7 @@
 
 
 from typing import Any, Callable, Generic, Iterable, Protocol, Self, TypeVar, cast
-from sysconf.config.domains import Domain, DomainAction, DomainConfig, DomainManager
+from sysconf.config.domains import Domain, DomainAction, DomainConfig, DomainConfigEntry, DomainManager
 from sysconf.config.serialization import YamlSerializable
 from sysconf.utils.data import get_flattened_dict
 from sysconf.utils.diff import Diff
@@ -61,7 +61,7 @@ class MapDomain(Generic[Value], Domain):
         return self._key
 
     def get_domain_config(self, data: YamlSerializable) -> 'MapConfig[Value]':
-        return MapConfig[Value].create_from_data(data, self.path_depth, self.get_value)
+        return MapConfig[Value].create_from_data(self, data, self.path_depth, self.get_value)
 
     def get_domain_manager(self, old_config: DomainConfig, new_config: DomainConfig) -> 'MapManager[Value]':
         assert isinstance(old_config, MapConfig)
@@ -78,23 +78,98 @@ class MapDomain(Generic[Value], Domain):
             remove_action_factory=self.remove_action_factory,
         )
 
+    def get_action(
+        self,
+        old_entry: 'DomainConfigEntry | None',
+        new_entry: 'DomainConfigEntry | None',
+    ) -> DomainAction | None:
+        assert old_entry is None or isinstance(old_entry, MapConfigEntry)
+        assert new_entry is None or isinstance(new_entry, MapConfigEntry)
+        assert old_entry is not None or new_entry is not None
+
+        # Typing
+        if old_entry is not None:
+            assert old_entry.get_domain() == self
+            old_entry = cast(MapConfigEntry[Value], old_entry)
+        if new_entry is not None:
+            assert new_entry.get_domain() == self
+            new_entry = cast(MapConfigEntry[Value], new_entry)
+
+        match (old_entry, new_entry):
+            case (MapConfigEntry(), MapConfigEntry()):
+                if old_entry.value != new_entry.value:
+                    return self.update_action_factory(
+                        path=new_entry.path,
+                        old_value=old_entry.value,
+                        new_value=new_entry.value,
+                    )
+                else:
+                    return None  # no change
+            case (MapConfigEntry(), None):
+                return self.remove_action_factory(old_entry.path, old_entry.value)
+            case (None, MapConfigEntry()):
+                return self.add_action_factory(new_entry.path, new_entry.value)
+            case _:
+                assert False, \
+                    f'unable to generate action from {old_entry} and {new_entry}'
+
+
+class MapConfigEntry(Generic[Value], DomainConfigEntry):
+
+    def __init__(
+        self,
+        domain: MapDomain[Value],
+        path: tuple[str, ...],
+        value: Value,
+    ) -> None:
+        super().__init__()
+
+        self.domain = domain
+        self.path = path
+        self.value = value
+
+    def __eq__(self, value: object, /) -> bool:
+        if not isinstance(value, MapConfigEntry):
+            return False
+
+        value = cast(MapConfigEntry[Any], value)
+
+        return self.domain == value.domain \
+            and self.path == value.path \
+            and self.value == value.value
+
+    def __repr__(self) -> str:
+        return f'MapConfigEntry({self.domain.get_key}, {self.path}, {self.value})'
+
+    def get_id(self) -> tuple[str, ...]:
+        return (self.domain.get_key(), *self.path)
+
+    def get_domain(self) -> MapDomain[Value]:
+        return self.domain
+
 
 class MapConfig(Generic[Value], DomainConfig):
 
-    def __init__(self, values: dict[Path, Value]) -> None:
+    def __init__(
+        self,
+        domain: MapDomain[Value],
+        values: dict[Path, Value],
+    ) -> None:
         super().__init__()
 
+        self.domain = domain
         self.values: dict[Path, Value] = values
 
     @classmethod
     def create_from_data(
         cls,
+        domain: MapDomain[Value],
         data: YamlSerializable,
         path_depth: int,
         get_value: Callable[[YamlSerializable], Value],
     ) -> Self:
         if data is None:
-            return cls({})
+            raise NotImplementedError('todo')
 
         assert isinstance(data, dict)
 
@@ -109,7 +184,7 @@ class MapConfig(Generic[Value], DomainConfig):
             for keys, value in flattened_map.items()
         }
 
-        return cls(values)
+        return cls(domain, values)
 
     def __eq__(self, other: object, /) -> bool:
         if not isinstance(other, MapConfig):
@@ -117,7 +192,18 @@ class MapConfig(Generic[Value], DomainConfig):
 
         other = cast(MapConfig[Any], other)
 
-        return self.values == other.values
+        return self.domain == other.domain \
+            and self.values == other.values
+
+    def get_config_entries(self) -> Iterable['DomainConfigEntry']:
+        return [
+            MapConfigEntry[Value](
+                domain=self.domain,
+                path=keys,
+                value=value,
+            )
+            for keys, value in self.values.items()
+        ]
 
 
 class MapManager(Generic[Value], DomainManager):

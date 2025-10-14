@@ -1,10 +1,10 @@
 # pyright: strict
 
 from abc import ABC, abstractmethod
-from typing import Type
+from typing import Iterable, Type
 
 from sysconf.config import domain_registry
-from sysconf.config.domains import Domain, DomainConfig
+from sysconf.config.domains import Domain, DomainConfigEntry
 from sysconf.config.serialization import YamlSerializable
 from sysconf.config.system_config import SystemConfig
 
@@ -89,10 +89,10 @@ class SystemConfigParserV1(SystemConfigParser):
                 f"Unknown domain key: {key}"
 
         # parse domain data
-        domain_map: dict[str, DomainConfig] = {
-            key: self.domains_by_key[key].get_domain_config(value)
-            for key, value
-            in data.items()
-        }
+        config_entries: Iterable[DomainConfigEntry] = (
+            entry
+            for domain_key, value in data.items()
+            for entry in self.domains_by_key[domain_key].get_domain_config(value).get_config_entries()
+        )
 
-        return SystemConfig(domain_map)
+        return SystemConfig.create_from_config_entries(config_entries)

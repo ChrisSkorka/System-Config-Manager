@@ -8,9 +8,12 @@ import yaml
 from sysconf.utils.file import FileReader
 
 
-EndNode = Union[None, str, int, float, bool]
 YamlSerializable = Union[
-    EndNode,
+    None,
+    str,
+    int,
+    float,
+    bool,
     list['YamlSerializable'],
     dict[str, 'YamlSerializable']
 ]
