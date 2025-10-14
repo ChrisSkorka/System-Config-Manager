@@ -209,7 +209,7 @@ class ShellUpdateAction(DomainAction):
         if len(self.path) > 0:
             target = f'{'.'.join(self.path)} = '
 
-        return f'Add {self.key}: {target}{self.old_value} -> {self.new_value}'
+        return f'Update {self.key}: {target}{self.old_value} -> {self.new_value}'
 
     def run(self, executor: SystemExecutor) -> None:
         variables = {

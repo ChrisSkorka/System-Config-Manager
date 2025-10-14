@@ -83,15 +83,26 @@ class SystemConfigParserV1(SystemConfigParser):
         # version is not part of the config data
         data = {k: v for k, v in data.items() if k != 'version'}
 
-        # validate keys
-        for key in data:
-            assert key in self.domains_by_key, \
-                f"Unknown domain key: {key}"
+        assert 'tasks' in data
+        tasks = data['tasks'] or []
+
+        # validate data
+        assert isinstance(tasks, list), \
+            'tasks must be a list of domain mappings'
+        for task in tasks:
+            assert isinstance(task, dict), \
+                'each task must be a mapping of domain keys to domain data'
+            for key in task:
+                assert key in self.domains_by_key, \
+                    f'Unknown domain key: {key}'
 
         # parse domain data
         config_entries: Iterable[DomainConfigEntry] = (
             entry
-            for domain_key, value in data.items()
+            for task in tasks
+            if isinstance(task, dict)
+            for domain_key, value in task.items()
+            if domain_key in self.domains_by_key
             for entry in self.domains_by_key[domain_key].get_config_entries(value)
         )
 
