@@ -92,7 +92,7 @@ class SystemConfigParserV1(SystemConfigParser):
         config_entries: Iterable[DomainConfigEntry] = (
             entry
             for domain_key, value in data.items()
-            for entry in self.domains_by_key[domain_key].get_domain_config(value).get_config_entries()
+            for entry in self.domains_by_key[domain_key].get_config_entries(value)
         )
 
         return SystemConfig.create_from_config_entries(config_entries)

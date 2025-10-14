@@ -29,34 +29,19 @@ class Domain(ABC):
         pass  # pragma: no cover
 
     @abstractmethod
-    def get_domain_config(self, data: YamlSerializable) -> 'DomainConfig':
+    def get_config_entries(self, data: YamlSerializable) -> Iterable['DomainConfigEntry']:
         """
-        Create a new instance of the domain configuration from the given data.
+        Get all configuration entries in this domain.
 
-        Args:
-            data: The data to create the domain configuration from.
         Returns:
-            A new instance of the domain configuration.
-        """
-        pass  # pragma: no cover
-
-    @abstractmethod
-    def get_domain_manager(self, old_config: 'DomainConfig', new_config: 'DomainConfig') -> 'DomainManager':
-        """
-        Get a manager for this domain.
-
-        Args:
-            old_config: The old configuration for this domain.
-            new_config: The new configuration for this domain.
-        Returns:
-            A manager for this domain.
+            An iterable of all configuration entries.
         """
         pass  # pragma: no cover
 
     @abstractmethod
     def get_action(
-        self, 
-        old_entry: 'DomainConfigEntry | None', 
+        self,
+        old_entry: 'DomainConfigEntry | None',
         new_entry: 'DomainConfigEntry | None',
     ) -> 'DomainAction | None':
         """
@@ -67,29 +52,6 @@ class Domain(ABC):
             new_entry: The new configuration entry.
         Returns:
             An action to transform the old entry into the new entry.
-        """
-        pass  # pragma: no cover
-
-class DomainConfig(ABC):
-    """
-    Base class for all domain configurations.
-
-    This parses the configuration data for a specific domain and stores it in a
-    structured way.
-    """
-
-    # todo remove?
-    @abstractmethod
-    def __eq__(self, value: object, /) -> bool:
-        pass  # pragma: no cover
-
-    @abstractmethod
-    def get_config_entries(self) -> Iterable['DomainConfigEntry']:
-        """
-        Get all configuration entries in this domain configuration.
-
-        Returns:
-            An iterable of all configuration entries.
         """
         pass  # pragma: no cover
 
@@ -140,29 +102,5 @@ class DomainAction(ABC):
         Execute the action.
 
         This will perform actual action including executing system commands.
-        """
-        pass  # pragma: no cover
-
-
-class DomainManager(ABC):
-    """
-    Base class for all domain managers.
-
-    A domain manager is responsible for comparing two domain configurations and
-    producing a list of actions to be performed to transform the system from the
-    old configuration to the new configuration.
-
-    Notes:
-    - Removals should be generated in reverse order to how they were added
-    - Additions and updates should be processed in the order they are listed in
-      the new config
-    """
-
-    # todo: split into remove & set stages?
-    @abstractmethod
-    def get_actions(self) -> Iterable[DomainAction]:
-        """
-        Get a list of actions to be performed to transform the system from the
-        old configuration to the new configuration.
         """
         pass  # pragma: no cover

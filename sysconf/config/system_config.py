@@ -26,6 +26,7 @@ class SystemConfig:
 
     @classmethod
     def create_from_config_entries(cls, entries: Iterable[DomainConfigEntry]) -> 'SystemConfig':
+        # todo: check for duplicate entries
         return cls({entry.get_id(): entry for entry in entries})
 
 
