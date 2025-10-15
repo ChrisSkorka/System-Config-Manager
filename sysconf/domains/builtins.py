@@ -32,26 +32,23 @@ builtin_domains: list[Domain] = cast(
         create_list_shell_domain(
             key='apt',
             path_depth=0,
-            add_script='sudo apt install -y "$value"',
-            remove_script='sudo apt remove -y "$value"',
+            add_script='sudo apt install -y $value',
+            remove_script='sudo apt remove -y $value',
         ),
         create_list_shell_domain(
             key='snap',
             path_depth=0,
-            add_script='sudo snap install "$value"',
-            remove_script='sudo snap remove "$value"',
-        ),
-        create_list_shell_domain(
-            key='snap-classic',
-            path_depth=0,
-            add_script='sudo snap install --classic "$value"',
-            remove_script='sudo snap remove "$value"',
+            add_script='sudo snap install $value',
+            remove_script=unindent("""
+                value="$value";
+                sudo snap remove ${value%% *};
+            """),
         ),
         create_list_shell_domain(
             key='pip',
             path_depth=0,
-            add_script='pip install --break-system-packages "$value"',
-            remove_script='pip uninstall --break-system-packages -y "$value"',
+            add_script='pip install --break-system-packages $value',
+            remove_script='pip uninstall --break-system-packages -y $value',
         ),
         create_list_shell_domain(
             key='groups',
@@ -75,8 +72,8 @@ builtin_domains: list[Domain] = cast(
         create_list_shell_domain(
             key='vscode-extensions',
             path_depth=0,
-            add_script='code --install-extension "$value"',
-            remove_script='code --uninstall-extension "$value"',
+            add_script='code --install-extension $value',
+            remove_script='code --uninstall-extension $value',
         ),
         create_map_shell_domain(
             key='symlinks',
@@ -95,11 +92,11 @@ builtin_domains: list[Domain] = cast(
             key='apt-repository',
             path_depth=0,
             add_script=unindent("""
-                sudo add-apt-repository -y "$value";
+                sudo add-apt-repository -y $value;
                 sudo apt update;
             """),
             remove_script=unindent("""
-                sudo add-apt-repository -r -y "$value";
+                sudo add-apt-repository -r -y $value;
                 sudo apt update;
             """),
         ),
