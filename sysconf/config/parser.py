@@ -97,13 +97,15 @@ class SystemConfigParserV1(SystemConfigParser):
                     f'Unknown domain key: {key}'
 
         # parse domain data
-        config_entries: Iterable[DomainConfigEntry] = (
+        config_entries: Iterable[DomainConfigEntry] = tuple(
             entry
             for task in tasks
             if isinstance(task, dict)
             for domain_key, value in task.items()
             if domain_key in self.domains_by_key
-            for entry in self.domains_by_key[domain_key].get_config_entries(value)
+            for entry in self.domains_by_key[domain_key].get_config_entries(
+                value,
+            )
         )
 
         return SystemConfig.create_from_config_entries(config_entries)

@@ -1,6 +1,6 @@
 # pyright: strict
 
-from typing import Iterable
+from typing import Iterable, Sequence
 from sysconf.config.domains import ConfigEntryId, DomainAction, DomainConfigEntry
 from sysconf.utils.diff import Diff
 
@@ -10,7 +10,10 @@ class SystemConfig:
     Represents the entire system configuration by aggregating multiple domain configurations.
     """
 
-    def __init__(self, config_entries: dict[ConfigEntryId, DomainConfigEntry]) -> None:
+    def __init__(
+        self,
+        config_entries: dict[ConfigEntryId, DomainConfigEntry],
+    ) -> None:
         super().__init__()
 
         self.config_entries = config_entries
@@ -25,9 +28,21 @@ class SystemConfig:
         return f'SystemConfig({self.config_entries})'
 
     @classmethod
-    def create_from_config_entries(cls, entries: Iterable[DomainConfigEntry]) -> 'SystemConfig':
-        # todo: check for duplicate entries
-        return cls({entry.get_id(): entry for entry in entries})
+    def create_from_config_entries(
+        cls,
+        entries: Sequence[DomainConfigEntry],
+    ) -> 'SystemConfig':
+        map_ids_to_entries: dict[ConfigEntryId, DomainConfigEntry] = {
+            entry.get_id(): entry
+            for entry in entries
+        }
+
+        assert len(map_ids_to_entries) == len(entries), \
+            'Duplicate ConfigEntryId found in config entries'
+
+        return cls(
+            config_entries=map_ids_to_entries,
+        )
 
 
 class SystemManager:
