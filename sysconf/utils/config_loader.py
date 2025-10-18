@@ -4,7 +4,7 @@ from pathlib import Path
 from sysconf.config.parser import SystemConfigParser
 from sysconf.config.serialization import YamlDeserializer
 from sysconf.config.system_config import SystemConfig
-from sysconf.utils.file import FileReader
+from sysconf.system.file import FileReader
 
 
 def load_config_from_file(file_reader: FileReader, path: Path) -> SystemConfig:

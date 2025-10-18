@@ -1,11 +1,12 @@
 # pyright: strict
 
+import yaml
+
 from pathlib import Path
 from typing import Union
 
-import yaml
+from sysconf.system.file import FileReader
 
-from sysconf.utils.file import FileReader
 
 
 YamlSerializable = Union[

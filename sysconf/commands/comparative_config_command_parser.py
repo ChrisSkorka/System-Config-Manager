@@ -6,10 +6,10 @@ from typing import Self
 
 from sysconf.commands.command import CommandArgumentParserBuilder
 from sysconf.config.system_config import SystemConfig, SystemManager
+from sysconf.system.file import FileReader
+from sysconf.system.path import get_validated_file_path
 from sysconf.utils.config_loader import load_config_from_file
 from sysconf.utils.defaults import Defaults
-from sysconf.utils.file import FileReader
-from sysconf.utils.path import get_validated_file_path
 
 
 class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
