@@ -52,17 +52,21 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
         defaults = Defaults()
         file_reader = FileReader()
 
-        old_path = parsed_arguments.last_config or defaults.get_old_config_path()
-        new_path = parsed_arguments.config_file or defaults.get_new_config_path()
+        old_path: Path | None = parsed_arguments.last_config or defaults.get_old_config_path()
+        new_path: Path = parsed_arguments.config_file or defaults.get_new_config_path()
 
         new_path = get_validated_file_path(
             new_path,
             '.yaml',
         )
-        old_path = get_validated_file_path(
-            old_path,
-            '.yaml',
-        )
+
+        if old_path is not None and old_path.exists():
+            old_path = get_validated_file_path(
+                old_path,
+                '.yaml',
+            )
+        else:
+            old_path = None
 
         new_config = load_config_from_file(file_reader, new_path)
         old_config = load_config_from_file(file_reader, old_path) \
