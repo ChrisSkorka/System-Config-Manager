@@ -5,9 +5,8 @@ from typing import Self
 
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
-from sysconf.config.domains import NoDomainAction
 from sysconf.config.system_config import SystemManager
-from sysconf.system.executor import CommandException, LiveSystemExecutor, SystemExecutor
+from sysconf.system.executor import LiveSystemExecutor, SystemExecutor
 
 
 class ApplyCommand (Command):
@@ -82,48 +81,4 @@ class ApplyCommand (Command):
         continue with the remaining actions or abort.
         """
 
-        actions = self.manager.get_actions()
-
-        if not actions:
-            print('# No changes required.')
-            return
-
-        for action in actions:
-            if not isinstance(action, NoDomainAction):
-                print(f'# {action.get_description()}')
-
-                try:
-                    action.run(self.executor)
-                except CommandException as e:
-                    print(f'An error occurred while executing the command:')
-                    print(e.cmdline)
-                    print(
-                        f'Process exited with code {e.process.returncode}, see output above.',
-                    )
-
-                    should_continue = self.get_user_confirmation(
-                        'Do you want to continue with the remaining tasks?',
-                    )
-                    if not should_continue:
-                        return
-                    else:
-                        continue
-
-    def get_user_confirmation(self, prompt: str) -> bool:
-        """
-        Promt the user for a yes/no confirmation to a prompt.
-
-        Notes:
-        - Accepts 'y', 'yes', 'n', 'no' (case insensitive)
-        - Allows up to 3 attempts
-        - Defaults to false ('no') if no valid input is given in the 3 attempts
-        """
-
-        for _ in range(3):  # allow up to 3 attempts
-            user_input = input(f'{prompt} (y/n): ').strip().lower()
-            if user_input in ('y', 'yes'):
-                return True
-            elif user_input in ('n', 'no', ''):
-                return False
-
-        return False
+        self.manager.run_actions(self.executor)

@@ -1,7 +1,8 @@
 # pyright: strict
 
 from typing import Iterable, Sequence
-from sysconf.config.domains import ConfigEntryId, DomainAction, DomainConfigEntry
+from sysconf.config.domains import ConfigEntryId, DomainAction, DomainConfigEntry, NoDomainAction
+from sysconf.system.executor import CommandException, SystemExecutor
 from sysconf.utils.diff import Diff
 
 
@@ -100,3 +101,60 @@ class SystemManager:
             actions.append(action)
 
         return actions
+    
+    def run_actions(self, executor: SystemExecutor) -> None:
+        """
+        Get and run all actions required to transition from the old 
+        configuration to the new configuration.
+
+        Notes:
+        - If an action fails, the user may choose to continue with the remaining
+          actions
+        - Actions that are NoOp (NoDomainAction) are not run or printed
+        """
+
+        actions = self.get_actions()
+
+        if not actions:
+            print('# No changes required.')
+            return
+
+        for action in actions:
+            if not isinstance(action, NoDomainAction):
+                print(f'# {action.get_description()}')
+
+                try:
+                    action.run(executor)
+                except CommandException as e:
+                    print(f'An error occurred while executing the command:')
+                    print(e.cmdline)
+                    print(
+                        f'Process exited with code {e.process.returncode}, see output above.',
+                    )
+
+                    should_continue = self.get_user_confirmation(
+                        'Do you want to continue with the remaining tasks?',
+                    )
+                    if not should_continue:
+                        return
+                    else:
+                        continue
+
+    def get_user_confirmation(self, prompt: str) -> bool:
+        """
+        Promt the user for a yes/no confirmation to a prompt.
+
+        Notes:
+        - Accepts 'y', 'yes', 'n', 'no' (case insensitive)
+        - Allows up to 3 attempts
+        - Defaults to false ('no') if no valid input is given in the 3 attempts
+        """
+
+        for _ in range(3):  # allow up to 3 attempts
+            user_input = input(f'{prompt} (y/n): ').strip().lower()
+            if user_input in ('y', 'yes'):
+                return True
+            elif user_input in ('n', 'no', ''):
+                return False
+
+        return False

@@ -5,7 +5,6 @@ from typing import Self
 
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
-from sysconf.config.domains import NoDomainAction
 from sysconf.config.system_config import SystemManager
 from sysconf.system.executor import PreviewSystemExecutor, SystemExecutor
 
@@ -79,13 +78,4 @@ class PreviewCommand (Command):
         This will compare the two configurations and print the planned actions.
         """
 
-        actions = self.manager.get_actions()
-
-        if not actions:
-            print('# No changes required.')
-            return
-
-        for action in actions:
-            if not isinstance(action, NoDomainAction):
-                print(f'# {action.get_description()}')
-                action.run(self.executor)
+        self.manager.run_actions(self.executor)
