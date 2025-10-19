@@ -13,25 +13,13 @@ def create_dconf_domain() -> MapDomain[YamlSerializable]:
     dconf settings.
     """
 
-    def add_action_factory(new_entry: MapConfigEntry[YamlSerializable]) -> DConfAddAction:
-        return DConfAddAction.create_from_entry(new_entry)
-
-    def update_action_factory(
-        old_entry: MapConfigEntry[YamlSerializable],
-        new_entry: MapConfigEntry[YamlSerializable],
-    ) -> DConfUpdateAction:
-        return DConfUpdateAction.create_from_entries(old_entry, new_entry)
-
-    def remove_action_factory(old_entry: MapConfigEntry[YamlSerializable]) -> DConfRemoveAction:
-        return DConfRemoveAction.create_from_entry(old_entry)
-
     return MapDomain[YamlSerializable](
         'dconf',
         path_depth=1,
         get_value=lambda v: v,
-        add_action_factory=add_action_factory,
-        update_action_factory=update_action_factory,
-        remove_action_factory=remove_action_factory,
+        add_action_factory=DConfAddAction.create_from_entry,
+        update_action_factory=DConfUpdateAction.create_from_entries,
+        remove_action_factory=DConfRemoveAction.create_from_entry,
     )
 
 

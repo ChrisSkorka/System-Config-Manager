@@ -5,6 +5,7 @@ from typing import Self
 
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
+from sysconf.config.domains import NoDomainAction
 from sysconf.config.system_config import SystemManager
 from sysconf.system.executor import CommandException, LiveSystemExecutor, SystemExecutor
 
@@ -87,25 +88,26 @@ class ApplyCommand (Command):
             print('# No changes required.')
             return
 
-        for a in actions:
-            print(f'# {a.get_description()}')
+        for action in actions:
+            if not isinstance(action, NoDomainAction):
+                print(f'# {action.get_description()}')
 
-            try:
-                a.run(self.executor)
-            except CommandException as e:
-                print(f'An error occurred while executing the command:')
-                print(e.cmdline)
-                print(
-                    f'Process exited with code {e.process.returncode}, see output above.',
-                )
+                try:
+                    action.run(self.executor)
+                except CommandException as e:
+                    print(f'An error occurred while executing the command:')
+                    print(e.cmdline)
+                    print(
+                        f'Process exited with code {e.process.returncode}, see output above.',
+                    )
 
-                should_continue = self.get_user_confirmation(
-                    'Do you want to continue with the remaining tasks?',
-                )
-                if not should_continue:
-                    return
-                else:
-                    continue
+                    should_continue = self.get_user_confirmation(
+                        'Do you want to continue with the remaining tasks?',
+                    )
+                    if not should_continue:
+                        return
+                    else:
+                        continue
 
     def get_user_confirmation(self, prompt: str) -> bool:
         """

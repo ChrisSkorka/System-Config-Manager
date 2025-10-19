@@ -5,6 +5,7 @@ from typing import Self
 
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
+from sysconf.config.domains import NoDomainAction
 from sysconf.config.system_config import SystemManager
 from sysconf.system.executor import PreviewSystemExecutor, SystemExecutor
 
@@ -84,6 +85,7 @@ class PreviewCommand (Command):
             print('# No changes required.')
             return
 
-        for a in actions:
-            print(f'# {a.get_description()}')
-            a.run(self.executor)
+        for action in actions:
+            if not isinstance(action, NoDomainAction):
+                print(f'# {action.get_description()}')
+                action.run(self.executor)

@@ -16,25 +16,13 @@ def create_gsettings_domain() -> MapDomain[YamlSerializable]:
     gsettings settings (gnome).
     """
 
-    def add_action_factory(new_entry: MapConfigEntry[YamlSerializable]) -> GSettingsAddAction:
-        return GSettingsAddAction.create_from_entry(new_entry)
-
-    def update_action_factory(
-        old_entry: MapConfigEntry[YamlSerializable],
-        new_entry: MapConfigEntry[YamlSerializable],
-    ) -> GSettingsUpdateAction:
-        return GSettingsUpdateAction.create_from_entries(old_entry, new_entry)
-
-    def remove_action_factory(old_entry: MapConfigEntry[YamlSerializable]) -> GSettingsRemoveAction:
-        return GSettingsRemoveAction.create_from_entry(old_entry)
-
     return MapDomain[YamlSerializable](
         'gsettings',
         path_depth=2,
         get_value=lambda v: v,
-        add_action_factory=add_action_factory,
-        update_action_factory=update_action_factory,
-        remove_action_factory=remove_action_factory,
+        add_action_factory=GSettingsAddAction.create_from_entry,
+        update_action_factory=GSettingsUpdateAction.create_from_entries,
+        remove_action_factory=GSettingsRemoveAction.create_from_entry,
     )
 
 
