@@ -2,8 +2,8 @@
 
 
 from sysconf.config.domains import DomainAction
-from sysconf.domains.list_domain import ListDomain
-from sysconf.domains.map_domain import MapDomain
+from sysconf.domains.list_domain import ListConfigEntry, ListDomain
+from sysconf.domains.map_domain import MapConfigEntry, MapDomain
 from sysconf.system.executor import SystemExecutor
 
 
@@ -14,19 +14,17 @@ def create_list_shell_domain(
     remove_script: str,
 ) -> ListDomain:
 
-    def add_action_factory(path: tuple[str, ...], item: str) -> ShellAddAction:
+    def add_action_factory(new_entry: ListConfigEntry | MapConfigEntry[str]) -> ShellAddAction:
         return ShellAddAction(
             key,
-            path,
-            item,
+            new_entry,
             ShellScriptTemplate(add_script),
         )
 
-    def remove_action_factory(path: tuple[str, ...], item: str) -> ShellRemoveAction:
+    def remove_action_factory(old_entry: ListConfigEntry | MapConfigEntry[str]) -> ShellRemoveAction:
         return ShellRemoveAction(
             key,
-            path,
-            item,
+            old_entry,
             ShellScriptTemplate(remove_script),
         )
 
@@ -47,28 +45,28 @@ def create_map_shell_domain(
     remove_script: str,
 ) -> MapDomain[str]:
 
-    def add_action_factory(path: tuple[str, ...], new_value: str) -> ShellAddAction:
+    def add_action_factory(new_entry: MapConfigEntry[str]) -> ShellAddAction:
         return ShellAddAction(
             key,
-            path,
-            new_value,
+            new_entry,
             ShellScriptTemplate(add_script),
         )
 
-    def update_action_factory(path: tuple[str, ...], old_value: str, new_value: str) -> ShellUpdateAction:
+    def update_action_factory(
+        old_entry: MapConfigEntry[str],
+        new_entry: MapConfigEntry[str],
+    ) -> ShellUpdateAction:
         return ShellUpdateAction(
             key,
-            path,
-            old_value,
-            new_value,
+            old_entry,
+            new_entry,
             ShellScriptTemplate(update_script),
         )
 
-    def remove_action_factory(path: tuple[str, ...], old_value: str) -> ShellRemoveAction:
+    def remove_action_factory(old_entry: MapConfigEntry[str]) -> ShellRemoveAction:
         return ShellRemoveAction(
             key,
-            path,
-            old_value,
+            old_entry,
             ShellScriptTemplate(remove_script),
         )
 
@@ -130,15 +128,13 @@ class ShellAddAction(DomainAction):
     def __init__(
         self,
         key: str,
-        path: tuple[str, ...],
-        value: str,
+        new_entry: ListConfigEntry | MapConfigEntry[str],
         script_template: ShellScriptTemplate,
     ) -> None:
         super().__init__()
 
         self.key = key
-        self.path = path
-        self.value = value
+        self.new_entry = new_entry
         self.script_template = script_template
 
     def __eq__(self, other: object) -> bool:
@@ -147,24 +143,29 @@ class ShellAddAction(DomainAction):
 
         return (
             self.key == other.key
-            and self.path == other.path
-            and self.value == other.value
+            and self.new_entry == other.new_entry
             and self.script_template == other.script_template
         )
 
     def get_description(self) -> str:
 
         target: str = ''
-        if len(self.path) > 0:
-            target = f'{'.'.join(self.path)} = '
+        if len(self.new_entry.path) > 0:
+            target = f'{'.'.join(self.new_entry.path)} = '
 
-        return f'Add {self.key}: {target}{self.value}'
+        return f'Add {self.key}: {target}{self.new_entry.value}'
+
+    def get_old_entry(self) -> None:
+        return None
+
+    def get_new_entry(self) -> ListConfigEntry | MapConfigEntry[str]:
+        return self.new_entry
 
     def run(self, executor: SystemExecutor) -> None:
         variables = {
-            **self.script_template.get_path_variables(self.path),
-            '$value': self.value,
-            '$new_value': self.value,
+            **self.script_template.get_path_variables(self.new_entry.path),
+            '$value': self.new_entry.value,
+            '$new_value': self.new_entry.value,
         }
         script = self.script_template.get_interpolated_script(variables)
         executor.shell(script)
@@ -178,17 +179,15 @@ class ShellUpdateAction(DomainAction):
     def __init__(
         self,
         key: str,
-        path: tuple[str, ...],
-        old_value: str,
-        new_value: str,
+        old_entry: ListConfigEntry | MapConfigEntry[str],
+        new_entry: ListConfigEntry | MapConfigEntry[str],
         script_template: ShellScriptTemplate,
     ) -> None:
         super().__init__()
 
         self.key = key
-        self.path = path
-        self.old_value = old_value
-        self.new_value = new_value
+        self.old_entry = old_entry
+        self.new_entry = new_entry
         self.script_template = script_template
 
     def __eq__(self, other: object) -> bool:
@@ -197,26 +196,31 @@ class ShellUpdateAction(DomainAction):
 
         return (
             self.key == other.key
-            and self.path == other.path
-            and self.old_value == other.old_value
-            and self.new_value == other.new_value
+            and self.old_entry == other.old_entry
+            and self.new_entry == other.new_entry
             and self.script_template == other.script_template
         )
 
     def get_description(self) -> str:
 
         target: str = ''
-        if len(self.path) > 0:
-            target = f'{'.'.join(self.path)} = '
+        if len(self.new_entry.path) > 0:
+            target = f'{'.'.join(self.new_entry.path)} = '
 
-        return f'Update {self.key}: {target}{self.old_value} -> {self.new_value}'
+        return f'Update {self.key}: {target}{self.old_entry.value} -> {self.new_entry.value}'
+
+    def get_old_entry(self) -> ListConfigEntry | MapConfigEntry[str]:
+        return self.old_entry
+
+    def get_new_entry(self) -> ListConfigEntry | MapConfigEntry[str]:
+        return self.new_entry
 
     def run(self, executor: SystemExecutor) -> None:
         variables = {
-            **self.script_template.get_path_variables(self.path),
-            '$value': self.new_value,
-            '$new_value': self.new_value,
-            '$old_value': self.old_value,
+            **self.script_template.get_path_variables(self.new_entry.path),
+            '$value': self.new_entry.value,
+            '$new_value': self.new_entry.value,
+            '$old_value': self.old_entry.value,
         }
         script = self.script_template.get_interpolated_script(variables)
         executor.shell(script)
@@ -230,15 +234,13 @@ class ShellRemoveAction(DomainAction):
     def __init__(
         self,
         key: str,
-        path: tuple[str, ...],
-        value: str,
+        old_entry: ListConfigEntry | MapConfigEntry[str],
         script_template: ShellScriptTemplate,
     ) -> None:
         super().__init__()
 
         self.key = key
-        self.path = path
-        self.value = value
+        self.old_entry = old_entry
         self.script_template = script_template
 
     def __eq__(self, other: object) -> bool:
@@ -247,24 +249,29 @@ class ShellRemoveAction(DomainAction):
 
         return (
             self.key == other.key
-            and self.path == other.path
-            and self.value == other.value
+            and self.old_entry == other.old_entry
             and self.script_template == other.script_template
         )
 
     def get_description(self) -> str:
 
         target: str = ''
-        if len(self.path) > 0:
-            target = f'{'.'.join(self.path)} = '
+        if len(self.old_entry.path) > 0:
+            target = f'{'.'.join(self.old_entry.path)} = '
 
-        return f'Remove {self.key}: {target}{self.value}'
+        return f'Remove {self.key}: {target}{self.old_entry.value}'
+
+    def get_old_entry(self) -> ListConfigEntry | MapConfigEntry[str]:
+        return self.old_entry
+
+    def get_new_entry(self) -> None:
+        return None
 
     def run(self, executor: SystemExecutor) -> None:
         variables = {
-            **self.script_template.get_path_variables(self.path),
-            '$value': self.value,
-            '$old_value': self.value,
+            **self.script_template.get_path_variables(self.old_entry.path),
+            '$value': self.old_entry.value,
+            '$old_value': self.old_entry.value,
         }
         script = self.script_template.get_interpolated_script(variables)
         executor.shell(script)

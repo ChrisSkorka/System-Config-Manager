@@ -2,7 +2,7 @@
 
 
 from typing import Callable, Iterable
-from sysconf.config.domains import Domain, DomainAction, DomainConfigEntry
+from sysconf.config.domains import Domain, DomainAction, DomainConfigEntry, NoDomainAction
 from sysconf.config.serialization import YamlSerializable
 from sysconf.utils.data import get_flattened_dict
 
@@ -10,7 +10,7 @@ from sysconf.utils.data import get_flattened_dict
 Path = tuple[str, ...]  # (keys, ...)
 Value = str
 PathValuePair = tuple[Path, Value]
-ActionFactory = Callable[[Path, Value], DomainAction]
+ActionFactory = Callable[['ListConfigEntry'], DomainAction]
 
 
 class ListDomain(Domain):
@@ -65,19 +65,23 @@ class ListDomain(Domain):
 
     def get_action(
         self,
-        old_entry: 'DomainConfigEntry | None',
-        new_entry: 'DomainConfigEntry | None',
-    ) -> DomainAction | None:
-        assert old_entry is None or isinstance(old_entry, ListConfigEntry)
-        assert new_entry is None or isinstance(new_entry, ListConfigEntry)
-        assert old_entry is not None or new_entry is not None
+        old_entry: DomainConfigEntry | None,
+        new_entry: DomainConfigEntry | None,
+    ) -> DomainAction:
 
-        if old_entry and new_entry:
-            return None  # no update action for list entries
-        if old_entry and not new_entry:
-            return self.remove_action_factory(old_entry.path, old_entry.value)
-        if not old_entry and new_entry:
-            return self.add_action_factory(new_entry.path, new_entry.value)
+        match old_entry, new_entry:
+            case ListConfigEntry(), ListConfigEntry():
+                return NoDomainAction(
+                    old_entry,
+                    new_entry,
+                )
+            case ListConfigEntry(), None:
+                return self.remove_action_factory(old_entry)
+            case None, ListConfigEntry():
+                return self.add_action_factory(new_entry)
+            case _:
+                assert False, \
+                    f'unable to generate action from {old_entry} and {new_entry}'
 
 
 class ListConfigEntry(DomainConfigEntry):

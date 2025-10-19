@@ -1,38 +1,29 @@
 # pyright: strict
 
+from typing import Self
 from sysconf.config.domains import DomainAction
 from sysconf.config.serialization import YamlSerializable
-from sysconf.domains.map_domain import MapDomain
+from sysconf.domains.map_domain import MapConfigEntry, MapDomain
 from sysconf.system.executor import SystemExecutor
 
 
-def create_dconf_domain() -> MapDomain[str]:
+def create_dconf_domain() -> MapDomain[YamlSerializable]:
     """
     Create a MapDomain configured to parse, manage, and generate actions for 
     dconf settings.
     """
 
-    def add_action_factory(path: tuple[str, ...], new_value: YamlSerializable) -> DConfAddAction:
-        assert len(path) == 1
-        return DConfAddAction(
-            path[0],
-            new_value,
-        )
+    def add_action_factory(new_entry: MapConfigEntry[YamlSerializable]) -> DConfAddAction:
+        return DConfAddAction.create_from_entry(new_entry)
 
-    def update_action_factory(path: tuple[str, ...], old_value: YamlSerializable, new_value: YamlSerializable) -> DConfUpdateAction:
-        assert len(path) == 1
-        return DConfUpdateAction(
-            path[0],
-            old_value,
-            new_value,
-        )
+    def update_action_factory(
+        old_entry: MapConfigEntry[YamlSerializable],
+        new_entry: MapConfigEntry[YamlSerializable],
+    ) -> DConfUpdateAction:
+        return DConfUpdateAction.create_from_entries(old_entry, new_entry)
 
-    def remove_action_factory(path: tuple[str, ...], old_value: YamlSerializable) -> DConfRemoveAction:
-        assert len(path) == 1
-        return DConfRemoveAction(
-            path[0],
-            old_value,
-        )
+    def remove_action_factory(old_entry: MapConfigEntry[YamlSerializable]) -> DConfRemoveAction:
+        return DConfRemoveAction.create_from_entry(old_entry)
 
     return MapDomain[YamlSerializable](
         'dconf',
@@ -75,20 +66,38 @@ class DConfAddAction(DomainAction):
 
     def __init__(
         self,
+        new_entry: MapConfigEntry[YamlSerializable],
         path: str,
-        new_value: YamlSerializable,
+        value: str,
     ) -> None:
         super().__init__()
 
+        self.new_entry = new_entry
         self.path = path
-        self.new_value = new_value
+        self.value = value
+
+    @classmethod
+    def create_from_entry(
+        cls,
+        new_entry: MapConfigEntry[YamlSerializable],
+    ) -> Self:
+        assert len(new_entry.path) == 1
+        path = new_entry.path[0]
+        encoded_value = encode_value(new_entry.value)
+
+        return cls(new_entry, path, encoded_value)
 
     def get_description(self) -> str:
-        return f'Add dconf: {self.path} = {self.new_value}'
+        return f'Add dconf: {self.path} = {self.new_entry.value}'
+
+    def get_old_entry(self) -> None:
+        return None
+
+    def get_new_entry(self) -> MapConfigEntry[YamlSerializable]:
+        return self.new_entry
 
     def run(self, executor: SystemExecutor) -> None:
-        encoded_value = encode_value(self.new_value)
-        executor.command('dconf', 'write', self.path, encoded_value)
+        executor.command('dconf', 'write', self.path, self.value)
 
 
 class DConfUpdateAction(DomainAction):
@@ -98,22 +107,45 @@ class DConfUpdateAction(DomainAction):
 
     def __init__(
         self,
+        old_entry: MapConfigEntry[YamlSerializable],
+        new_entry: MapConfigEntry[YamlSerializable],
         path: str,
-        old_value: YamlSerializable,
-        new_value: YamlSerializable,
+        old_value: str,
+        new_value: str,
     ) -> None:
         super().__init__()
 
+        self.old_entry = old_entry
+        self.new_entry = new_entry
         self.path = path
         self.old_value = old_value
         self.new_value = new_value
 
+    @classmethod
+    def create_from_entries(
+        cls,
+        old_entry: MapConfigEntry[YamlSerializable],
+        new_entry: MapConfigEntry[YamlSerializable],
+    ) -> Self:
+        assert len(new_entry.path) == 1
+        assert new_entry.path == old_entry.path
+        path = new_entry.path[0]
+        encoded_old_value = encode_value(old_entry.value)
+        encoded_new_value = encode_value(new_entry.value)
+
+        return cls(old_entry, new_entry, path, encoded_old_value, encoded_new_value)
+
     def get_description(self) -> str:
-        return f'Update dconf: {self.path} = {self.old_value} -> {self.new_value}'
+        return f'Update dconf: {self.path} = {self.old_entry.value} -> {self.new_entry.value}'
+
+    def get_old_entry(self) -> MapConfigEntry[YamlSerializable]:
+        return self.old_entry
+
+    def get_new_entry(self) -> MapConfigEntry[YamlSerializable]:
+        return self.new_entry
 
     def run(self, executor: SystemExecutor) -> None:
-        encoded_value = encode_value(self.new_value)
-        executor.command('dconf', 'write', self.path, encoded_value)
+        executor.command('dconf', 'write', self.path, self.new_value)
 
 
 class DConfRemoveAction(DomainAction):
@@ -125,16 +157,35 @@ class DConfRemoveAction(DomainAction):
 
     def __init__(
         self,
+        old_entry: MapConfigEntry[YamlSerializable],
         path: str,
-        old_value: YamlSerializable,
+        old_value: str,
     ) -> None:
         super().__init__()
 
+        self.old_entry = old_entry
         self.path = path
         self.old_value = old_value
 
+    @classmethod
+    def create_from_entry(
+        cls,
+        old_entry: MapConfigEntry[YamlSerializable],
+    ) -> Self:
+        assert len(old_entry.path) == 1
+        path = old_entry.path[0]
+        encoded_value = encode_value(old_entry.value)
+
+        return cls(old_entry, path, encoded_value)
+
     def get_description(self) -> str:
-        return f'Remove dconf: {self.path} = {self.old_value}'
+        return f'Remove dconf: {self.path} = {self.old_entry.value}'
+
+    def get_old_entry(self) -> MapConfigEntry[YamlSerializable]:
+        return self.old_entry
+
+    def get_new_entry(self) -> None:
+        return None
 
     def run(self, executor: SystemExecutor) -> None:
         executor.command('dconf', 'reset', self.path)

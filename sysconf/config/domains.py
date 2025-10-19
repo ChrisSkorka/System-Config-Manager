@@ -43,7 +43,7 @@ class Domain(ABC):
         self,
         old_entry: 'DomainConfigEntry | None',
         new_entry: 'DomainConfigEntry | None',
-    ) -> 'DomainAction | None':
+    ) -> 'DomainAction':
         """
         Get an action to transform the old entry into the new entry.
 
@@ -97,10 +97,54 @@ class DomainAction(ABC):
         pass  # pragma: no cover
 
     @abstractmethod
+    def get_old_entry(self) -> DomainConfigEntry | None:
+        """
+        Get the old configuration entry (if it exists) that produced this action
+        """
+        pass  # pragma: no cover
+
+    @abstractmethod
+    def get_new_entry(self) -> DomainConfigEntry | None:
+        """
+        Get the new configuration entry (if it exists) that produced this action
+        """
+        pass
+
+    @abstractmethod
     def run(self, executor: SystemExecutor) -> None:
         """
         Execute the action.
 
         This will perform actual action including executing system commands.
         """
-        pass  # pragma: no cover
+        pass  # pragma: no cover# pragma: no cover
+
+
+class NoDomainAction(DomainAction):
+    """
+    An action that does nothing.
+
+    This is can be used by any domain for no op actions.
+    """
+
+    def __init__(
+        self,
+        old_entry: DomainConfigEntry,
+        new_entry: DomainConfigEntry,
+    ) -> None:
+        super().__init__()
+
+        self.old_entry = old_entry
+        self.new_entry = new_entry
+
+    def get_description(self) -> str:
+        return 'No action required.'
+
+    def run(self, executor: SystemExecutor) -> None:
+        pass
+
+    def get_old_entry(self) -> DomainConfigEntry:
+        return self.old_entry
+
+    def get_new_entry(self) -> DomainConfigEntry:
+        return self.new_entry

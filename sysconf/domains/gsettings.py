@@ -1,8 +1,10 @@
 # pyright: strict
 
+from typing import Self
 from sysconf.config.domains import DomainAction
 from sysconf.config.serialization import YamlSerializable
 from sysconf.domains.dconf import MapDomain, encode_value
+from sysconf.domains.map_domain import MapConfigEntry
 from sysconf.system.executor import SystemExecutor
 
 GSettingPath = tuple[str, str]  # (schema, key)
@@ -14,33 +16,17 @@ def create_gsettings_domain() -> MapDomain[YamlSerializable]:
     gsettings settings (gnome).
     """
 
-    def add_action_factory(path: tuple[str, ...], new_value: YamlSerializable) -> GSettingsAddAction:
-        assert len(path) == 2, \
-            f'Expected path length 2 (schema, key), got {len(path)}: {path}'
-        return GSettingsAddAction(
-            path[0],
-            path[1],
-            new_value,
-        )
+    def add_action_factory(new_entry: MapConfigEntry[YamlSerializable]) -> GSettingsAddAction:
+        return GSettingsAddAction.create_from_entry(new_entry)
 
-    def update_action_factory(path: tuple[str, ...], old_value: YamlSerializable, new_value: YamlSerializable) -> GSettingsUpdateAction:
-        assert len(path) == 2, \
-            f'Expected path length 2 (schema, key), got {len(path)}: {path}'
-        return GSettingsUpdateAction(
-            path[0],
-            path[1],
-            old_value,
-            new_value,
-        )
+    def update_action_factory(
+        old_entry: MapConfigEntry[YamlSerializable],
+        new_entry: MapConfigEntry[YamlSerializable],
+    ) -> GSettingsUpdateAction:
+        return GSettingsUpdateAction.create_from_entries(old_entry, new_entry)
 
-    def remove_action_factory(path: tuple[str, ...], old_value: YamlSerializable) -> GSettingsRemoveAction:
-        assert len(path) == 2, \
-            f'Expected path length 2 (schema, key), got {len(path)}: {path}'
-        return GSettingsRemoveAction(
-            path[0],
-            path[1],
-            old_value,
-        )
+    def remove_action_factory(old_entry: MapConfigEntry[YamlSerializable]) -> GSettingsRemoveAction:
+        return GSettingsRemoveAction.create_from_entry(old_entry)
 
     return MapDomain[YamlSerializable](
         'gsettings',
@@ -59,27 +45,46 @@ class GSettingsAddAction(DomainAction):
 
     def __init__(
         self,
+        new_entry: MapConfigEntry[YamlSerializable],
         schema: str,
         key: str,
-        new_value: YamlSerializable,
+        new_value: str,
     ) -> None:
         super().__init__()
 
+        self.new_entry = new_entry
         self.schema = schema
         self.key = key
         self.new_value = new_value
 
+    @classmethod
+    def create_from_entry(
+        cls,
+        new_entry: MapConfigEntry[YamlSerializable],
+    ) -> Self:
+        assert len(new_entry.path) == 2, \
+            f'Expected path length 2 (schema, key), got {len(new_entry.path)}: {new_entry.path}'
+        schema, key = new_entry.path
+        encoded_value = encode_value(new_entry.value)
+
+        return cls(new_entry, schema, key, encoded_value)
+
     def get_description(self) -> str:
-        return f'Add gsettings: {self.key} = {self.new_value}'
+        return f'Add gsettings: {self.key} = {self.new_entry.value}'
+
+    def get_old_entry(self) -> None:
+        return None
+
+    def get_new_entry(self) -> MapConfigEntry[YamlSerializable]:
+        return self.new_entry
 
     def run(self, executor: SystemExecutor) -> None:
-        encoded_value = encode_value(self.new_value)
         executor.command(
             'gsettings',
             'set',
             self.schema,
             self.key,
-            encoded_value,
+            self.new_value,
         )
 
 
@@ -90,20 +95,52 @@ class GSettingsUpdateAction(DomainAction):
 
     def __init__(
         self,
+        old_entry: MapConfigEntry[YamlSerializable],
+        new_entry: MapConfigEntry[YamlSerializable],
         schema: str,
         key: str,
-        old_value: YamlSerializable,
-        new_value: YamlSerializable,
+        old_value: str,
+        new_value: str,
     ) -> None:
         super().__init__()
 
+        self.old_entry = old_entry
+        self.new_entry = new_entry
         self.schema = schema
         self.key = key
         self.old_value = old_value
         self.new_value = new_value
 
+    @classmethod
+    def create_from_entries(
+        cls,
+        old_entry: MapConfigEntry[YamlSerializable],
+        new_entry: MapConfigEntry[YamlSerializable],
+    ) -> Self:
+        assert len(new_entry.path) == 2, \
+            f'Expected path length 2 (schema, key), got {len(new_entry.path)}: {new_entry.path}'
+        assert new_entry.path == old_entry.path
+        schema, key = new_entry.path
+        encoded_old_value = encode_value(old_entry.value)
+        encoded_new_value = encode_value(new_entry.value)
+
+        return cls(
+            old_entry,
+            new_entry,
+            schema,
+            key,
+            encoded_old_value,
+            encoded_new_value,
+        )
+
     def get_description(self) -> str:
-        return f'Update gsettings: {self.key} = {self.old_value} -> {self.new_value}'
+        return f'Update gsettings: {self.key} = {self.old_entry.value} -> {self.new_entry.value}'
+
+    def get_old_entry(self) -> MapConfigEntry[YamlSerializable]:
+        return self.old_entry
+
+    def get_new_entry(self) -> MapConfigEntry[YamlSerializable]:
+        return self.new_entry
 
     def run(self, executor: SystemExecutor) -> None:
         encoded_value = encode_value(self.new_value)
@@ -125,18 +162,38 @@ class GSettingsRemoveAction(DomainAction):
 
     def __init__(
         self,
+        old_entry: MapConfigEntry[YamlSerializable],
         schema: str,
         key: str,
         old_value: YamlSerializable,
     ) -> None:
         super().__init__()
 
+        self.old_entry = old_entry
         self.schema = schema
         self.key = key
         self.old_value = old_value
 
+    @classmethod
+    def create_from_entry(
+        cls,
+        old_entry: MapConfigEntry[YamlSerializable],
+    ) -> Self:
+        assert len(old_entry.path) == 2, \
+            f'Expected path length 2 (schema, key), got {len(old_entry.path)}: {old_entry.path}'
+        schema, key = old_entry.path
+        encoded_value = encode_value(old_entry.value)
+
+        return cls(old_entry, schema, key, encoded_value)
+
     def get_description(self) -> str:
-        return f'Remove gsettings: {self.key} = {self.old_value}'
+        return f'Remove gsettings: {self.key} = {self.old_entry.value}'
+
+    def get_old_entry(self) -> MapConfigEntry[YamlSerializable]:
+        return self.old_entry
+
+    def get_new_entry(self) -> None:
+        return None
 
     def run(self, executor: SystemExecutor) -> None:
         executor.command('gsettings', 'reset', self.schema, self.key)

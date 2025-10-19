@@ -2,37 +2,34 @@
 
 
 from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar, cast
-from sysconf.config.domains import Domain, DomainAction, DomainConfigEntry
+from sysconf.config.domains import Domain, DomainAction, DomainConfigEntry, NoDomainAction
 from sysconf.config.serialization import YamlSerializable
 from sysconf.utils.data import get_flattened_dict
 
 
 Path = tuple[str, ...]  # (keys, ...)
-Value = TypeVar('Value', contravariant=True)
+Value = TypeVar('Value')
 
 
 class AddActionFactory(Protocol, Generic[Value]):
     @staticmethod
     def __call__(
-        path: Path,
-        new_value: Value,
+        new_entry: 'MapConfigEntry[Value]',
     ) -> DomainAction: ...
 
 
 class UpdateActionFactory(Protocol, Generic[Value]):
     @staticmethod
     def __call__(
-        path: Path,
-        old_value: Value,
-        new_value: Value,
+        old_entry: 'MapConfigEntry[Value]',
+        new_entry: 'MapConfigEntry[Value]',
     ) -> DomainAction: ...
 
 
 class RemoveActionFactory(Protocol, Generic[Value]):
     @staticmethod
     def __call__(
-        path: Path,
-        old_value: Value,
+        old_entry: 'MapConfigEntry[Value]',
     ) -> DomainAction: ...
 
 
@@ -85,9 +82,9 @@ class MapDomain(Generic[Value], Domain):
 
     def get_action(
         self,
-        old_entry: 'DomainConfigEntry | None',
-        new_entry: 'DomainConfigEntry | None',
-    ) -> DomainAction | None:
+        old_entry: DomainConfigEntry | None,
+        new_entry: DomainConfigEntry | None,
+    ) -> DomainAction:
         assert old_entry is None or isinstance(old_entry, MapConfigEntry)
         assert new_entry is None or isinstance(new_entry, MapConfigEntry)
         assert old_entry is not None or new_entry is not None
@@ -104,16 +101,15 @@ class MapDomain(Generic[Value], Domain):
             case (MapConfigEntry(), MapConfigEntry()):
                 if old_entry.value != new_entry.value:
                     return self.update_action_factory(
-                        path=new_entry.path,
-                        old_value=old_entry.value,
-                        new_value=new_entry.value,
+                        old_entry=old_entry,
+                        new_entry=new_entry,
                     )
                 else:
-                    return None  # no change
+                    return NoDomainAction(old_entry, new_entry)
             case (MapConfigEntry(), None):
-                return self.remove_action_factory(old_entry.path, old_entry.value)
+                return self.remove_action_factory(old_entry)
             case (None, MapConfigEntry()):
-                return self.add_action_factory(new_entry.path, new_entry.value)
+                return self.add_action_factory(new_entry)
             case _:
                 assert False, \
                     f'unable to generate action from {old_entry} and {new_entry}'

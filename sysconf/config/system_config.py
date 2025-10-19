@@ -80,8 +80,7 @@ class SystemManager:
             old_entry = self.old_config.config_entries[entry_id]
             domain = old_entry.get_domain()
             action = domain.get_action(old_entry, None)
-            if action is not None:
-                actions.append(action)
+            actions.append(action)
 
         # add & update domains
         # add & update are combined so we can process them in the order they're
@@ -98,7 +97,6 @@ class SystemManager:
                 assert domain == old_entry.get_domain()
 
             action = domain.get_action(old_entry, new_entry)
-            if action is not None:
-                actions.append(action)
+            actions.append(action)
 
         return actions
