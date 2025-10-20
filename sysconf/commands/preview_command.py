@@ -5,6 +5,8 @@ from typing import Self
 
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
+from sysconf.config.parser import SystemConfigRenderer
+from sysconf.config.serialization import YamlSerializer
 from sysconf.config.system_config import SystemManager
 from sysconf.system.executor import PreviewSystemExecutor, SystemExecutor
 
@@ -78,4 +80,10 @@ class PreviewCommand (Command):
         This will compare the two configurations and print the planned actions.
         """
 
-        self.manager.run_actions(self.executor)
+        current_config = self.manager.run_actions(self.executor)
+        system_config_renderer = SystemConfigRenderer()
+        current_config_data = system_config_renderer.render_config(
+            current_config,
+        )
+        yaml_string = YamlSerializer().get_serialized_data(current_config_data)
+        print(yaml_string)

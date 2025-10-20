@@ -4,7 +4,7 @@
 from typing import Callable, Iterable
 from sysconf.config.domains import Domain, DomainAction, DomainConfigEntry, NoDomainAction
 from sysconf.config.serialization import YamlSerializable
-from sysconf.utils.data import get_flattened_dict
+from sysconf.utils.data import DataStructure, get_flattened_dict
 
 
 Path = tuple[str, ...]  # (keys, ...)
@@ -62,6 +62,28 @@ class ListDomain(Domain):
         )
 
         return entries
+
+    def render_config_entries(
+        self,
+        entries: Iterable[DomainConfigEntry],
+    ) -> YamlSerializable:
+        
+        data_builder = DataStructure(None)
+
+        if self.path_depth == 0:
+            data_builder[()] = []
+        else:
+            data_builder[()] = {}
+        
+        for entry in entries:
+            assert isinstance(entry, ListConfigEntry)
+
+            items = data_builder[entry.path] or []
+            assert isinstance(items, list)
+            index = len(items)
+            data_builder[entry.path + (index,)] = entry.value
+
+        return data_builder.get_data()
 
     def get_action(
         self,

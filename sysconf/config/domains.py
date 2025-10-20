@@ -39,6 +39,21 @@ class Domain(ABC):
         pass  # pragma: no cover
 
     @abstractmethod
+    def render_config_entries(
+        self,
+        entries: Iterable['DomainConfigEntry'],
+    ) -> YamlSerializable:
+        """
+        Render the given configuration entries into a serializable format.
+
+        Args:
+            entries: The configuration entries to render.
+        Returns:
+            A YamlSerializable representation of the configuration entries.
+        """
+        pass  # pragma: no cover
+
+    @abstractmethod
     def get_action(
         self,
         old_entry: 'DomainConfigEntry | None',

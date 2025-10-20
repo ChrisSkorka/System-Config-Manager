@@ -1,6 +1,6 @@
 # pyright: strict
 
-from typing import Iterable, Sequence
+from typing import Iterable, Self, Sequence
 from sysconf.config.domains import ConfigEntryId, DomainAction, DomainConfigEntry, NoDomainAction
 from sysconf.system.executor import CommandException, SystemExecutor
 from sysconf.utils.diff import Diff
@@ -101,8 +101,9 @@ class SystemManager:
             actions.append(action)
 
         return actions
-    
-    def run_actions(self, executor: SystemExecutor) -> None:
+
+    # todo: make executor class property
+    def run_actions(self, executor: SystemExecutor) -> SystemConfig:
         """
         Get and run all actions required to transition from the old 
         configuration to the new configuration.
@@ -113,33 +114,49 @@ class SystemManager:
         - Actions that are NoOp (NoDomainAction) are not run or printed
         """
 
+        config_interpolator = SystemConfigInterpolator.create_from_system_config(
+            self.old_config,
+        )
         actions = self.get_actions()
 
-        if not actions:
+        if all(isinstance(action, NoDomainAction) for action in actions):
             print('# No changes required.')
-            return
 
-        for action in actions:
-            if not isinstance(action, NoDomainAction):
-                print(f'# {action.get_description()}')
+        try:
+            for action in actions:
+                if not isinstance(action, NoDomainAction):
+                    print(f'# {action.get_description()}')
 
-                try:
-                    action.run(executor)
-                except CommandException as e:
-                    print(f'An error occurred while executing the command:')
-                    print(e.cmdline)
-                    print(
-                        f'Process exited with code {e.process.returncode}, see output above.',
-                    )
+                    try:
+                        action.run(executor)
+                    except CommandException as e:
+                        print(f'An error occurred while executing the command:')
+                        print(e.cmdline)
+                        print(
+                            f'Process exited with code {e.process.returncode}, see output above.',
+                        )
 
-                    should_continue = self.get_user_confirmation(
-                        'Do you want to continue with the remaining tasks?',
-                    )
-                    if not should_continue:
-                        return
-                    else:
-                        continue
+                        should_continue = self.get_user_confirmation(
+                            'Do you want to continue with the remaining tasks?',
+                        )
+                        if not should_continue:
+                            break
+                        else:
+                            continue
 
+                config_interpolator.update_entry(
+                    action.get_old_entry(),
+                    action.get_new_entry(),
+                )
+        except KeyboardInterrupt:
+            print('System Configuration Update interrupted by user.')
+        except Exception as e:
+            print('An unexpected error occurred during the configuration update:')
+            print(e)
+
+        return config_interpolator.get_system_config()
+
+    # todo: make service
     def get_user_confirmation(self, prompt: str) -> bool:
         """
         Promt the user for a yes/no confirmation to a prompt.
@@ -158,3 +175,87 @@ class SystemManager:
                 return False
 
         return False
+
+
+class SystemConfigInterpolator:
+    """
+    Interpolates from one SystemConfig to another one entry at a time.
+
+    This maintains the current state/config of the system at any time as actions
+    are run one by one.
+
+    Notes:
+    - Only supports a monotonic transition from the one config to new (no backtracking)
+    - Internally this will remove or move items from the old list and move them
+      or add new ones to the new list
+    """
+
+    def __init__(
+        self,
+        old_config_entries: list[DomainConfigEntry],
+        new_config_entries: list[DomainConfigEntry],
+    ) -> None:
+        super().__init__()
+
+        self.old_config_entries = old_config_entries
+        self.new_config_entries = new_config_entries
+
+    @classmethod
+    def create_from_system_config(cls, system_config: SystemConfig) -> Self:
+        return cls(
+            old_config_entries=list(system_config.config_entries.values()),
+            new_config_entries=[],
+        )
+
+    def remove_entry(self, entry: DomainConfigEntry) -> None:
+        """
+        Remove an entry from the current configuration.
+
+        Can only remove from the old configuration.
+        """
+
+        assert entry in self.old_config_entries, \
+            f'Cannot remove {entry}, it\'s not found in old config entries'
+
+        self.old_config_entries.remove(entry)
+
+    def add_entry(self, entry: DomainConfigEntry) -> None:
+        """
+        Add an entry from the current configuration.
+
+        Can only add to the new configuration.
+        """
+
+        assert entry not in self.new_config_entries, \
+            f'Cannot add {entry}, it already exists in new config entries'
+
+        self.new_config_entries.append(entry)
+
+    def update_entry(
+        self,
+        old_entry: DomainConfigEntry | None,
+        new_entry: DomainConfigEntry | None,
+    ) -> None:
+        """
+        Update the current configuration by applying the given entry diff to
+        the current configuration.
+        """
+
+        assert old_entry is not None or new_entry is not None, \
+            f'Cannot update confugation with entries: ' \
+            + f'old_entry={old_entry}, new_entry={new_entry}'
+
+        if old_entry is not None:
+            self.remove_entry(old_entry)
+        if new_entry is not None:
+            self.add_entry(new_entry)
+
+    def get_system_config(self) -> SystemConfig:
+        """
+        Get a SystemConfig instance representing the current configuration state.
+        """
+
+        entries = tuple(self.new_config_entries) + \
+            tuple(self.old_config_entries)
+
+        return SystemConfig.create_from_config_entries(entries)

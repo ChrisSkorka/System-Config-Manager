@@ -100,3 +100,20 @@ class YamlDeserializer:
     def get_deserialized_data(self, content: str) -> YamlSerializable:
         yaml_data = yaml.load(content, Loader=yaml.SafeLoader)
         return yaml_data
+
+class YamlSerializer:
+    """
+    A serializer for YAML configuration files.
+    """
+
+    def get_serialized_data(self, data: YamlSerializable) -> str:
+        """
+        Serialize the given data into a YAML string.
+        """
+
+        yaml_string = yaml.dump(
+            data,
+            Dumper=yaml.SafeDumper,
+            sort_keys=False,
+        )
+        return yaml_string

@@ -4,11 +4,11 @@
 from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar, cast
 from sysconf.config.domains import Domain, DomainAction, DomainConfigEntry, NoDomainAction
 from sysconf.config.serialization import YamlSerializable
-from sysconf.utils.data import get_flattened_dict
+from sysconf.utils.data import DataStructure, get_flattened_dict
 
 
 Path = tuple[str, ...]  # (keys, ...)
-Value = TypeVar('Value')
+Value = TypeVar('Value', bound=YamlSerializable)
 
 
 class AddActionFactory(Protocol, Generic[Value]):
@@ -79,6 +79,20 @@ class MapDomain(Generic[Value], Domain):
         )
 
         return entries
+
+    def render_config_entries(
+        self,
+        entries: Iterable[DomainConfigEntry],
+    ) -> YamlSerializable:
+        data_builder = DataStructure({})
+        
+        for entry in entries:
+            assert isinstance(entry, MapConfigEntry)
+            entry = cast(MapConfigEntry[Value], entry)
+            
+            data_builder[entry.path] = entry.value
+
+        return data_builder.get_data()
 
     def get_action(
         self,

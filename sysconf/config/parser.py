@@ -1,12 +1,15 @@
 # pyright: strict
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Type
+from typing import Iterable, Type, cast
 
 from sysconf.config import domain_registry
 from sysconf.config.domains import Domain, DomainConfigEntry
 from sysconf.config.serialization import YamlSerializable
 from sysconf.config.system_config import SystemConfig
+
+
+VERSION_1 = '1'
 
 
 class SystemConfigParser(ABC):
@@ -40,7 +43,7 @@ class SystemConfigParser(ABC):
         Get a mapping of version strings to parser classes.
         """
         return {
-            '1': SystemConfigParserV1,
+            VERSION_1: SystemConfigParserV1,
         }
 
     @staticmethod
@@ -109,3 +112,51 @@ class SystemConfigParserV1(SystemConfigParser):
         )
 
         return SystemConfig.create_from_config_entries(config_entries)
+
+
+class SystemConfigRenderer:
+    """
+    Renders a SystemConfig object into a serializable format (e.g., dicts, lists, scalars).
+    """
+
+    def render_config(self, system_config: SystemConfig) -> YamlSerializable:
+        """
+        Render the given SystemConfig object into a serializable format.
+
+        Args:
+            system_config (SystemConfig): The system configuration to render.
+        Returns:
+            YamlSerializable: The rendered configuration data.
+        """
+
+        entries_grouped_by_domain: list[tuple[Domain, list[DomainConfigEntry]]] = []
+
+        for entry in system_config.config_entries.values():
+            # get the domain of the last group (if it exists)
+            current_domain: Domain | None = entries_grouped_by_domain[-1][0] \
+                if entries_grouped_by_domain \
+                else None
+
+            # if the entry's domain is different from the current domain,
+            # start a new group
+            if current_domain != entry.get_domain():
+                entries_grouped_by_domain.append((
+                    entry.get_domain(),
+                    [],
+                ))
+            
+            entries_grouped_by_domain[-1][1].append(entry)
+
+        # render each domain's entries
+        tasks: list[dict[str, YamlSerializable]] = [
+            {domain.get_key(): domain.render_config_entries(entries)}
+            for domain, entries in entries_grouped_by_domain
+        ]
+
+        return cast(
+            YamlSerializable,
+            {
+                'version': VERSION_1,
+                'tasks': tasks,
+            },
+        )
