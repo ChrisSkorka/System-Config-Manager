@@ -1,6 +1,7 @@
 # pyright: strict
 
 from argparse import ArgumentParser, Namespace
+from pathlib import Path
 from typing import Self
 
 from sysconf.commands.command import Command, SubParsersAction
@@ -9,6 +10,8 @@ from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
 from sysconf.config.system_config import SystemManager
 from sysconf.system.executor import PreviewSystemExecutor, SystemExecutor
+from sysconf.system.file import FileWriter
+from sysconf.utils.defaults import Defaults
 
 
 class PreviewCommand (Command):
@@ -55,23 +58,52 @@ class PreviewCommand (Command):
         comparative_parser = ComparativeConfigCommandParser.create_from_arguments(
             parsed_arguments)
 
+        defaults = Defaults()
+        current_path = defaults.get_old_config_path()
+        assert current_path.is_file() or not current_path.exists(), \
+            f'Current config path is not a file: {current_path}'
+
+        file_writer = FileWriter()
+        system_config_renderer = SystemConfigRenderer()
+        yaml_serializer = YamlSerializer()
+
         return cls(
             manager=comparative_parser.get_system_manager(),
             executor=PreviewSystemExecutor(),
+            system_config_renderer=system_config_renderer,
+            yaml_serializer=yaml_serializer,
+            current_path=current_path,
+            file_writer=file_writer,
         )
 
-    def __init__(self, manager: SystemManager, executor: SystemExecutor) -> None:
+    def __init__(
+        self,
+        manager: SystemManager,
+        executor: SystemExecutor,
+        system_config_renderer: SystemConfigRenderer,
+        yaml_serializer: YamlSerializer,
+        current_path: Path,
+        file_writer: FileWriter,
+    ) -> None:
         super().__init__()
 
         self.manager = manager
         self.executor = executor
+        self.system_config_renderer = system_config_renderer
+        self.yaml_serializer = yaml_serializer
+        self.current_path = current_path
+        self.file_writer = file_writer
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, PreviewCommand):
             return False
 
         return self.manager == value.manager \
-            and self.executor == value.executor
+            and self.executor == value.executor \
+            and self.current_path == value.current_path \
+            and self.file_writer == value.file_writer \
+            and self.system_config_renderer == value.system_config_renderer \
+            and self.yaml_serializer == value.yaml_serializer
 
     def run(self) -> None:
         """
@@ -80,10 +112,15 @@ class PreviewCommand (Command):
         This will compare the two configurations and print the planned actions.
         """
 
+        # Execute the actions
         current_config = self.manager.run_actions(self.executor)
-        system_config_renderer = SystemConfigRenderer()
-        current_config_data = system_config_renderer.render_config(
+
+        # Prepare to write the new current configuration to file but don't
+        # actually write it
+        # If there was a problem with the serialization, the preview command
+        # should surface it insteead of the apply command failing after applying
+        # changes to the system
+        current_config_data = self.system_config_renderer.render_config(
             current_config,
         )
-        yaml_string = YamlSerializer().get_serialized_data(current_config_data)
-        print(yaml_string)
+        self.yaml_serializer.get_serialized_data(current_config_data)

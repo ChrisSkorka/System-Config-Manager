@@ -55,11 +55,16 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
         old_path: Path | None = parsed_arguments.last_config or defaults.get_old_config_path()
         new_path: Path = parsed_arguments.config_file or defaults.get_new_config_path()
 
+        current_path = defaults.get_old_config_path()
+        assert current_path.is_file() or not current_path.exists(), \
+            f'Current config path is not a file: {current_path}'
+
         new_path = get_validated_file_path(
             new_path,
             '.yaml',
         )
 
+        # todo: allow default to not exists but not argument path
         if old_path is not None and old_path.exists():
             old_path = get_validated_file_path(
                 old_path,
@@ -68,24 +73,31 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
         else:
             old_path = None
 
-        new_config = load_config_from_file(file_reader, new_path)
-        old_config = load_config_from_file(file_reader, old_path) \
-            if old_path \
-            else SystemConfig.create_from_config_entries(())
+        return cls(
+            old_path=old_path,
+            new_path=new_path,
+            file_reader=file_reader,
+        )
 
-        system_manager = SystemManager(old_config, new_config)
+    def __init__(
+        self,
+        old_path: Path | None,
+        new_path: Path,
+        file_reader: FileReader,
 
-        return cls(system_manager=system_manager)
-
-    def __init__(self, system_manager: SystemManager) -> None:
+    ) -> None:
         super().__init__()
 
-        self.system_manager = system_manager
-    
+        self.old_path = old_path
+        self.new_path = new_path
+        self.file_reader = file_reader
+
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, ComparativeConfigCommandParser):
             return False
-        return self.system_manager == value.system_manager
+        return self.old_path == value.old_path \
+            and self.new_path == value.new_path \
+            and self.file_reader == value.file_reader
 
     def get_system_manager(self) -> SystemManager:
         """
@@ -99,4 +111,11 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
             SystemManager: The system manager that compares the two configurations.
         """
 
-        return self.system_manager
+        new_config = load_config_from_file(self.file_reader, self.new_path)
+        old_config = load_config_from_file(self.file_reader, self.old_path) \
+            if self.old_path \
+            else SystemConfig.create_from_config_entries(())
+
+        system_manager = SystemManager(old_config, new_config)
+
+        return system_manager
