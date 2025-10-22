@@ -132,5 +132,11 @@ builtin_domains: list[Domain] = cast(
             """),
             remove_script='sudo rm -f "$key"',
         ),
+        create_list_shell_domain(
+            key='file-lines',
+            path_depth=1,
+            add_script='echo "$value" >> $key',
+            remove_script='sed -i "/^$value$/d" $key',
+        ),
     ],
 )
