@@ -10,21 +10,16 @@ E.g. a major system update may add and remove system packages, but this tool wil
 ## Todo
 
 - tests
+- pre & post application scripts (e.g. pre: apt update; post: source ~/.profile)
 - default config location via env var
-- split config into section
 - support $ref for split configs (use ruamel.yaml)
 - package registry system
 - edit command
-- dconf & gsettings validate is writtable
-- handle errors (stop at partial config application? continue? how to record what was done?)
-  - track progress & store intermediate config as last config
 - rollbacks command: apply config before current
 - better assert error messages (no stack trace)
 - class for overall (cli) command
-- relative and home paths
-  - '$pwd' -> source file path?
-  - cwd
 - logging
+- domain for rebost & ordered file edits (not just unordered file-lines)
 
 ## Usage
 
@@ -46,85 +41,83 @@ python -m sysconf apply [/path/to/config]
 
 ### Config Files
 
-`~/.system.config.yaml`
+`~/.config/system-config-manager/config.yaml`
 ```yaml
 version: 1
-system:
-  keyring:
-    /etc/apt/keyrings/docker.asc: 
-      get: https://download.docker.com/linux/ubuntu/gpg
-  apt-repository:
-    ppa:unit193/encryption:
-    /etc/apt/sources.list.d/docker.list:
-      shell: |
-        # Add the repository to Apt sources:
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-          $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
-          sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - keyring:
+      /etc/apt/keyrings/docker.asc: 
+        get: https://download.docker.com/linux/ubuntu/gpg
+  - apt-repository:
+      ppa:unit193/encryption:
+      /etc/apt/sources.list.d/docker.list:
+        shell: |
+          # Add the repository to Apt sources:
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+            $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-  # Apt packages
-  # 
-  # Run `apt search <keyboards>` to find available packages
-  apt:
-    - python3.12-venv
-    - python3-pip
-    - git
-    - veracrypt
-  # Snap packages
-  # 
-  # Run `snap search <keyboards>` to find available packages
-  snap:
-    - code
-  pip:
-    - numpy
-  user-groups:
-    docker
-  users:
-    $USER:
-      groups:
-      - docker
-  grub:
-    GRUB_DISTRIBUTOR: 
-user:
-  dconf:
-    /org/gnome/shell/favorite-apps: ['org.gnome.Nautilus.desktop', 'firefox_firefox.desktop', 'spotify_spotify.desktop', 'code_code.desktop', 'org.gnome.Terminal.desktop']
+    # Apt packages
+    # 
+    # Run `apt search <keyboards>` to find available packages
+  - apt:
+      - python3.12-venv
+      - python3-pip
+      - git
+      - veracrypt
+    # Snap packages
+    # 
+    # Run `snap search <keyboards>` to find available packages
+  - snap:
+      - code
+  - pip:
+      - numpy
+  - user-groups:
+      docker
+  - users:
+      $(whoami):
+        groups:
+        - docker
+  - grub:
+      GRUB_DISTRIBUTOR: 
+  - dconf:
+      /org/gnome/shell/favorite-apps: ['org.gnome.Nautilus.desktop', 'firefox_firefox.desktop', 'spotify_spotify.desktop', 'code_code.desktop', 'org.gnome.Terminal.desktop']
 
-  # Any Gnome Settings
-  # This includes system settings, extensions, and gnome applications
-  # 
-  # run `gsettings list-recursively` to get a list of all settings and current values
-  #
-  # For schemas with relocatable paths:
-  # Run `gsettings list-schemas --print-paths` to get the path
-  # or `dconf watch /` and change the setting in the UI to find the path
-  # gsettings:
-  #   org.gnome.shell.extensions.dash-to-dock:
-  #     dash-max-icon-size:  32
-  gsettings:
-    # Terminal
-    "org.gnome.Terminal.Legacy.Keybindings:/org/gnome/terminal/legacy/keybindings/":
-      copy: '<Primary>c'
-      paste: '<Primary>v'
-    # IO
-    org.gnome.desktop.peripherals.mouse:
-      speed: -0.2
+    # Any Gnome Settings
+    # This includes system settings, extensions, and gnome applications
+    # 
+    # run `gsettings list-recursively` to get a list of all settings and current values
+    #
+    # For schemas with relocatable paths:
+    # Run `gsettings list-schemas --print-paths` to get the path
+    # or `dconf watch /` and change the setting in the UI to find the path
+    # gsettings:
+    #   org.gnome.shell.extensions.dash-to-dock:
+    #     dash-max-icon-size:  32
+  - gsettings:
+      # Terminal
+      "org.gnome.Terminal.Legacy.Keybindings:/org/gnome/terminal/legacy/keybindings/":
+        copy: '<Primary>c'
+        paste: '<Primary>v'
+      # IO
+      org.gnome.desktop.peripherals.mouse:
+        speed: -0.2
 
-  # Any Git Configurations
-  #
-  # Run `git config --list --show-origin` to get a list of all configurations and current values
-  git.config.global:
-    user.email: name@email.com
-    user.name: Firstname Lastname
-  # VS Code Configurations that are not managed by config files
-  vscode:
-    extensions:
-    # General
-    - vscode.git # Git
+    # Any Git Configurations
+    #
+    # Run `git config --list --show-origin` to get a list of all configurations and current values
+  - git.config.global:
+      user.email: name@email.com
+      user.name: Firstname Lastname
+    # VS Code Configurations that are not managed by config files
+  - vscode:
+      extensions:
+      # General
+      - vscode.git # Git
 
-  symlink:
-    # Shell
-    ~/.bashrc: ./shell/bashrc
+  - symlink:
+      # Shell
+      ~/.bashrc: $pwd/shell/bashrc
 ```
 
 ## Domain-Based Design Pattern
