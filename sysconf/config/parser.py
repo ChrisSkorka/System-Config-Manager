@@ -86,23 +86,23 @@ class SystemConfigParserV1(SystemConfigParser):
         # version is not part of the config data
         data = {k: v for k, v in data.items() if k != 'version'}
 
-        assert 'tasks' in data
-        tasks = data['tasks'] or []
+        assert 'config' in data
+        config_items = data['config'] or []
 
         # validate data
-        assert isinstance(tasks, list), \
-            'tasks must be a list of domain mappings'
-        for task in tasks:
-            assert isinstance(task, dict), \
-                'each task must be a mapping of domain keys to domain data'
-            for key in task:
+        assert isinstance(config_items, list), \
+            'config must be a list of domain mappings'
+        for config_item in config_items:
+            assert isinstance(config_item, dict), \
+                'each config item must be a mapping of domain keys to domain data'
+            for key in config_item:
                 assert key in self.domains_by_key, \
                     f'Unknown domain key: {key}'
 
         # parse domain data
         config_entries: Iterable[DomainConfigEntry] = tuple(
             entry
-            for task in tasks
+            for task in config_items
             if isinstance(task, dict)
             for domain_key, value in task.items()
             if domain_key in self.domains_by_key
@@ -148,7 +148,7 @@ class SystemConfigRenderer:
             entries_grouped_by_domain[-1][1].append(entry)
 
         # render each domain's entries
-        tasks: list[dict[str, YamlSerializable]] = [
+        config_items: list[dict[str, YamlSerializable]] = [
             {domain.get_key(): domain.render_config_entries(entries)}
             for domain, entries in entries_grouped_by_domain
         ]
@@ -157,6 +157,6 @@ class SystemConfigRenderer:
             YamlSerializable,
             {
                 'version': VERSION_1,
-                'tasks': tasks,
+                'config': config_items,
             },
         )

@@ -44,56 +44,33 @@ python -m sysconf apply [/path/to/config]
 `~/.config/system-config-manager/config.yaml`
 ```yaml
 version: 1
-  - keyring:
-      /etc/apt/keyrings/docker.asc: 
-        get: https://download.docker.com/linux/ubuntu/gpg
-  - apt-repository:
-      ppa:unit193/encryption:
-      /etc/apt/sources.list.d/docker.list:
-        shell: |
-          # Add the repository to Apt sources:
-          echo \
-            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-            $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
-            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-    # Apt packages
-    # 
-    # Run `apt search <keyboards>` to find available packages
+config:
+  # System Packages
   - apt:
       - python3.12-venv
       - python3-pip
       - git
-      - veracrypt
-    # Snap packages
-    # 
-    # Run `snap search <keyboards>` to find available packages
   - snap:
       - code
   - pip:
       - numpy
-  - user-groups:
-      docker
-  - users:
-      $(whoami):
-        groups:
-        - docker
-  - grub:
-      GRUB_DISTRIBUTOR: 
-  - dconf:
-      /org/gnome/shell/favorite-apps: ['org.gnome.Nautilus.desktop', 'firefox_firefox.desktop', 'spotify_spotify.desktop', 'code_code.desktop', 'org.gnome.Terminal.desktop']
 
-    # Any Gnome Settings
-    # This includes system settings, extensions, and gnome applications
-    # 
-    # run `gsettings list-recursively` to get a list of all settings and current values
-    #
-    # For schemas with relocatable paths:
-    # Run `gsettings list-schemas --print-paths` to get the path
-    # or `dconf watch /` and change the setting in the UI to find the path
-    # gsettings:
-    #   org.gnome.shell.extensions.dash-to-dock:
-    #     dash-max-icon-size:  32
+  # User Groups
+  - groups:
+      - docker
+  - user-groups:
+      $(whoami): 
+        - docker
+
+  # User Settings
+  - dconf:
+      /org/gnome/shell/favorite-apps: [
+        'org.gnome.Nautilus.desktop', 
+        'firefox_firefox.desktop', 
+        'spotify_spotify.desktop', 
+        'code_code.desktop', 
+        'org.gnome.Terminal.desktop',
+      ]
   - gsettings:
       # Terminal
       "org.gnome.Terminal.Legacy.Keybindings:/org/gnome/terminal/legacy/keybindings/":
@@ -103,21 +80,24 @@ version: 1
       org.gnome.desktop.peripherals.mouse:
         speed: -0.2
 
-    # Any Git Configurations
-    #
-    # Run `git config --list --show-origin` to get a list of all configurations and current values
+    # Git Configurations
   - git.config.global:
       user.email: name@email.com
       user.name: Firstname Lastname
-    # VS Code Configurations that are not managed by config files
-  - vscode:
-      extensions:
-      # General
+
+    # VS Code Extensions
+  - vscode-extensions:
       - vscode.git # Git
 
+  # Config & Dot Files
   - symlink:
       # Shell
-      ~/.bashrc: $pwd/shell/bashrc
+      ~/.bashrc: $pwd/shell/.bashrc
+
+  # File Edits
+  - file-lines:
+      ~/.profile:
+        - alias ll='ls -la'
 ```
 
 ## Domain-Based Design Pattern
