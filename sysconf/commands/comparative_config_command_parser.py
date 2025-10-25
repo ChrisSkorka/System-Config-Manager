@@ -6,6 +6,8 @@ from typing import Self
 
 from sysconf.commands.command import CommandArgumentParserBuilder
 from sysconf.config.system_config import SystemConfig, SystemManager
+from sysconf.system.error_handler import ErrorHandler
+from sysconf.system.executor import SystemExecutor
 from sysconf.system.file import FileReader
 from sysconf.system.path import get_validated_file_path
 from sysconf.utils.config_loader import load_config_from_file
@@ -99,16 +101,17 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
             and self.new_path == value.new_path \
             and self.file_reader == value.file_reader
 
-    def get_system_manager(self) -> SystemManager:
+    def get_system_manager(
+        self,
+        executor: SystemExecutor,
+        error_handler: ErrorHandler,
+    ) -> SystemManager:
         """
         Get the system manager that compares the two configurations.
 
-        Relation to arguments:
+        Relation to cli arguments:
         - `last-config` is the old configuration
         - `config_file` is the new configuration.
-
-        Returns:
-            SystemManager: The system manager that compares the two configurations.
         """
 
         new_config = load_config_from_file(self.file_reader, self.new_path)
@@ -116,6 +119,11 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
             if self.old_path \
             else SystemConfig.create_from_config_entries(())
 
-        system_manager = SystemManager(old_config, new_config)
+        system_manager = SystemManager(
+            old_config, 
+            new_config,
+            executor,
+            error_handler,
+        )
 
         return system_manager

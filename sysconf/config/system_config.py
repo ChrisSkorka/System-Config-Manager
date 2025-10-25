@@ -2,7 +2,8 @@
 
 from typing import Iterable, Self, Sequence
 from sysconf.config.domains import ConfigEntryId, DomainAction, DomainConfigEntry, NoDomainAction
-from sysconf.system.executor import CommandException, SystemExecutor
+from sysconf.system.error_handler import ErrorHandler
+from sysconf.system.executor import SystemExecutor
 from sysconf.utils.diff import Diff
 
 
@@ -51,9 +52,17 @@ class SystemManager:
     Manages the application of system configurations across multiple domains.
     """
 
-    def __init__(self, old_config: SystemConfig, new_config: SystemConfig):
+    def __init__(
+        self,
+        old_config: SystemConfig,
+        new_config: SystemConfig,
+        executor: SystemExecutor,
+        error_handler: ErrorHandler,
+    ) -> None:
         self.old_config = old_config
         self.new_config = new_config
+        self.executor = executor
+        self.error_handler = error_handler
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, SystemManager):
@@ -102,8 +111,7 @@ class SystemManager:
 
         return actions
 
-    # todo: make executor class property
-    def run_actions(self, executor: SystemExecutor) -> SystemConfig:
+    def run_actions(self) -> SystemConfig:
         """
         Get and run all actions required to transition from the old 
         configuration to the new configuration.
@@ -127,21 +135,15 @@ class SystemManager:
                 if not isinstance(action, NoDomainAction):
                     print(f'# {action.get_description()}')
 
-                    try:
-                        action.run(executor)
-                    except CommandException as e:
-                        print(f'An error occurred while executing the command:')
-                        print(e.cmdline)
-                        print(
-                            f'Process exited with code {e.process.returncode}, see output above.',
-                        )
-
-                        should_continue = self.get_user_confirmation(
-                            'Do you want to continue with the remaining tasks?',
-                        )
-                        if not should_continue:
+                    status = self.error_handler.try_run(
+                        lambda: action.run(self.executor),
+                    )
+                    match status:
+                        case ErrorHandler.Status.SUCCESS:
+                            pass
+                        case ErrorHandler.Status.FAILED:
                             break
-                        else:
+                        case ErrorHandler.Status.SKIPPED:
                             continue
 
                 config_interpolator.update_entry(
@@ -155,26 +157,6 @@ class SystemManager:
             print(e)
 
         return config_interpolator.get_system_config()
-
-    # todo: make service
-    def get_user_confirmation(self, prompt: str) -> bool:
-        """
-        Promt the user for a yes/no confirmation to a prompt.
-
-        Notes:
-        - Accepts 'y', 'yes', 'n', 'no' (case insensitive)
-        - Allows up to 3 attempts
-        - Defaults to false ('no') if no valid input is given in the 3 attempts
-        """
-
-        for _ in range(3):  # allow up to 3 attempts
-            user_input = input(f'{prompt} (y/n): ').strip().lower()
-            if user_input in ('y', 'yes'):
-                return True
-            elif user_input in ('n', 'no', ''):
-                return False
-
-        return False
 
 
 class SystemConfigInterpolator:

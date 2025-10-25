@@ -9,7 +9,8 @@ from sysconf.commands.comparative_config_command_parser import ComparativeConfig
 from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
 from sysconf.config.system_config import SystemManager
-from sysconf.system.executor import LiveSystemExecutor, SystemExecutor
+from sysconf.system.error_handler import PromptUserErrorHandler
+from sysconf.system.executor import CommandException, LiveSystemExecutor
 from sysconf.system.file import FileWriter
 from sysconf.utils.defaults import Defaults
 
@@ -56,6 +57,10 @@ class ApplyCommand (Command):
         comparative_parser = ComparativeConfigCommandParser.create_from_arguments(
             parsed_arguments,
         )
+        system_manager = comparative_parser.get_system_manager(
+            executor=LiveSystemExecutor(),
+            error_handler=PromptUserErrorHandler(CommandException),
+        )
 
         defaults = Defaults()
         current_path = defaults.get_old_config_path()
@@ -67,8 +72,7 @@ class ApplyCommand (Command):
         yaml_serializer = YamlSerializer()
 
         return cls(
-            manager=comparative_parser.get_system_manager(),
-            executor=LiveSystemExecutor(),
+            manager=system_manager,
             system_config_renderer=system_config_renderer,
             yaml_serializer=yaml_serializer,
             current_path=current_path,
@@ -78,7 +82,6 @@ class ApplyCommand (Command):
     def __init__(
         self,
         manager: SystemManager,
-        executor: SystemExecutor,
         system_config_renderer: SystemConfigRenderer,
         yaml_serializer: YamlSerializer,
         current_path: Path,
@@ -87,7 +90,6 @@ class ApplyCommand (Command):
         super().__init__()
 
         self.manager = manager
-        self.executor = executor
         self.system_config_renderer = system_config_renderer
         self.yaml_serializer = yaml_serializer
         self.current_path = current_path
@@ -98,7 +100,6 @@ class ApplyCommand (Command):
             return False
 
         return self.manager == value.manager \
-            and self.executor == value.executor \
             and self.current_path == value.current_path \
             and self.file_writer == value.file_writer \
             and self.system_config_renderer == value.system_config_renderer \
@@ -119,7 +120,7 @@ class ApplyCommand (Command):
         """
 
         # Execute the actions
-        current_config = self.manager.run_actions(self.executor)
+        current_config = self.manager.run_actions()
 
         # Write the new current configuration
         current_config_data = self.system_config_renderer.render_config(
