@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Iterable, Type, cast
 
 from sysconf.config import domain_registry
+from sysconf.config.actions import Action, ShellAction
 from sysconf.config.domains import Domain, DomainConfigEntry
 from sysconf.config.serialization import YamlSerializable
 from sysconf.config.system_config import SystemConfig
@@ -88,8 +89,16 @@ class SystemConfigParserV1(SystemConfigParser):
 
         assert 'config' in data
         config_items = data['config'] or []
+        before_scripts = data.get('before') or []
+        after_scripts = data.get('after') or []
 
         # validate data
+        assert isinstance(before_scripts, list), \
+            'before scripts must be a list'
+
+        assert isinstance(after_scripts, list), \
+            'after scripts must be a list'
+
         assert isinstance(config_items, list), \
             'config must be a list of domain mappings'
         for config_item in config_items:
@@ -98,6 +107,16 @@ class SystemConfigParserV1(SystemConfigParser):
             for key in config_item:
                 assert key in self.domains_by_key, \
                     f'Unknown domain key: {key}'
+
+        # parse before and after scripts
+        before_actions: Iterable[Action] = tuple(
+            ShellAction.create_from_serialized(script)
+            for script in before_scripts
+        )
+        after_actions: Iterable[Action] = tuple(
+            ShellAction.create_from_serialized(script)
+            for script in after_scripts
+        )
 
         # parse domain data
         config_entries: Iterable[DomainConfigEntry] = tuple(
@@ -111,7 +130,11 @@ class SystemConfigParserV1(SystemConfigParser):
             )
         )
 
-        return SystemConfig.create_from_config_entries(config_entries)
+        return SystemConfig.create_from_entries(
+            before_actions,
+            after_actions,
+            config_entries,
+        )
 
 
 class SystemConfigRenderer:
@@ -129,9 +152,51 @@ class SystemConfigRenderer:
             YamlSerializable: The rendered configuration data.
         """
 
-        entries_grouped_by_domain: list[tuple[Domain, list[DomainConfigEntry]]] = []
+        # render before and after scripts
+        before_items = [
+            action.render()
+            for action in system_config.before_actions
+        ]
+        after_items = [
+            action.render()
+            for action in system_config.after_actions
+        ]
 
-        for entry in system_config.config_entries.values():
+        # render each domain's entries
+        entries_grouped_by_domain = self.get_entries_grouped_by_domain(
+            system_config.config_entries.values(),
+        )
+        config_items: list[dict[str, YamlSerializable]] = [
+            {domain.get_key(): domain.render_config_entries(entries)}
+            for domain, entries in entries_grouped_by_domain
+        ]
+
+        return cast(
+            YamlSerializable,
+            {
+                'version': VERSION_1,
+                'before': before_items,
+                'after': after_items,
+                'config': config_items,
+            },
+        )
+
+    def get_entries_grouped_by_domain(
+        self,
+        entries: Iterable[DomainConfigEntry],
+    ) -> tuple[tuple[Domain, list[DomainConfigEntry]], ...]:
+        """
+        Group the given configuration entries by their domain.
+
+        Notes:
+        - The order of entries is preserved.
+        - Domains may appear multiple times if their entries are not contiguous.
+        """
+
+        entries_grouped_by_domain: list[tuple[Domain,
+                                              list[DomainConfigEntry]]] = []
+
+        for entry in entries:
             # get the domain of the last group (if it exists)
             current_domain: Domain | None = entries_grouped_by_domain[-1][0] \
                 if entries_grouped_by_domain \
@@ -144,19 +209,7 @@ class SystemConfigRenderer:
                     entry.get_domain(),
                     [],
                 ))
-            
+
             entries_grouped_by_domain[-1][1].append(entry)
 
-        # render each domain's entries
-        config_items: list[dict[str, YamlSerializable]] = [
-            {domain.get_key(): domain.render_config_entries(entries)}
-            for domain, entries in entries_grouped_by_domain
-        ]
-
-        return cast(
-            YamlSerializable,
-            {
-                'version': VERSION_1,
-                'config': config_items,
-            },
-        )
+        return tuple(entries_grouped_by_domain)

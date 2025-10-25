@@ -97,3 +97,43 @@ class Diff(Generic[T]):
             intersection,
             union,
         )
+
+    def get_entries(self) -> 'tuple[DiffEntry[T], ...]':
+        """
+        Get pairs of items representing changes from old to new.
+
+        Notes:
+        - First includes all removed item entries in order of old
+        - Then includes unchanged and new items in order of new
+        """
+
+        entries: list[DiffEntry[T]] = []
+
+        # removed items
+        for item in self.exclusive_old:
+            entries.append(DiffEntry(old_item=item, new_item=None))
+
+        # unchanged and new items in order of new
+        for item in self.new:
+            if item in self.old:
+                entries.append(DiffEntry(old_item=item, new_item=item))
+            else:
+                entries.append(DiffEntry(old_item=None, new_item=item))
+
+        return tuple(entries)
+
+
+class DiffEntry(Generic[T]):
+    """
+    Represents a single change from an old item to a new item.
+
+    Attributes:
+        old_item: The old item (None if added)
+        new_item: The new item (None if removed)
+    """
+
+    def __init__(self, old_item: T | None, new_item: T | None) -> None:
+        super().__init__()
+
+        self.old_item = old_item
+        self.new_item = new_item

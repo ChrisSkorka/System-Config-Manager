@@ -117,10 +117,10 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
         new_config = load_config_from_file(self.file_reader, self.new_path)
         old_config = load_config_from_file(self.file_reader, self.old_path) \
             if self.old_path \
-            else SystemConfig.create_from_config_entries(())
+            else SystemConfig.create_from_entries((), (), ())
 
         system_manager = SystemManager(
-            old_config, 
+            old_config,
             new_config,
             executor,
             error_handler,

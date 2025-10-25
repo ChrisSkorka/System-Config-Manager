@@ -9,8 +9,8 @@ E.g. a major system update may add and remove system packages, but this tool wil
 
 ## Todo
 
+- user defined domains
 - tests
-- pre & post application scripts (e.g. pre: apt update; post: source ~/.profile)
 - default config location via env var
 - support $ref for split configs (use ruamel.yaml)
 - package registry system
@@ -44,6 +44,13 @@ python -m sysconf apply [/path/to/config]
 `~/.config/system-config-manager/config.yaml`
 ```yaml
 version: 1
+
+before:
+  - sudo apt update
+
+after:
+  - sudo apt autoremove -y
+
 config:
   # System Packages
   - apt:

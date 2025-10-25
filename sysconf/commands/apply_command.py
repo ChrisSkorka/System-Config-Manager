@@ -141,7 +141,7 @@ class ApplyCommand (Command):
 
             print('The changes were successfully applied to the system, '
                   + 'but an error occurred while writing the updated current configuration file:',
-            )
+                  )
             print(str(e))
             print(
                 f'Please copy the above configuration and save it to {self.current_path}.',
