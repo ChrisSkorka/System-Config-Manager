@@ -1,6 +1,5 @@
 # pyright: strict
 
-
 from sysconf.config.domains import DomainAction
 from sysconf.domains.list_domain import ListConfigEntry, ListDomain
 from sysconf.domains.map_domain import MapConfigEntry, MapDomain
