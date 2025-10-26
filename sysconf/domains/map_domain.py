@@ -85,11 +85,11 @@ class MapDomain(Generic[Value], Domain):
         entries: Iterable[DomainConfigEntry],
     ) -> YamlSerializable:
         data_builder = DataStructure({})
-        
+
         for entry in entries:
             assert isinstance(entry, MapConfigEntry)
             entry = cast(MapConfigEntry[Value], entry)
-            
+
             data_builder[entry.path] = entry.value
 
         return data_builder.get_data()
@@ -105,10 +105,10 @@ class MapDomain(Generic[Value], Domain):
 
         # Typing
         if old_entry is not None:
-            assert old_entry.get_domain() == self
+            assert old_entry.get_domain().get_key() == self.get_key()
             old_entry = cast(MapConfigEntry[Value], old_entry)
         if new_entry is not None:
-            assert new_entry.get_domain() == self
+            assert new_entry.get_domain().get_key() == self.get_key()
             new_entry = cast(MapConfigEntry[Value], new_entry)
 
         match (old_entry, new_entry):

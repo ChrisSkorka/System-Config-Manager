@@ -8,6 +8,7 @@ from sysconf.config.actions import Action, ShellAction
 from sysconf.config.domains import Domain, DomainConfigEntry
 from sysconf.config.serialization import YamlSerializable
 from sysconf.config.system_config import SystemConfig
+from sysconf.domains.user_domains import UserDomain, UserListDomain, UserMapDomain
 
 
 VERSION_1 = '1'
@@ -88,11 +89,22 @@ class SystemConfigParserV1(SystemConfigParser):
         data = {k: v for k, v in data.items() if k != 'version'}
 
         assert 'config' in data
-        config_items = data['config'] or []
+        user_domains = data.get('domains') or {}
         before_scripts = data.get('before') or []
         after_scripts = data.get('after') or []
+        config_items = data['config'] or []
 
         # validate data
+        assert isinstance(user_domains, dict), \
+            'domains must be a mapping of domain keys to domain specifications'
+        for domain_key, domain_spec in user_domains.items():
+            assert isinstance(domain_key, str), \
+                'domain keys must be strings'
+            assert isinstance(domain_spec, dict), \
+                'domain specifications must be mappings'
+            assert 'type' in domain_spec, \
+                'domain specifications must contain a `type` key'
+
         assert isinstance(before_scripts, list), \
             'before scripts must be a list'
 
@@ -104,9 +116,60 @@ class SystemConfigParserV1(SystemConfigParser):
         for config_item in config_items:
             assert isinstance(config_item, dict), \
                 'each config item must be a mapping of domain keys to domain data'
-            for key in config_item:
-                assert key in self.domains_by_key, \
-                    f'Unknown domain key: {key}'
+
+        # parse user domains
+        user_domains_by_key: dict[str, UserDomain] = {}
+        for domain_key, domain_spec in user_domains.items():
+            assert isinstance(domain_spec, dict)
+            domain_type = str(domain_spec['type'])
+
+            match domain_type:
+                case 'list':
+                    add_script = domain_spec.get('add')
+                    remove_script = domain_spec.get('remove')
+                    path_depth = domain_spec.get('depth', 0)
+                    assert isinstance(add_script, str)
+                    assert isinstance(remove_script, str)
+                    assert isinstance(path_depth, int)
+
+                    domain = UserListDomain.create_from_specs(
+                        key=domain_key,
+                        path_depth=path_depth,
+                        add_script=add_script,
+                        remove_script=remove_script,
+                    )
+
+                    user_domains_by_key[domain_key] = domain
+                case 'map':
+                    add_script = domain_spec.get('add')
+                    update_script = domain_spec.get('update')
+                    remove_script = domain_spec.get('remove')
+                    path_depth = domain_spec.get('depth', 1)
+                    assert isinstance(add_script, str), \
+                        f'Invalid \'add\' for domain \'{domain_key}\''
+                    assert isinstance(update_script, str), \
+                        f'Invalid \'update\' for domain \'{domain_key}\''
+                    assert isinstance(remove_script, str), \
+                        f'Invalid \'remove\' for domain \'{domain_key}\''
+                    assert isinstance(path_depth, int), \
+                        f'Invalid \'depth\' for domain \'{domain_key}\''
+
+                    domain = UserMapDomain.create_from_specs(
+                        key=domain_key,
+                        path_depth=path_depth,
+                        add_script=add_script,
+                        update_script=update_script,
+                        remove_script=remove_script,
+                    )
+
+                    user_domains_by_key[domain_key] = domain
+                case _:
+                    raise AssertionError(f'Invalid domain type: {domain_type}')
+
+        domains = {
+            **self.domains_by_key,
+            **user_domains_by_key,
+        }
 
         # parse before and after scripts
         before_actions: Iterable[Action] = tuple(
@@ -121,12 +184,11 @@ class SystemConfigParserV1(SystemConfigParser):
         # parse domain data
         config_entries: Iterable[DomainConfigEntry] = tuple(
             entry
-            for task in config_items
-            if isinstance(task, dict)
-            for domain_key, value in task.items()
-            if domain_key in self.domains_by_key
-            for entry in self.domains_by_key[domain_key].get_config_entries(
-                value,
+            for config_item in config_items
+            if isinstance(config_item, dict)
+            for domain_key, entries in config_item.items()
+            for entry in domains[domain_key].get_config_entries(
+                entries,
             )
         )
 
@@ -134,6 +196,7 @@ class SystemConfigParserV1(SystemConfigParser):
             before_actions,
             after_actions,
             config_entries,
+            tuple(user_domains_by_key.values()),
         )
 
 
@@ -151,6 +214,25 @@ class SystemConfigRenderer:
         Returns:
             YamlSerializable: The rendered configuration data.
         """
+
+        # render domains
+        domains = {
+            domain.get_key(): {
+                'type': 'list',
+                'depth': domain.path_depth,
+                'add': domain.add_script,
+                'remove': domain.remove_script,
+            } if isinstance(domain, UserListDomain)
+            else {
+                'type': 'map',
+                'depth': domain.path_depth,
+                'add': domain.add_script,
+                'update': domain.update_script,
+                'remove': domain.remove_script,
+            } if isinstance(domain, UserMapDomain)
+            else None
+            for domain in system_config.domains.values()
+        }
 
         # render before and after scripts
         before_items = [
@@ -178,6 +260,7 @@ class SystemConfigRenderer:
                 'before': before_items,
                 'after': after_items,
                 'config': config_items,
+                'domains': domains,
             },
         )
 

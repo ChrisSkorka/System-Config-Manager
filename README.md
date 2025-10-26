@@ -9,7 +9,6 @@ E.g. a major system update may add and remove system packages, but this tool wil
 
 ## Todo
 
-- user defined domains
 - tests
 - default config location via env var
 - support $ref for split configs (use ruamel.yaml)
@@ -20,6 +19,7 @@ E.g. a major system update may add and remove system packages, but this tool wil
 - class for overall (cli) command
 - logging
 - domain for rebost & ordered file edits (not just unordered file-lines)
+- handle duplicates in before & after
 
 ## Usage
 
@@ -105,6 +105,29 @@ config:
   - file-lines:
       ~/.profile:
         - alias ll='ls -la'
+
+domains:
+  # Simple list of items
+  apt:
+    type: list
+    add: sudo apt install -y $value
+    remove: sudo apt remove -y $value
+
+  # List with keys as args
+  user-groups:
+    type: list
+    depth: 1
+    add: sudo usermod -aG "$value" "$key"
+    remove: |
+      echo "Removing group from user not implemented"; 
+      exit 1;
+    
+  # Map with key-value pairs
+  git-config-global:
+    type: map
+    add: git config --global $key "$value"
+    update: git config --global $key "$value"
+    remove: git config --global --unset $key
 ```
 
 ## Domain-Based Design Pattern
