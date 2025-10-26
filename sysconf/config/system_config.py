@@ -9,6 +9,7 @@ from sysconf.domains.user_domains import UserDomain
 from sysconf.system.error_handler import ErrorHandler
 from sysconf.system.executor import SystemExecutor
 from sysconf.utils.diff import Diff
+from sysconf.utils.transition import SequenceTransitioner
 
 
 class SystemConfig:
@@ -164,7 +165,7 @@ class SystemManager:
             print('# No changes required.')
             return self.new_config
 
-        config_interpolator = SystemConfigInterpolator.create_from_system_configs(
+        config_interpolator = SystemConfigTransitioner.create_from_system_configs(
             self.old_config,
             self.new_config,
         )
@@ -237,8 +238,7 @@ class SystemManager:
         return config_interpolator.get_system_config()
 
 
-# todo generalise into generic interpolator & move to new file
-class SystemConfigInterpolator:
+class SystemConfigTransitioner:
     """
     Interpolates from one SystemConfig to another one entry at a time.
 
@@ -255,17 +255,20 @@ class SystemConfigInterpolator:
 
     @classmethod
     def create_from_system_configs(
-        cls,
+        cls, 
         old_system_config: SystemConfig,
         new_system_config: SystemConfig,
     ) -> Self:
         return cls(
-            old_before_actions=list(old_system_config.before_actions),
-            new_before_actions=[],
-            old_after_actions=list(old_system_config.after_actions),
-            new_after_actions=[],
-            old_config_entries=list(old_system_config.config_entries.values()),
-            new_config_entries=[],
+            before_actions_transitioner=SequenceTransitioner[Action].create_from_old_items(
+                old_system_config.before_actions,
+            ),
+            after_actions_transitioner=SequenceTransitioner[Action].create_from_old_items(
+                old_system_config.after_actions,
+            ),
+            config_entries_transitioner=SequenceTransitioner[DomainConfigEntry].create_from_old_items(
+                old_system_config.config_entries.values(),
+            ),
             old_domains=old_system_config.domains,
             new_domains=new_system_config.domains,
             builtin_domains={
@@ -274,24 +277,18 @@ class SystemConfigInterpolator:
 
     def __init__(
         self,
-        old_before_actions: list[Action],
-        new_before_actions: list[Action],
-        old_after_actions: list[Action],
-        new_after_actions: list[Action],
-        old_config_entries: list[DomainConfigEntry],
-        new_config_entries: list[DomainConfigEntry],
+        before_actions_transitioner: SequenceTransitioner[Action],
+        after_actions_transitioner: SequenceTransitioner[Action],
+        config_entries_transitioner: SequenceTransitioner[DomainConfigEntry],
         old_domains: dict[str, UserDomain],
         new_domains: dict[str, UserDomain],
         builtin_domains: dict[str, Domain],
     ) -> None:
         super().__init__()
 
-        self.old_before_actions = old_before_actions
-        self.new_before_actions = new_before_actions
-        self.old_after_actions = old_after_actions
-        self.new_after_actions = new_after_actions
-        self.old_config_entries = old_config_entries
-        self.new_config_entries = new_config_entries
+        self.before_actions_transitioner = before_actions_transitioner
+        self.after_actions_transitioner = after_actions_transitioner
+        self.config_entries_transitioner = config_entries_transitioner
         self.old_domains = old_domains
         self.new_domains = new_domains
         self.builtin_domains = builtin_domains
@@ -306,21 +303,10 @@ class SystemConfigInterpolator:
         the current configuration.
         """
 
-        assert old_action is not None or new_action is not None, \
-            f'Cannot update before actions with actions: ' \
-            + f'old_action={old_action}, new_action={new_action}'
-
-        if old_action is not None:
-            assert old_action in self.old_before_actions, \
-                f'Cannot remove {old_action}, it\'s not found in old before actions'
-
-            self.old_before_actions.remove(old_action)
-
-        if new_action is not None:
-            assert new_action not in self.new_before_actions, \
-                f'Cannot add {new_action}, it already exists in new before actions'
-
-            self.new_before_actions.append(new_action)
+        self.before_actions_transitioner.update_item(
+            old_action,
+            new_action,
+        )
 
     def update_after_action(
         self,
@@ -332,21 +318,10 @@ class SystemConfigInterpolator:
         the current configuration.
         """
 
-        assert old_action is not None or new_action is not None, \
-            f'Cannot update after actions with actions: ' \
-            + f'old_action={old_action}, new_action={new_action}'
-
-        if old_action is not None:
-            assert old_action in self.old_after_actions, \
-                f'Cannot remove {old_action}, it\'s not found in old after actions'
-
-            self.old_after_actions.remove(old_action)
-
-        if new_action is not None:
-            assert new_action not in self.new_after_actions, \
-                f'Cannot add {new_action}, it already exists in new after actions'
-
-            self.new_after_actions.append(new_action)
+        self.after_actions_transitioner.update_item(
+            old_action,
+            new_action,
+        )
 
     def update_config_entry(
         self,
@@ -358,33 +333,19 @@ class SystemConfigInterpolator:
         the current configuration.
         """
 
-        assert old_entry is not None or new_entry is not None, \
-            f'Cannot update confugation with entries: ' \
-            + f'old_entry={old_entry}, new_entry={new_entry}'
-
-        if old_entry is not None:
-            assert old_entry in self.old_config_entries, \
-                f'Cannot remove {old_entry}, it\'s not found in old config entries'
-
-            self.old_config_entries.remove(old_entry)
-
-        if new_entry is not None:
-            assert new_entry not in self.new_config_entries, \
-                f'Cannot add {new_entry}, it already exists in new config entries'
-
-            self.new_config_entries.append(new_entry)
+        self.config_entries_transitioner.update_item(
+            old_entry,
+            new_entry,
+        )
 
     def get_system_config(self) -> SystemConfig:
         """
         Get a SystemConfig instance representing the current configuration state.
         """
 
-        before_actions = tuple(self.new_before_actions) + \
-            tuple(self.old_before_actions)
-        after_actions = tuple(self.new_after_actions) + \
-            tuple(self.old_after_actions)
-        config_entries = tuple(self.new_config_entries) + \
-            tuple(self.old_config_entries)
+        before_actions = self.before_actions_transitioner.get_current_items()
+        after_actions = self.after_actions_transitioner.get_current_items()
+        config_entries = self.config_entries_transitioner.get_current_items()
 
         # compute required user domains
         used_domain_keys = {
