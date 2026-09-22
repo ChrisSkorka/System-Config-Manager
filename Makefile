@@ -1,13 +1,16 @@
-.PHONY: install install-dev test
+.PHONY: install install-dev test typecheck
 
 install:
-	pip install --break-system-packages -r requirements.txt
-	pip install --break-system-packages -e .
+	sudo pip install --break-system-packages -r requirements.txt
+	sudo pip install --break-system-packages -e .
 
 install-dev:
-	pip install --break-system-packages -r requirements.txt
-	pip install --break-system-packages -r dev.requirements.txt
-	pip install --break-system-packages -e .
+	sudo pip install --break-system-packages -r requirements.txt
+	sudo pip install --break-system-packages -r dev.requirements.txt
+	sudo pip install --break-system-packages -e .
 
 test:
 	python3 -m unittest discover test
+
+typecheck:
+	python3 -m pyright

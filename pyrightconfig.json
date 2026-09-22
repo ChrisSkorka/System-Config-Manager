@@ -1,0 +1,7 @@
+{
+  "typeCheckingMode": "strict",
+  "include": [
+    "sysconf",
+    "test"
+  ]
+}

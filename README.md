@@ -10,30 +10,83 @@ E.g. a major system update may add and remove system packages, but this tool wil
 ## Todo
 
 - tests
-- save current.yaml after each action
-- default config location via env var
-- support $ref for split configs (use ruamel.yaml)
-- package registry system
-- edit command
-- rollbacks command: apply config before current
-- better assert error messages (no stack trace)
-- class for overall (cli) command
-- logging
-- domain for rebost & ordered file edits (not just unordered file-lines)
-- handle duplicates in before & after
-- allow duplicates for lists & handle add/remove
+- error recovery hardening
+  - save current.yaml after each action
+- domain for robust & ordered file edits (not just unordered file-lines)
+- usability
+  - persist where my source of truth config is
+  - edit command
+    - sub command to launch editor, wait, apply
+    - editor configurability
+  - cli config edit commands (e.g. `sysconf add snap app-name`) (depends on ruamel)
+  - better assert error messages (no stack trace)
+  - logging
+  - logging to file along side current/historic configs
+- git history
+  - rollbacks command: apply config before current
+  - view & apply previous configs (where does current go?)
+- customization
+  - default config location
+  - via env var?
+  - via config file?
+- modular config files
+  - support $ref for split configs (use ruamel.yaml)
+  - allow duplicates DomainConfigEntry in lists & handle add/remove
+  - handle duplicates in before & after
+- move or copy before & after into domains
+- domains
+  - systemctl services+ management
+  - copy equivalent to symlinks with file content comparison 
+  - package registry system
+- code
+  - class for overall (cli) command
+  - replace unindent with textwrap.dedent
+- deploy to pypi
 
-## Installation
+## Installation (From Source)
 
 Clone (download and extract) the repo and place in your preferred installation directory. (Anywhere where you won't delete it will do)
 
 ```shell
 cd to/this/repositories/root/directory
-pip install --break-system-packages -e .
+# run on of the options, if in doubt try option 1
 ```
 
-If `pip` is not a command, try repalcing `pip` with `pip3` or `python -m pip`.
+### Option 1: make (for use)
+
+```sh
+make install
+```
+
+### Option 2: manual (for use)
+
+```sh
+sudo pip install --break-system-packages -r requirements.txt
+sudo pip install --break-system-packages -e .
+```
+
+### Option 3: make (for development)
+
+```sh
+make install-dev
+```
+
+### Troubleshoot
+
+#### pip is not a command
+
+If `pip` is not a command, try option 2 but replace `pip` with `pip3` or `python -m pip`.
 Or installing `pip`, `pip3`, or `python3-pip` depending on your system.
+
+### error: metadata-generation-failed
+
+If you see an error `error: metadata-generation-failed` try:
+
+```sh
+sudo apt install --reinstall python3-setuptools
+```
+
+The rerun the install command.
 
 ## Usage
 

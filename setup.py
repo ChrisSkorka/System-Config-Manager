@@ -9,4 +9,10 @@ setup(
         f"{root_package}.{item}" 
         for item in find_packages(where=root_package)
     ],
+    # packages=find_packages(),
+    entry_points={
+        'console_scripts': [
+            'sysconf = sysconf.cli:main',
+        ],
+    },
 )
