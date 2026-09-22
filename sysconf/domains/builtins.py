@@ -15,7 +15,7 @@ builtin_domains: list[Domain] = cast(
     [
         create_dconf_domain(),
         create_gsettings_domain(),
-        # can't use these as is becuase they're not encoding the structured values
+        # can't use these as is because they're not encoding the structured values
         # these would need the values to be strings in the dconf format
         # create_map_shell_domain(
         #     key='dconf',
@@ -87,6 +87,24 @@ builtin_domains: list[Domain] = cast(
                 ln -sf $value $key;
             """),
             remove_script='rm -f $key',
+        ),
+        create_map_shell_domain(
+            key='sysctl',
+            path_depth=1,
+            add_script=unindent("""
+                echo "$value" | sudo tee /etc/sysctl.d/$key > /dev/null;
+                sudo chmod 644 /etc/sysctl.d/$key;
+                sudo sysctl --system;
+            """),
+            update_script=unindent("""
+                echo "$value" | sudo tee /etc/sysctl.d/$key > /dev/null;
+                sudo chmod 644 /etc/sysctl.d/$key;
+                sudo sysctl --system;
+            """),
+            remove_script=unindent("""
+                sudo rm -f /etc/sysctl.d/$key;
+                sudo sysctl --system;
+            """),
         ),
         create_list_shell_domain(
             key='apt-repository',
