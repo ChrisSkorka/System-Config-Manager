@@ -17,6 +17,12 @@ class DummyDomainAction(DomainAction):
     def get_description(self) -> str:
         return self.description
 
+    def get_old_entry(self) -> None:
+        return None
+
+    def get_new_entry(self) -> None:
+        return None
+
     def run(self, executor: Any) -> None:
         pass
 

@@ -154,7 +154,7 @@ class MapConfigEntry(Generic[Value], DomainConfigEntry):
             and self.value == value.value
 
     def __repr__(self) -> str:
-        return f'MapConfigEntry({self.domain.get_key}, {self.path}, {self.value})'
+        return f'MapConfigEntry({self.domain.get_key=}, {self.path=}, {self.value=})'
 
     def get_id(self) -> tuple[str, ...]:
         return (self.domain.get_key(), *self.path)

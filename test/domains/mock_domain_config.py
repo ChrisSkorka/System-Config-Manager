@@ -1,13 +1,9 @@
 # pyright: strict
 
-from typing import TypeVar
-from sysconf.config.domains import DomainConfig
 from sysconf.config.serialization import YamlSerializable
 
 
-T = TypeVar('T', infer_variance=True)
-
-class MockDomainConfig(DomainConfig):
+class MockDomainConfig:
 
     def __init__(self, data: YamlSerializable) -> None:
         self.data = data
@@ -15,7 +11,7 @@ class MockDomainConfig(DomainConfig):
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, MockDomainConfig):
             return False
-        
+
         return self.data == value.data
 
     @classmethod
@@ -24,7 +20,7 @@ class MockDomainConfig(DomainConfig):
 
     @classmethod
     def default(
-        cls, 
+        cls,
         data: YamlSerializable | None = None,
     ) -> 'MockDomainConfig':
 

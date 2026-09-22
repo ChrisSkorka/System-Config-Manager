@@ -7,7 +7,7 @@ from test.datasets import datasets
 from test.test_case import TestCase
 
 
-class DatasetTest(TestCase):
+class TestDatasets(TestCase):
 
     def test_datasets_callable(self):
         # Arrange

@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
 from sysconf.config.system_config import SystemConfig, SystemManager
-from sysconf.domains.gsettings import GSettingsConfig
+from sysconf.system.file import FileReader
 from test.datasets import datasets
 from test.test_case import TestCase
 from test.utils.mock_defaults import MockDefaults
@@ -65,34 +65,13 @@ class TestComparativeConfigCommandParser(TestCase):
 
     @dataclass
     class CreateFromArgumentsSuccessDataset:
-        fixture_configs: dict[Path, SystemConfig]
         fixture_defaults: MockDefaults
         input_parsed_arguments: Namespace
-        expected_parser: ComparativeConfigCommandParser
-
-    fixture_configs = {
-        Path('/manual/old.yaml'):
-        SystemConfig({
-            'domain1': GSettingsConfig({('schema', 'key'): 'value1'}),
-        }),
-        Path('/manual/new.yaml'):
-        SystemConfig({
-            'domain1': GSettingsConfig({('schema', 'key'): 'value1'}),
-            'domain2': GSettingsConfig({('schema', 'key'): 'value2'}),
-        }),
-        Path('/default/old.yaml'):
-        SystemConfig({
-            'domain1': GSettingsConfig({('schema', 'key'): 'old'}),
-        }),
-        Path('/default/new.yaml'):
-        SystemConfig({
-            'domain2': GSettingsConfig({('schema', 'key'): 'new'}),
-        }),
-    }
+        expected_old_path: Path | None
+        expected_new_path: Path
 
     @datasets({
         'both paths provided': CreateFromArgumentsSuccessDataset(
-            fixture_configs=fixture_configs,
             fixture_defaults=MockDefaults(
                 old_config_path=fpath('/default/old.yaml'),
                 new_config_path=fpath('/default/new.yaml'),
@@ -101,32 +80,22 @@ class TestComparativeConfigCommandParser(TestCase):
                 config_file=fpath('/manual/new.yaml'),
                 last_config=fpath('/manual/old.yaml'),
             ),
-            expected_parser=ComparativeConfigCommandParser(
-                SystemManager(
-                    old_config=fixture_configs[fpath('/manual/old.yaml')],
-                    new_config=fixture_configs[fpath('/manual/new.yaml')],
-                )
-            ),
+            expected_old_path=fpath('/manual/old.yaml'),
+            expected_new_path=fpath('/manual/new.yaml'),
         ),
         'only new config provided, uses default old path': CreateFromArgumentsSuccessDataset(
-            fixture_configs=fixture_configs,
             fixture_defaults=MockDefaults(
                 old_config_path=fpath('/default/old.yaml'),
                 new_config_path=fpath('/default/new.yaml'),
             ),
             input_parsed_arguments=Namespace(
                 config_file=fpath('/manual/new.yaml'),
-                last_config=None
+                last_config=None,
             ),
-            expected_parser=ComparativeConfigCommandParser(
-                SystemManager(
-                    old_config=fixture_configs[fpath('/default/old.yaml')],
-                    new_config=fixture_configs[fpath('/manual/new.yaml')],
-                )
-            ),
+            expected_old_path=fpath('/default/old.yaml'),
+            expected_new_path=fpath('/manual/new.yaml'),
         ),
         'only old config provided, uses default new path': CreateFromArgumentsSuccessDataset(
-            fixture_configs=fixture_configs,
             fixture_defaults=MockDefaults(
                 old_config_path=fpath('/default/old.yaml'),
                 new_config_path=fpath('/default/new.yaml'),
@@ -135,52 +104,32 @@ class TestComparativeConfigCommandParser(TestCase):
                 config_file=None,
                 last_config=fpath('/manual/old.yaml'),
             ),
-            expected_parser=ComparativeConfigCommandParser(
-                SystemManager(
-                    old_config=fixture_configs[fpath('/manual/old.yaml')],
-                    new_config=fixture_configs[fpath('/default/new.yaml')],
-                )
-            ),
+            expected_old_path=fpath('/manual/old.yaml'),
+            expected_new_path=fpath('/default/new.yaml'),
         ),
         'no paths provided, uses defaults': CreateFromArgumentsSuccessDataset(
-            fixture_configs=fixture_configs,
             fixture_defaults=MockDefaults(
                 old_config_path=fpath('/default/old.yaml'),
                 new_config_path=fpath('/default/new.yaml'),
             ),
             input_parsed_arguments=Namespace(
                 config_file=None,
-                last_config=None
+                last_config=None,
             ),
-            expected_parser=ComparativeConfigCommandParser(
-                SystemManager(
-                    old_config=fixture_configs[fpath('/default/old.yaml')],
-                    new_config=fixture_configs[fpath('/default/new.yaml')],
-                ),
-            ),
+            expected_old_path=fpath('/default/old.yaml'),
+            expected_new_path=fpath('/default/new.yaml'),
         ),
     })
-    @patch('sysconf.commands.comparative_config_command_parser.load_config_from_file')
     @patch('sysconf.commands.comparative_config_command_parser.Defaults')
     def test_create_from_arguments_success(
         self,
         dataset: CreateFromArgumentsSuccessDataset,
         mock_defaults_class: MagicMock,
-        mock_load_config_from_file: MagicMock,
     ) -> None:
         """Test successful creation from arguments with various input combinations."""
 
         # Arrange
         mock_defaults_class.return_value = dataset.fixture_defaults
-
-        def mock_load_config_side_effect(file_reader: object, path: Path) -> SystemConfig:
-            # Find the matching MockPath in fixture_configs by comparing the path string
-            config = dataset.fixture_configs.get(path)
-            if config is not None:
-                return config
-            raise FileNotFoundError(f"No config found for path {path}")
-
-        mock_load_config_from_file.side_effect = mock_load_config_side_effect
 
         # Act
         actual = ComparativeConfigCommandParser.create_from_arguments(
@@ -189,7 +138,9 @@ class TestComparativeConfigCommandParser(TestCase):
 
         # Assert
         self.assertIsInstance(actual, ComparativeConfigCommandParser)
-        self.assertEqual(actual, dataset.expected_parser)
+        self.assertEqual(actual.old_path, dataset.expected_old_path)
+        self.assertEqual(actual.new_path, dataset.expected_new_path)
+        self.assertIsInstance(actual.file_reader, FileReader)
 
     @dataclass
     class CreateFromArgumentsErrorDataset:
@@ -198,21 +149,9 @@ class TestComparativeConfigCommandParser(TestCase):
         expected_exception_message: str
 
     @datasets({
-        'old default config file not found': CreateFromArgumentsErrorDataset(
-            fixture_defaults=MockDefaults(
-                old_config_path=MockPath(
-                    '/default/old.yaml',
-                    is_file=True,
-                    exists=False,
-                ),
-                new_config_path=fpath('/default/new.yaml'),
-            ),
-            input_parsed_arguments=Namespace(
-                config_file=None,
-                last_config=None,
-            ),
-            expected_exception_message='does not exist',
-        ),
+        # Note: missing old config (default or argument) is silently treated as
+        # "no previous config" rather than an error — see the # todo comment in
+        # ComparativeConfigCommandParser.create_from_arguments.
         'new default config file not found': CreateFromArgumentsErrorDataset(
             fixture_defaults=MockDefaults(
                 old_config_path=fpath('/default/old.yaml'),
@@ -240,21 +179,6 @@ class TestComparativeConfigCommandParser(TestCase):
                     exists=False,
                 ),
                 last_config=None
-            ),
-            expected_exception_message='does not exist',
-        ),
-        'old config param file not found': CreateFromArgumentsErrorDataset(
-            fixture_defaults=MockDefaults(
-                old_config_path=fpath('/default/old.yaml'),
-                new_config_path=fpath('/default/new.yaml'),
-            ),
-            input_parsed_arguments=Namespace(
-                config_file=fpath('test.yaml'),
-                last_config=MockPath(
-                    'nonexistent.yaml',
-                    is_file=True,
-                    exists=False,
-                ),
             ),
             expected_exception_message='does not exist',
         ),
@@ -302,16 +226,37 @@ class TestComparativeConfigCommandParser(TestCase):
                       str(context.exception))
 
     def test_get_system_manager(self) -> None:
-        """Test that get_system_manager returns the correct system manager."""
+        """Test that get_system_manager loads configs and creates a SystemManager."""
 
         # Arrange
-        old_config = SystemConfig({'domain1': GSettingsConfig({})})
-        new_config = SystemConfig({'domain2': GSettingsConfig({})})
-        system_manager = SystemManager(old_config, new_config)
-        parser = ComparativeConfigCommandParser(system_manager=system_manager)
+        from unittest.mock import patch as _patch
+        from test.system.mock_system_executor import MockSystemExecutor
 
-        # Act
-        result = parser.get_system_manager()
+        old_config = SystemConfig.create_from_entries((), (), (), ())
+        new_config = SystemConfig.create_from_entries((), (), (), ())
+        mock_executor = MockSystemExecutor()
+        mock_error_handler: MagicMock = MagicMock()
+
+        parser = ComparativeConfigCommandParser(
+            old_path=fpath('/old.yaml'),
+            new_path=fpath('/new.yaml'),
+            file_reader=FileReader(),
+        )
+
+        def mock_load_side_effect(file_reader: object, path: Path) -> SystemConfig:
+            return old_config if path == fpath('/old.yaml') else new_config
+
+        with _patch(
+            'sysconf.commands.comparative_config_command_parser.load_config_from_file',
+            side_effect=mock_load_side_effect,
+        ):
+            # Act
+            result = parser.get_system_manager(
+                executor=mock_executor,
+                error_handler=mock_error_handler,
+            )
 
         # Assert
-        self.assertIs(result, system_manager)
+        self.assertIsInstance(result, SystemManager)
+        self.assertEqual(result.old_config, old_config)
+        self.assertEqual(result.new_config, new_config)

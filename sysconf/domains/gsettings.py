@@ -131,13 +131,12 @@ class GSettingsUpdateAction(DomainAction):
         return self.new_entry
 
     def run(self, executor: SystemExecutor) -> None:
-        encoded_value = encode_value(self.new_value)
         executor.command(
             'gsettings',
             'set',
             self.schema,
             self.key,
-            encoded_value,
+            self.new_value,
         )
 
 

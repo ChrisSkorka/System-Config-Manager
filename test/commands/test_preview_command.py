@@ -3,17 +3,15 @@
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 from pathlib import Path
-from unittest.mock import call, patch, MagicMock
+from unittest.mock import MagicMock, call, patch
 
 from sysconf.commands.preview_command import PreviewCommand
-from sysconf.system.executor import PreviewSystemExecutor, SystemExecutor
 from test.commands.mock_comparative_config_command_parser import MockComparativeConfigCommandParser
 from test.datasets import datasets
 from test.domains.mock_domain_action import MockDomainAction
-from test.system.mock_system_executor import MockSystemExecutor
 from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
-from test.utils.mock_path import fpath
+from test.utils.mock_path import MockPath, fpath
 
 
 class TestPreviewCommand(TestCase):
@@ -67,7 +65,6 @@ class TestPreviewCommand(TestCase):
         fixture_create_from_arguments: MockComparativeConfigCommandParser
         input_parsed_arguments: Namespace
         expected_parsed_arguments: Namespace
-        expected_command: PreviewCommand
 
     @datasets({
         'both paths provided': CreateFromArgumentsDataset(
@@ -82,10 +79,6 @@ class TestPreviewCommand(TestCase):
                 config_file=fpath('/manual/new.yaml'),
                 last_config=fpath('/manual/old.yaml'),
             ),
-            expected_command=PreviewCommand(
-                manager=MockSystemManager.default(),
-                executor=PreviewSystemExecutor(),
-            ),
         ),
         'only new config provided': CreateFromArgumentsDataset(
             fixture_create_from_arguments=MockComparativeConfigCommandParser.default(
@@ -98,10 +91,6 @@ class TestPreviewCommand(TestCase):
             expected_parsed_arguments=Namespace(
                 config_file=fpath('/manual/new.yaml'),
                 last_config=None,
-            ),
-            expected_command=PreviewCommand(
-                manager=MockSystemManager.default(),
-                executor=PreviewSystemExecutor(),
             ),
         ),
         'only old config provided': CreateFromArgumentsDataset(
@@ -116,10 +105,6 @@ class TestPreviewCommand(TestCase):
                 config_file=None,
                 last_config=fpath('/manual/old.yaml'),
             ),
-            expected_command=PreviewCommand(
-                manager=MockSystemManager.default(),
-                executor=PreviewSystemExecutor(),
-            ),
         ),
         'no paths provided': CreateFromArgumentsDataset(
             fixture_create_from_arguments=MockComparativeConfigCommandParser.default(
@@ -133,10 +118,6 @@ class TestPreviewCommand(TestCase):
                 config_file=None,
                 last_config=None,
             ),
-            expected_command=PreviewCommand(
-                manager=MockSystemManager.default(),
-                executor=PreviewSystemExecutor(),
-            ),
         ),
     })
     @patch('sysconf.commands.comparative_config_command_parser.ComparativeConfigCommandParser.create_from_arguments')
@@ -148,7 +129,6 @@ class TestPreviewCommand(TestCase):
         """Test successful creation from arguments with various input combinations."""
 
         # Arrange
-
         mock_create_from_arguments.return_value = dataset.fixture_create_from_arguments
 
         # Act
@@ -158,7 +138,6 @@ class TestPreviewCommand(TestCase):
 
         # Assert
         self.assertIsInstance(actual, PreviewCommand)
-        self.assertEqual(actual, dataset.expected_command)
         mock_create_from_arguments.assert_called_once_with(
             dataset.expected_parsed_arguments
         )
@@ -166,15 +145,11 @@ class TestPreviewCommand(TestCase):
     @dataclass
     class RunDataset:
         fixture_system_manager: MockSystemManager
-        fixture_system_executor: SystemExecutor
-        expected_system_executor: SystemExecutor
         expected_prints: list[str]
 
     @datasets({
         'no changes required': RunDataset(
             fixture_system_manager=MockSystemManager.default(get_actions=[]),
-            fixture_system_executor=MockSystemExecutor(),
-            expected_system_executor=MockSystemExecutor(),
             expected_prints=['# No changes required.'],
         ),
         'gsettings add and update': RunDataset(
@@ -183,8 +158,6 @@ class TestPreviewCommand(TestCase):
                     'Update gsettings: theme = old_value -> new_value'),
                 MockDomainAction('Add gsettings: font-size = 12'),
             ]),
-            fixture_system_executor=MockSystemExecutor(),
-            expected_system_executor=MockSystemExecutor(),
             expected_prints=[
                 '# Update gsettings: theme = old_value -> new_value',
                 '# Add gsettings: font-size = 12',
@@ -194,8 +167,6 @@ class TestPreviewCommand(TestCase):
             fixture_system_manager=MockSystemManager.default(get_actions=[
                 MockDomainAction('Remove gsettings: font-size'),
             ]),
-            fixture_system_executor=MockSystemExecutor(),
-            expected_system_executor=MockSystemExecutor(),
             expected_prints=[
                 '# Remove gsettings: font-size',
             ],
@@ -207,8 +178,6 @@ class TestPreviewCommand(TestCase):
                     'Update dconf: /path/to/key1 = old_value -> new_value'),
                 MockDomainAction('Add dconf: /path/to/key3 = new_value3'),
             ]),
-            fixture_system_executor=MockSystemExecutor(),
-            expected_system_executor=MockSystemExecutor(),
             expected_prints=[
                 '# Remove dconf: /path/to/key2',
                 '# Update dconf: /path/to/key1 = old_value -> new_value',
@@ -221,8 +190,6 @@ class TestPreviewCommand(TestCase):
                     'Update gsettings: theme = old_value -> new_value'),
                 MockDomainAction('Add dconf: /path/to/key = dconf_value'),
             ]),
-            fixture_system_executor=MockSystemExecutor(),
-            expected_system_executor=MockSystemExecutor(),
             expected_prints=[
                 '# Update gsettings: theme = old_value -> new_value',
                 '# Add dconf: /path/to/key = dconf_value',
@@ -238,25 +205,17 @@ class TestPreviewCommand(TestCase):
         # Arrange
         preview_command = PreviewCommand(
             manager=dataset.fixture_system_manager,
-            executor=dataset.fixture_system_executor,
+            system_config_renderer=MagicMock(),
+            yaml_serializer=MagicMock(),
+            current_path=MockPath('/tmp/current.yaml', is_file=False, exists=False),
+            file_writer=MagicMock(),
         )
 
         # Act
-        # Patch print
         with patch('builtins.print') as mock_print:
             preview_command.run()
 
         # Assert
-
-        # DomainAction.run calls
-        all(
-            isinstance(a.run, MagicMock) and
-            a.run.assert_called_once_with(dataset.expected_system_executor)
-            for a
-            in dataset.fixture_system_manager.get_actions(dataset.fixture_system_manager)
-        )
-
-        # print calls
         mock_print.assert_has_calls(
             [call(p) for p in dataset.expected_prints],
             any_order=False,

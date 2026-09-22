@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Self
 from unittest.mock import MagicMock
-from sysconf.utils.file import FileReader
+from sysconf.system.file import FileReader
 
 
 class MockFileReader (FileReader):
@@ -17,7 +17,7 @@ class MockFileReader (FileReader):
         # normalize paths
         files = {
             self._get_normalized_path(path): content
-            for path, content 
+            for path, content
             in files.items()
         }
 

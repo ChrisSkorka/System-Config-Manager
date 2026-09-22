@@ -136,7 +136,7 @@ builtin_domains: list[Domain] = cast(
             key='file-lines',
             path_depth=1,
             add_script='echo "$value" >> $key',
-            remove_script='sed -i "/^$value$/d" $key',
+            remove_script='sed -i "\\|^$value$|d" $key',
         ),
     ],
 )
