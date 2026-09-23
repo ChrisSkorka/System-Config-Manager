@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Self
 from unittest.mock import MagicMock
-from sysconf.system.file import FileReader
+from sysconf.system.file import FileReader, FileWriter
 
 
 class MockFileReader (FileReader):
@@ -33,5 +33,28 @@ class MockFileReader (FileReader):
     def __call__(self) -> Self:
         """
         When mocking the FileReader class/type, return self as a mock instance.
+        """
+        return self
+
+
+class MockFileWriter (FileWriter):
+    """
+    Mock a FileWriter instance or class and record everything written to it.
+
+    Mock a FileWriter instance or the FileWriter class/type itself
+    """
+
+    def __init__(self) -> None:
+        self.written_files: dict[str, str] = {}
+
+        # side effect function
+        def write_file_contents(path: Path, contents: str) -> None:
+            self.written_files[path.as_posix()] = contents
+
+        self.write_file_contents = MagicMock(side_effect=write_file_contents)
+
+    def __call__(self) -> Self:
+        """
+        When mocking the FileWriter class/type, return self as a mock instance.
         """
         return self

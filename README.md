@@ -14,7 +14,6 @@ E.g. a major system update may add and remove system packages, but this tool wil
   - save current.yaml after each action
 - domain for robust & ordered file edits (not just unordered file-lines)
 - usability
-  - persist where my source of truth config is
   - edit command
     - sub command to launch editor, wait, apply
     - editor configurability
@@ -97,6 +96,8 @@ python3 -m sysconf preview [/path/to/config]
 # apply the config file, execute commands to add & remove things that we're added or removed compared to the last applied config
 python -m sysconf apply [/path/to/config]
 
+# the config path is optional once recorded, see Config Location below
+
 # show last applied config
 python3 -m sysconf show
 
@@ -108,12 +109,6 @@ python3 -m sysconf show /path/to/main.config.file
 
 The config file specifies the schema version, commands to run before applying changes, 
 commands to run after applying changes, the desired configuration, and the domains.
-
-The default location of the config file will be:
-`~/.config/system-config-manager/config.yaml` (you will have to create this manually)
-
-The default location of the automativally maintained current configuration is:
-`~/.config/system-config-manager/.history/current.yaml` (this will be created and managed for you)
 
 Note that the any string values (text) can use yamls `|` syntax for multi line values:
 ```yaml
@@ -127,6 +122,31 @@ before:
     ping -c $COUNT $URL;
 
 ```
+
+### Config Location
+
+The path to your config is saved, so you only have to give it once:
+
+```shell
+# saves /path/to/config.yaml as your config location and applies it
+python3 -m sysconf apply /path/to/config.yaml
+
+# re-applies the same config, no path needed
+python3 -m sysconf apply
+```
+
+The location is saved at `~/.config/system-config-manager/config`, which is either:
+
+- a **file** containing the absolute path to your config file. This is written for you
+  when you run `apply` with a path, and `apply` tells you when it saves a new one.
+- a **directory**, in which case `~/.config/system-config-manager/config/config.yaml` is
+  used. Create the directory yourself if you would rather keep your config there. Running
+  `apply` with a path then leaves it alone.
+
+Until a location is recorded, `apply` and `preview` without a path will tell you to run
+`apply` with a path once.
+
+Note that only `apply` records the location, `preview` just reads it.
 
 ### Version
 
@@ -264,7 +284,7 @@ domains:
 
 ### Example
 
-`~/.config/system-config-manager/config.yaml`
+`~/.config/system-config-manager/config/config.yaml`
 ```yaml
 version: 1
 

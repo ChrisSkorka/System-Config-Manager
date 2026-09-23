@@ -12,12 +12,14 @@ class MockDefaults(Defaults):
         config_dir: MockPath = MockPath('/config/'),
         old_config_path: MockPath = MockPath('/default/old.yaml'),
         new_config_path: MockPath = MockPath('/default/new.yaml'),
+        config_location_path: MockPath = MockPath('/config/config'),
     ) -> None:
         super().__init__()
 
         self._config_dir = config_dir
         self._old_config_path = old_config_path
         self._new_config_path = new_config_path
+        self._config_location_path = config_location_path
 
     def get_config_dir(self) -> MockPath:
         return self._config_dir
@@ -27,3 +29,6 @@ class MockDefaults(Defaults):
 
     def get_new_config_path(self) -> MockPath:
         return self._new_config_path
+
+    def get_config_location_path(self) -> MockPath:
+        return self._config_location_path

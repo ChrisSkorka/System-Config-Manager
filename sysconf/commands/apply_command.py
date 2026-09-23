@@ -11,7 +11,8 @@ from sysconf.config.serialization import YamlSerializer
 from sysconf.config.system_config import SystemManager
 from sysconf.system.error_handler import PromptUserErrorHandler
 from sysconf.system.executor import CommandException, LiveSystemExecutor
-from sysconf.system.file import FileWriter
+from sysconf.system.file import FileReader, FileWriter
+from sysconf.utils.config_location import ConfigLocationWriter
 from sysconf.utils.defaults import Defaults
 
 
@@ -70,6 +71,11 @@ class ApplyCommand (Command):
         file_writer = FileWriter()
         system_config_renderer = SystemConfigRenderer()
         yaml_serializer = YamlSerializer()
+        config_location_writer = ConfigLocationWriter(
+            defaults,
+            FileReader(),
+            file_writer,
+        )
 
         return cls(
             manager=system_manager,
@@ -77,6 +83,8 @@ class ApplyCommand (Command):
             yaml_serializer=yaml_serializer,
             current_path=current_path,
             file_writer=file_writer,
+            config_location_writer=config_location_writer,
+            config_path_argument=parsed_arguments.config_file,
         )
 
     def __init__(
@@ -86,6 +94,8 @@ class ApplyCommand (Command):
         yaml_serializer: YamlSerializer,
         current_path: Path,
         file_writer: FileWriter,
+        config_location_writer: ConfigLocationWriter,
+        config_path_argument: Path | None,
     ) -> None:
         super().__init__()
 
@@ -94,6 +104,8 @@ class ApplyCommand (Command):
         self.yaml_serializer = yaml_serializer
         self.current_path = current_path
         self.file_writer = file_writer
+        self.config_location_writer = config_location_writer
+        self.config_path_argument = config_path_argument
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, ApplyCommand):
@@ -103,21 +115,37 @@ class ApplyCommand (Command):
             and self.current_path == value.current_path \
             and self.file_writer == value.file_writer \
             and self.system_config_renderer == value.system_config_renderer \
-            and self.yaml_serializer == value.yaml_serializer
+            and self.yaml_serializer == value.yaml_serializer \
+            and self.config_location_writer == value.config_location_writer \
+            and self.config_path_argument == value.config_path_argument
 
     def run(self) -> None:
         """
         Execute the command.
 
-        This will compare the two configurations and execute the required
-        actions, and update the current configuration file with the changes that
-        were successfully applied.
+        This will record where the configuration came from, compare the two
+        configurations and execute the required actions, and update the current
+        configuration file with the changes that were successfully applied.
+
+        The config location is recorded before any action runs so that a config
+        that fails part way through still leaves the location recorded for the
+        next invocation.
 
         Incase an action fails, the user will be prompted if they want to
         continue with the remaining actions or abort.
         If the user chooses to continue, that action will not be commited to the
         current configuration file.
         """
+
+        # Record where the configuration we are about to apply came from
+        if self.config_path_argument is not None:
+            is_path_saved = self.config_location_writer \
+                .record_config_path(self.config_path_argument)
+
+            if is_path_saved:
+                print(
+                    f'Saved "{self.config_path_argument}" as your config location',
+                )
 
         # Execute the actions
         current_config = self.manager.run_actions()

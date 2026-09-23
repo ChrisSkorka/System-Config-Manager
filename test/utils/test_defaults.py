@@ -33,9 +33,13 @@ class TestDefaults(TestCase):
             input_get_path=lambda defaults: defaults.get_old_config_path(),
             expected_path=CONFIG_DIR / '.history' / 'current.yaml',
         ),
+        'config location path': DefaultPathDataset(
+            input_get_path=lambda defaults: defaults.get_config_location_path(),
+            expected_path=CONFIG_DIR / 'config',
+        ),
         'new config path': DefaultPathDataset(
             input_get_path=lambda defaults: defaults.get_new_config_path(),
-            expected_path=CONFIG_DIR / 'config.yaml',
+            expected_path=CONFIG_DIR / 'config' / 'config.yaml',
         ),
     })
     def test_default_paths(self, dataset: DefaultPathDataset) -> None:
@@ -61,9 +65,13 @@ class TestDefaults(TestCase):
             input_get_path=lambda defaults: defaults.get_old_config_path(),
             expected_relative_path=Path('.history') / 'current.yaml',
         ),
+        'config location path': DerivedPathDataset(
+            input_get_path=lambda defaults: defaults.get_config_location_path(),
+            expected_relative_path=Path('config'),
+        ),
         'new config path': DerivedPathDataset(
             input_get_path=lambda defaults: defaults.get_new_config_path(),
-            expected_relative_path=Path('config.yaml'),
+            expected_relative_path=Path('config') / 'config.yaml',
         ),
     })
     def test_config_paths_are_derived_from_the_config_dir(

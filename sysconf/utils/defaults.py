@@ -29,9 +29,21 @@ class Defaults:
 
         return self.get_config_dir() / Path('.history/current.yaml')
 
+    def get_config_location_path(self) -> Path:
+        """
+        Get the path that records where the user's source of truth config lives.
+
+        This path is either a file whose contents are the path to the
+        configuration file, or a directory holding the configuration itself.
+        """
+
+        return self.get_config_dir() / Path('config')
+
     def get_new_config_path(self) -> Path:
         """
         Get the default path to the new (to be applied) configuration file.
+
+        This is the path used when the config location is a directory.
         """
 
-        return self.get_config_dir() / Path('config.yaml')
+        return self.get_config_location_path() / Path('config.yaml')

@@ -11,6 +11,7 @@ from sysconf.system.executor import SystemExecutor
 from sysconf.system.file import FileReader
 from sysconf.system.path import get_validated_file_path
 from sysconf.utils.config_loader import load_config_from_file
+from sysconf.utils.config_location import ConfigLocationReader
 from sysconf.utils.defaults import Defaults
 
 
@@ -53,9 +54,11 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
 
         defaults = Defaults()
         file_reader = FileReader()
+        config_location_reader = ConfigLocationReader(defaults, file_reader)
 
         old_path: Path | None = parsed_arguments.last_config or defaults.get_old_config_path()
-        new_path: Path = parsed_arguments.config_file or defaults.get_new_config_path()
+        new_path: Path = parsed_arguments.config_file \
+            or config_location_reader.get_config_path()
 
         current_path = defaults.get_old_config_path()
         assert current_path.is_file() or not current_path.exists(), \
