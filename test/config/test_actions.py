@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 from sysconf.config.actions import ShellAction
 from sysconf.config.serialization import YamlSerializable
+from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
 from test.system.mock_system_executor import MockSystemExecutor
 from test.test_case import TestCase
@@ -203,10 +204,10 @@ class TestShellAction(TestCase):
         ),
     })
     def test_create_from_serialized_with_invalid_data(self, dataset: InvalidDataDataset) -> None:
-        """Test that create_from_serialized raises AssertionError for non-string data."""
+        """Test that create_from_serialized reports non-string data to the user."""
 
         # Act & Assert
-        with self.assertRaises(AssertionError) as context:
+        with self.assertRaises(ValidationError) as context:
             ShellAction.create_from_serialized(dataset.input_data)
 
         self.assertIn(dataset.expected_error_message_contains,

@@ -9,6 +9,7 @@ from test.datasets import datasets
 from test.test_case import TestCase
 from test.utils.mock_file import MockFileReader
 from sysconf.config.serialization import YamlDeserializer, YamlSerializer
+from sysconf.utils.validation import ValidationError
 
 
 class TestYamlDeserializer(TestCase):
@@ -110,6 +111,41 @@ class TestYamlDeserializer(TestCase):
 
         # Assert
         self.assertEqual(result, dataset.expected_value)
+
+    @dataclass
+    class DeserializeErrorDataset:
+        input_content: str
+        expected_message_prefix: str
+
+    @datasets({
+        'mapping value in a scalar': DeserializeErrorDataset(
+            input_content=dedent('''\
+                version: "1"
+                  invalid: yaml: content:
+                '''),
+            expected_message_prefix='Invalid YAML: ',
+        ),
+        'unclosed flow sequence': DeserializeErrorDataset(
+            input_content='config: [a, b',
+            expected_message_prefix='Invalid YAML: ',
+        ),
+    })
+    def test_deserializes_yaml_content_raises(
+        self,
+        dataset: DeserializeErrorDataset,
+    ) -> None:
+        """Test that invalid YAML is reported as a validation error."""
+
+        # Arrange
+        deserializer = YamlDeserializer()
+
+        # Act & Assert
+        with self.assertRaises(ValidationError) as context:
+            deserializer.get_deserialized_data(dataset.input_content)
+
+        self.assertTrue(
+            str(context.exception).startswith(dataset.expected_message_prefix),
+        )
 
     @dataclass
     class InterpolateDataset:

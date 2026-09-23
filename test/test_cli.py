@@ -2,6 +2,7 @@
 
 from argparse import Namespace
 from dataclasses import dataclass
+from io import StringIO
 from pathlib import Path
 from typing import Type
 from unittest.mock import MagicMock, patch
@@ -11,6 +12,7 @@ from sysconf.commands.apply_command import ApplyCommand
 from sysconf.commands.command import Command
 from sysconf.commands.preview_command import PreviewCommand
 from sysconf.commands.show_command import ShowCommand
+from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
 from test.test_case import TestCase
 
@@ -158,3 +160,73 @@ class TestMain(TestCase):
                 main()
 
         self.assertEqual(context.exception.code, dataset.expected_exit_code)
+
+    @dataclass
+    class ValidationErrorDataset:
+        fixture_raise_on_run: bool
+        fixture_message: str
+        input_argv: list[str]
+
+    @datasets({
+        'validation fails while building the command': ValidationErrorDataset(
+            fixture_raise_on_run=False,
+            fixture_message='File /configs/missing.yaml does not exist',
+            input_argv=['sysconf', 'show', '/configs/missing.yaml'],
+        ),
+        'validation fails while running the command': ValidationErrorDataset(
+            fixture_raise_on_run=True,
+            fixture_message="Config must contain a 'version' key",
+            input_argv=['sysconf', 'show', '/configs/broken.yaml'],
+        ),
+    })
+    def test_main_reports_validation_errors_without_a_traceback(
+        self,
+        dataset: ValidationErrorDataset,
+    ) -> None:
+        """Test that a validation error is shown as a plain message on stderr."""
+
+        # Arrange
+        error = ValidationError(dataset.fixture_message)
+        mock_command = MagicMock()
+        stderr = StringIO()
+
+        if dataset.fixture_raise_on_run:
+            mock_command.run.side_effect = error
+            patched_create = patch.object(
+                ShowCommand,
+                'create_from_arguments',
+                return_value=mock_command,
+            )
+        else:
+            patched_create = patch.object(
+                ShowCommand,
+                'create_from_arguments',
+                side_effect=error,
+            )
+
+        # Act
+        with patch('sys.argv', dataset.input_argv), \
+                patched_create, \
+                patch('sys.stderr', stderr):
+            with self.assertRaises(SystemExit) as context:
+                main()
+
+        # Assert
+        self.assertEqual(context.exception.code, 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            f'Error: {dataset.fixture_message}\n',
+        )
+
+    def test_main_propagates_unexpected_errors(self) -> None:
+        """Test that a programming error still surfaces as a traceback."""
+
+        # Act & Assert
+        with patch('sys.argv', ['sysconf', 'show']), \
+                patch.object(
+                    ShowCommand,
+                    'create_from_arguments',
+                    side_effect=RuntimeError('boom'),
+                ):
+            with self.assertRaises(RuntimeError):
+                main()

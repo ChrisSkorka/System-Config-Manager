@@ -8,6 +8,7 @@ from unittest.mock import patch, MagicMock
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
 from sysconf.config.system_config import SystemConfig, SystemManager
 from sysconf.system.file import FileReader
+from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
 from test.test_case import TestCase
 from test.utils.mock_defaults import MockDefaults
@@ -237,7 +238,7 @@ class TestComparativeConfigCommandParser(TestCase):
         mock_defaults_class.return_value = dataset.fixture_defaults
 
         # Act & Expect
-        with self.assertRaises(Exception) as context:
+        with self.assertRaises(ValidationError) as context:
             ComparativeConfigCommandParser.create_from_arguments(
                 dataset.input_parsed_arguments)
 

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from sysconf.utils.validation import ValidationError
 from sysconf.utils.config_location import ConfigLocationReader, ConfigLocationWriter
 from test.datasets import datasets
 from test.test_case import TestCase
@@ -118,7 +119,7 @@ class TestConfigLocationReader(TestCase):
         )
 
         # Act & Assert
-        with self.assertRaises(AssertionError) as context:
+        with self.assertRaises(ValidationError) as context:
             reader.get_config_path()
 
         self.assertIn(dataset.expected_message_contains, str(context.exception))

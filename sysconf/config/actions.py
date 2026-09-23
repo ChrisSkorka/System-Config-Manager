@@ -5,6 +5,7 @@ from typing import Self
 
 from sysconf.config.serialization import YamlSerializable
 from sysconf.system.executor import SystemExecutor
+from sysconf.utils.validation import validate_type
 
 
 class Action:
@@ -39,8 +40,11 @@ class ShellAction(Action):
 
     @classmethod
     def create_from_serialized(cls, data: YamlSerializable) -> Self:
-        assert isinstance(data, str), \
-            'ShellAction data must be a string/text script'
+        assert validate_type(
+            data,
+            str,
+            'ShellAction data must be a string/text script',
+        )
 
         return cls(data)
 

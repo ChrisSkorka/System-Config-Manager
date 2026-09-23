@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from sysconf.system.file import FileReader, FileWriter
+from sysconf.utils.validation import validate
 from sysconf.utils.defaults import Defaults
 
 
@@ -39,17 +40,21 @@ class ConfigLocationReader:
         if location_path.is_dir():
             return self.defaults.get_new_config_path()
 
-        assert location_path.is_file(), \
-            f'No config location recorded at {location_path}, \n' \
-            + ConfigLocationReader.get_init_message()
+        validate(
+            location_path.is_file(),
+            f'No config location recorded at {location_path}, \n'
+            + ConfigLocationReader.get_init_message(),
+        )
 
         recorded_path = self.file_reader \
             .get_file_contents(location_path) \
             .strip()
 
-        assert recorded_path, \
-            f'The config location {location_path} is empty, \n' \
-            + ConfigLocationReader.get_init_message()
+        validate(
+            bool(recorded_path),
+            f'The config location {location_path} is empty, \n'
+            + ConfigLocationReader.get_init_message(),
+        )
 
         return Path(recorded_path).expanduser()
 

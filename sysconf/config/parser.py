@@ -9,6 +9,7 @@ from sysconf.config.domains import Domain, DomainConfigEntry
 from sysconf.config.serialization import YamlSerializable
 from sysconf.config.system_config import SystemConfig
 from sysconf.domains.user_domains import UserDomain, UserListDomain, UserMapDomain
+from sysconf.utils.validation import ValidationError, validate, validate_type
 
 
 VERSION_1 = '1'
@@ -63,15 +64,24 @@ class SystemConfigParser(ABC):
         """
 
         # validate version key exists
-        assert isinstance(data, dict), "Data must be a dictionary"
-        assert 'version' in data, "Data must contain a 'version' key"
+        assert validate_type(
+            data,
+            dict,
+            'Config must be a mapping at the top level',
+        )
+        validate(
+            'version' in data,
+            "Config must contain a 'version' key",
+        )
 
         version = str(data['version'])
         parsers = SystemConfigParser.get_parsers_by_version()
 
         # validate version is supported
-        assert version in parsers, \
-            f"Unsupported version: {version}, supported versions: {list(parsers.keys())}"
+        validate(
+            version in parsers,
+            f"Unsupported version: {version}, supported versions: {list(parsers.keys())}",
+        )
 
         return parsers[version](domain_registry.domains_by_key)
 
@@ -83,44 +93,78 @@ class SystemConfigParserV1(SystemConfigParser):
 
     def parse_data(self, data: YamlSerializable) -> SystemConfig:
 
-        assert isinstance(data, dict)
+        assert validate_type(
+            data,
+            dict,
+            'Config must be a mapping at the top level',
+        )
 
         # version is not part of the config data
         data = {k: v for k, v in data.items() if k != 'version'}
 
-        assert 'config' in data
+        validate(
+            'config' in data,
+            'Config must contain a \'config\' key',
+        )
         user_domains = data.get('domains') or {}
         before_scripts = data.get('before') or []
         after_scripts = data.get('after') or []
         config_items = data['config'] or []
 
         # validate data
-        assert isinstance(user_domains, dict), \
-            'domains must be a mapping of domain keys to domain specifications'
+        assert validate_type(
+            user_domains,
+            dict,
+            'domains must be a mapping of domain keys to domain specifications',
+        )
         for domain_key, domain_spec in user_domains.items():
-            assert isinstance(domain_key, str), \
-                'domain keys must be strings'
-            assert isinstance(domain_spec, dict), \
-                'domain specifications must be mappings'
-            assert 'type' in domain_spec, \
-                'domain specifications must contain a `type` key'
+            assert validate_type(
+                domain_key,
+                str,
+                'domain keys must be strings',
+            )
+            assert validate_type(
+                domain_spec,
+                dict,
+                'domain specifications must be mappings',
+            )
+            validate(
+                'type' in domain_spec,
+                'domain specifications must contain a `type` key',
+            )
 
-        assert isinstance(before_scripts, list), \
-            'before scripts must be a list'
+        assert validate_type(
+            before_scripts,
+            list,
+            'before scripts must be a list',
+        )
 
-        assert isinstance(after_scripts, list), \
-            'after scripts must be a list'
+        assert validate_type(
+            after_scripts,
+            list,
+            'after scripts must be a list',
+        )
 
-        assert isinstance(config_items, list), \
-            'config must be a list of domain mappings'
+        assert validate_type(
+            config_items,
+            list,
+            'config must be a list of domain mappings',
+        )
         for config_item in config_items:
-            assert isinstance(config_item, dict), \
-                'each config item must be a mapping of domain keys to domain data'
+            assert validate_type(
+                config_item,
+                dict,
+                'each config item must be a mapping of domain keys to domain data',
+            )
 
         # parse user domains
         user_domains_by_key: dict[str, UserDomain] = {}
         for domain_key, domain_spec in user_domains.items():
-            assert isinstance(domain_spec, dict)
+            assert validate_type(
+                domain_spec,
+                dict,
+                f'Domain \'{domain_key}\' specification must be a mapping',
+            )
             domain_type = str(domain_spec['type'])
 
             match domain_type:
@@ -128,9 +172,21 @@ class SystemConfigParserV1(SystemConfigParser):
                     add_script = domain_spec.get('add')
                     remove_script = domain_spec.get('remove')
                     path_depth = domain_spec.get('depth', 0)
-                    assert isinstance(add_script, str)
-                    assert isinstance(remove_script, str)
-                    assert isinstance(path_depth, int)
+                    assert validate_type(
+                        add_script,
+                        str,
+                        f'Invalid \'add\' for domain \'{domain_key}\'',
+                    )
+                    assert validate_type(
+                        remove_script,
+                        str,
+                        f'Invalid \'remove\' for domain \'{domain_key}\'',
+                    )
+                    assert validate_type(
+                        path_depth,
+                        int,
+                        f'Invalid \'depth\' for domain \'{domain_key}\'',
+                    )
 
                     domain = UserListDomain.create_from_specs(
                         key=domain_key,
@@ -145,14 +201,26 @@ class SystemConfigParserV1(SystemConfigParser):
                     update_script = domain_spec.get('update')
                     remove_script = domain_spec.get('remove')
                     path_depth = domain_spec.get('depth', 1)
-                    assert isinstance(add_script, str), \
-                        f'Invalid \'add\' for domain \'{domain_key}\''
-                    assert isinstance(update_script, str), \
-                        f'Invalid \'update\' for domain \'{domain_key}\''
-                    assert isinstance(remove_script, str), \
-                        f'Invalid \'remove\' for domain \'{domain_key}\''
-                    assert isinstance(path_depth, int), \
-                        f'Invalid \'depth\' for domain \'{domain_key}\''
+                    assert validate_type(
+                        add_script,
+                        str,
+                        f'Invalid \'add\' for domain \'{domain_key}\'',
+                    )
+                    assert validate_type(
+                        update_script,
+                        str,
+                        f'Invalid \'update\' for domain \'{domain_key}\'',
+                    )
+                    assert validate_type(
+                        remove_script,
+                        str,
+                        f'Invalid \'remove\' for domain \'{domain_key}\'',
+                    )
+                    assert validate_type(
+                        path_depth,
+                        int,
+                        f'Invalid \'depth\' for domain \'{domain_key}\'',
+                    )
 
                     domain = UserMapDomain.create_from_specs(
                         key=domain_key,
@@ -164,7 +232,9 @@ class SystemConfigParserV1(SystemConfigParser):
 
                     user_domains_by_key[domain_key] = domain
                 case _:
-                    raise AssertionError(f'Invalid domain type: {domain_type}')
+                    raise ValidationError(
+                        f'Invalid domain type: {domain_type}',
+                    )
 
         domains = {
             **self.domains_by_key,

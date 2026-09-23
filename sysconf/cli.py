@@ -18,6 +18,7 @@ if True:  # prevent formatter from re-ordering these imports
     from sysconf.commands.command import Command
     from sysconf.commands.preview_command import PreviewCommand
     from sysconf.commands.show_command import ShowCommand
+    from sysconf.utils.validation import ValidationError
 
 """
 This is the entry point for the linux configuration manager program. It parses 
@@ -55,9 +56,14 @@ def main() -> None:
         parser.print_help()
         return
 
-    command: Command = commands[commands_name].create_from_arguments(
-        parsed_args)
-    command.run()
+    try:
+        command: Command = commands[commands_name].create_from_arguments(
+            parsed_args,
+        )
+        command.run()
+    except ValidationError as error:
+        print(f'Error: {error}', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

@@ -10,6 +10,7 @@ from sysconf.system.error_handler import ErrorHandler
 from sysconf.system.executor import SystemExecutor
 from sysconf.system.file import FileReader
 from sysconf.system.path import get_validated_file_path
+from sysconf.utils.validation import validate
 from sysconf.utils.config_loader import load_config_from_file
 from sysconf.utils.config_location import ConfigLocationReader
 from sysconf.utils.defaults import Defaults
@@ -61,8 +62,10 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
             or config_location_reader.get_config_path()
 
         current_path = defaults.get_old_config_path()
-        assert current_path.is_file() or not current_path.exists(), \
-            f'Current config path is not a file: {current_path}'
+        validate(
+            current_path.is_file() or not current_path.exists(),
+            f'Current config path is not a file: {current_path}',
+        )
 
         new_path = get_validated_file_path(
             new_path,

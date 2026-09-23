@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Union
 
 from sysconf.system.file import FileReader
-
+from sysconf.utils.validation import ValidationError
 
 
 YamlSerializable = Union[
@@ -98,8 +98,20 @@ class YamlDeserializer:
         return data
 
     def get_deserialized_data(self, content: str) -> YamlSerializable:
-        yaml_data = yaml.load(content, Loader=yaml.SafeLoader)
+        """
+        Deserialize YAML content.
+
+        Raises:
+            ValidationError: If the content is not valid YAML.
+        """
+
+        try:
+            yaml_data = yaml.load(content, Loader=yaml.SafeLoader)
+        except yaml.YAMLError as error:
+            raise ValidationError(f'Invalid YAML: {error}') from error
+
         return yaml_data
+
 
 class YamlSerializer:
     """

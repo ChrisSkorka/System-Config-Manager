@@ -7,6 +7,7 @@ from textwrap import dedent
 from sysconf.config.system_config import SystemConfig
 from sysconf.system.file import FileReader
 from sysconf.utils.config_loader import load_config_from_file
+from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
 from test.test_case import TestCase
 from test.utils.mock_file import MockFileReader
@@ -211,7 +212,7 @@ class TestLoadConfigFromFile(TestCase):
                     ''').strip(),
             }),
             input_path=Path('/tmp/no_version.yaml'),
-            expected_exception=Exception,
+            expected_exception=ValidationError,
         ),
         'invalid version': ErrorCaseDataset(
             input_file_reader=MockFileReader({
@@ -223,7 +224,7 @@ class TestLoadConfigFromFile(TestCase):
                     ''').strip(),
             }),
             input_path=Path('/tmp/bad_version.yaml'),
-            expected_exception=Exception,
+            expected_exception=ValidationError,
         ),
         'missing file': ErrorCaseDataset(
             input_file_reader=MockFileReader({}),

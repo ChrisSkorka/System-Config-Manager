@@ -12,6 +12,7 @@ from sysconf.config.system_config import SystemManager
 from sysconf.system.error_handler import PromptUserErrorHandler
 from sysconf.system.executor import CommandException, PreviewSystemExecutor
 from sysconf.system.file import FileWriter
+from sysconf.utils.validation import validate
 from sysconf.utils.defaults import Defaults
 
 
@@ -66,8 +67,10 @@ class PreviewCommand (Command):
 
         defaults = Defaults()
         current_path = defaults.get_old_config_path()
-        assert current_path.is_file() or not current_path.exists(), \
-            f'Current config path is not a file: {current_path}'
+        validate(
+            current_path.is_file() or not current_path.exists(),
+            f'Current config path is not a file: {current_path}',
+        )
 
         file_writer = FileWriter()
         system_config_renderer = SystemConfigRenderer()
