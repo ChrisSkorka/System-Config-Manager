@@ -21,12 +21,12 @@ class ApplyCommand (Command):
 
     @staticmethod
     def get_name() -> str:
-        """Get the name if this subcommand."""
+        """Get the name of this subcommand."""
 
         return 'apply'
 
     @classmethod
-    def get_subparser(cls, subparsers: 'SubParsersAction[ArgumentParser]') -> ArgumentParser:
+    def get_subparser(cls, subparsers: SubParsersAction[ArgumentParser]) -> ArgumentParser:
         """
         Get a subparser for the command, add_arguments will add all the
         arguments we need.
@@ -34,9 +34,11 @@ class ApplyCommand (Command):
 
         return subparsers.add_parser(
             cls.get_name(),
-            prog='Apply the configuration to the system',
-            description='Compare the current system configuration with the target configuration and execute the necessary commands.',
-            help='',
+            prog='sysconf ' + cls.get_name(),
+            help='Apply the configuration to the system',
+            description='Compare the current system configuration with the '
+            'target configuration and execute the differential commands to '
+            'bring the system to the desired state.',
         )
 
     @classmethod

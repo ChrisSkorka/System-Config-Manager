@@ -20,12 +20,12 @@ class PreviewCommand (Command):
 
     @staticmethod
     def get_name() -> str:
-        """Get the name if this subcommand."""
+        """Get the name of this subcommand."""
 
         return 'preview'
 
     @classmethod
-    def get_subparser(cls, subparsers: 'SubParsersAction[ArgumentParser]') -> ArgumentParser:
+    def get_subparser(cls, subparsers: SubParsersAction[ArgumentParser]) -> ArgumentParser:
         """
         Get a subparser for the command, add_arguments will add all the
         arguments we need.
@@ -33,11 +33,12 @@ class PreviewCommand (Command):
 
         return subparsers.add_parser(
             cls.get_name(),
-            prog='Preview planned actions without executing',
+            prog='sysconf ' + cls.get_name(),
             description='Compare the current system configuration with the '
-            + 'target configuration and generate (but not execute) the '
-            + 'necessary commands.',
-            help='',
+            'target configuration and generate (but not execute) the '
+            'differential commands required to bring the system to the '
+            'desired state.',
+            help='Preview planned actions without executing',
         )
 
     @classmethod

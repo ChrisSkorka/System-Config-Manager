@@ -67,7 +67,7 @@ class TestApplyCommand(TestCase):
         self.assertIsInstance(actual, ArgumentParser)
 
         help_text = actual.format_help()
-        self.assertIn('Apply', help_text)
+        self.assertIn('execute', help_text)
 
     def test_add_arguments(self) -> None:
         """Test that add_arguments adds the expected arguments to the parser."""
@@ -233,7 +233,11 @@ class TestApplyCommand(TestCase):
             manager=dataset.fixture_system_manager,
             system_config_renderer=MagicMock(),
             yaml_serializer=MagicMock(),
-            current_path=MockPath('/tmp/current.yaml', is_file=False, exists=False),
+            current_path=MockPath(
+                '/tmp/current.yaml',
+                is_file=False,
+                exists=False,
+            ),
             file_writer=MagicMock(),
             config_location_writer=CONFIG_LOCATION_WRITER,
             config_path_argument=None,

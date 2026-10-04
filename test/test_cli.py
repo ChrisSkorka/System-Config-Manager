@@ -35,12 +35,12 @@ class TestMain(TestCase):
                 config_path=Path('/configs/system.yaml'),
             ),
         ),
-        'show without a path uses the default': MainDataset(
+        'show without a path defaults None': MainDataset(
             fixture_command_class=ShowCommand,
             input_argv=['sysconf', 'show'],
             expected_parsed_arguments=Namespace(
                 command='show',
-                config_path=Path('~/.config/system.config.yaml'),
+                config_path=None,
             ),
         ),
         'preview with a config file': MainDataset(
@@ -107,7 +107,7 @@ class TestMain(TestCase):
                     dataset.fixture_command_class,
                     'create_from_arguments',
                     return_value=mock_command,
-                ) as mock_create_from_arguments:
+        ) as mock_create_from_arguments:
             main()
 
         # Assert
@@ -227,6 +227,6 @@ class TestMain(TestCase):
                     ShowCommand,
                     'create_from_arguments',
                     side_effect=RuntimeError('boom'),
-                ):
+        ):
             with self.assertRaises(RuntimeError):
                 main()

@@ -39,21 +39,24 @@ class TestShowCommand(TestCase):
         self.assertIsInstance(actual, ArgumentParser)
 
         help_text = actual.format_help()
-        self.assertIn('Shows the last applied System Configuration', help_text)
+        self.assertIn(
+            'Prints the last applied System Configuration',
+            help_text,
+        )
 
     @dataclass
     class AddArgumentsDataset:
         input_argv: list[str]
-        expected_config_path: Path
+        expected_config_path: Path | None
 
     @datasets({
         'explicit path provided': AddArgumentsDataset(
             input_argv=['/manual/config.yaml'],
             expected_config_path=Path('/manual/config.yaml'),
         ),
-        'no path uses default': AddArgumentsDataset(
+        'no path returns None': AddArgumentsDataset(
             input_argv=[],
-            expected_config_path=Path('~/.config/system.config.yaml'),
+            expected_config_path=None,
         ),
     })
     def test_add_arguments(self, dataset: AddArgumentsDataset) -> None:

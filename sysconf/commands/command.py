@@ -68,7 +68,7 @@ class Command (CommandArgumentParserBuilder):
 
     @classmethod
     @abstractmethod
-    def get_subparser(cls, subparsers: 'SubParsersAction[ArgumentParser]') -> ArgumentParser:
+    def get_subparser(cls, subparsers: SubParsersAction[ArgumentParser]) -> ArgumentParser:
         """
         Get a subparser for the command.
 

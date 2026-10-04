@@ -41,7 +41,7 @@ class TestPreviewCommand(TestCase):
         self.assertIsInstance(actual, ArgumentParser)
 
         help_text = actual.format_help()
-        self.assertIn('Preview', help_text)
+        self.assertIn('not execute', help_text)
 
     def test_add_arguments(self) -> None:
         """Test that add_arguments adds the expected arguments to the parser."""
@@ -149,7 +149,8 @@ class TestPreviewCommand(TestCase):
 
     @datasets({
         'no changes required': RunDataset(
-            fixture_system_manager=MockSystemManager.default(get_actions=[]),
+            fixture_system_manager=MockSystemManager
+            .default(get_actions=[]),
             expected_prints=['# No changes required.'],
         ),
         'gsettings add and update': RunDataset(
@@ -207,7 +208,11 @@ class TestPreviewCommand(TestCase):
             manager=dataset.fixture_system_manager,
             system_config_renderer=MagicMock(),
             yaml_serializer=MagicMock(),
-            current_path=MockPath('/tmp/current.yaml', is_file=False, exists=False),
+            current_path=MockPath(
+                '/tmp/current.yaml',
+                is_file=False,
+                exists=False,
+            ),
             file_writer=MagicMock(),
         )
 

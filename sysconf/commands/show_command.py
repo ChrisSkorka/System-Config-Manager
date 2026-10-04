@@ -21,9 +21,9 @@ class ShowCommand (Command):
     def get_subparser(cls, subparsers: 'SubParsersAction[ArgumentParser]') -> ArgumentParser:
         return subparsers.add_parser(
             cls.get_name(),
-            prog='Shows the last applied System Configuration',
-            description='',
-            help='',
+            prog='sysconf ' + cls.get_name(),
+            description='Prints the last applied System Configuration',
+            help='Prints the last applied System Configuration',
         )
 
     @classmethod
@@ -33,8 +33,8 @@ class ShowCommand (Command):
             'config_path',
             type=Path,
             nargs='?',
-            default=Path('~/.config/system.config.yaml'),
-            help='Path to the configuration file. Default: ~/.config/system.config.yaml',
+            default=None,
+            help='Path to the configuration file. (default: ~/.config/config.yaml)',
         )
 
         return parser
