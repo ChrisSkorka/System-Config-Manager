@@ -13,7 +13,7 @@ from sysconf.system.error_handler import PromptUserErrorHandler
 from sysconf.system.executor import CommandException
 from sysconf.system.file import FileWriter
 from sysconf.utils.choice_prompt import ChoicePromptOptionEnum
-from sysconf.utils.config_loader import load_config_from_file, load_config_from_file_or_default
+from sysconf.utils.config_loader import ConfigReader
 from sysconf.utils.context import Context
 from sysconf.utils.validation import validate
 from sysconf.utils.config_location import ConfigLocationWriter
@@ -88,7 +88,7 @@ class ApplyCommand (Command):
     def create_from_context(
         cls,
         context: Context,
-        old_path: Path | None,
+        old_path: Path,
         new_path: Path,
         config_path_argument: Path | None,
     ) -> Self:
@@ -101,8 +101,10 @@ class ApplyCommand (Command):
         file_reader = context.get_file_reader()
         file_writer = context.get_file_writer()
 
-        old_config = load_config_from_file_or_default(file_reader, old_path)
-        new_config = load_config_from_file(file_reader, new_path)
+        config_reader = ConfigReader(file_reader)
+
+        old_config = config_reader.load_or_default(old_path)
+        new_config = config_reader.load(new_path)
 
         error_handler = PromptUserErrorHandler[ApplyFailureResolution](
             CommandException,

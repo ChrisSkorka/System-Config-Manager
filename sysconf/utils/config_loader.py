@@ -7,36 +7,48 @@ from sysconf.config.system_config import SystemConfig
 from sysconf.system.file import FileReader
 
 
-def load_config_from_file(file_reader: FileReader, path: Path) -> SystemConfig:
-    """
-    Load a SystemConfig from a YAML file.
+class ConfigReader:
+    """Load configs from YAML files with a fixed file reader."""
 
-    Utility to:
-    - Read the file
-    - Deserialize the YAML content
-    - Parse the data into a SystemConfig object
+    def __init__(self, file_reader: FileReader) -> None:
+        self.file_reader = file_reader
 
-    Args:
-        path (Path): Path to the YAML configuration file.
-    Returns:
-        SystemConfig: The parsed system configuration.
-    """
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, ConfigReader):
+            return False
 
-    yaml_data = YamlDeserializer().get_data_from_file(file_reader, path)
-    parser = SystemConfigParser.get_parser(yaml_data)
-    system_config = parser.parse_data(yaml_data)
-    return system_config
+        return self.file_reader == value.file_reader
 
+    def load(self, path: Path) -> SystemConfig:
+        """
+        Load a SystemConfig from a YAML file.
 
-def load_config_from_file_or_default(
-    file_reader: FileReader,
-    path: Path | None,
-) -> SystemConfig:
-    """
-    Load a SystemConfig from a YAML file, empty when there is no path.
-    """
+        Utility to:
+        - Read the file
+        - Deserialize the YAML content
+        - Parse the data into a SystemConfig object
 
-    if path is None:
-        return SystemConfig.create_from_entries((), (), (), ())
+        Args:
+            path (Path): Path to the YAML configuration file.
+        Returns:
+            SystemConfig: The parsed system configuration.
+        """
 
-    return load_config_from_file(file_reader, path)
+        yaml_data = YamlDeserializer() \
+            .get_data_from_file(self.file_reader, path)
+        parser = SystemConfigParser.get_parser(yaml_data)
+        system_config = parser.parse_data(yaml_data)
+        return system_config
+
+    def load_or_default(self, path: Path) -> SystemConfig:
+        """
+        Load the config from the file, empty when there is no file.
+
+        Raises:
+            ValidationError: If the config is invalid.
+        """
+
+        if not path.exists():
+            return SystemConfig.create_from_entries((), (), (), ())
+
+        return self.load(path)

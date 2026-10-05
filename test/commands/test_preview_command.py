@@ -12,7 +12,7 @@ from sysconf.config.system_config import SystemConfig, SystemManager
 from sysconf.system.error_handler import FailingErrorHandler
 from sysconf.system.executor import PreviewSystemExecutor
 from sysconf.system.file import FileReader
-from sysconf.utils.config_loader import load_config_from_file
+from sysconf.utils.config_loader import ConfigReader
 from test.datasets import datasets
 from test.domains.mock_domain_action import MockDomainAction
 from test.system.mock_system_manager import MockSystemManager
@@ -36,14 +36,14 @@ NEW_CONFIG_YAML = dedent('''
           - git
 ''').lstrip()
 EMPTY_CONFIG = SystemConfig.create_from_entries((), (), (), ())
-OLD_CONFIG = load_config_from_file(
-    MockFileReader({'/old.yaml': OLD_CONFIG_YAML}),
-    Path('/old.yaml'),
+CONFIG_READER = ConfigReader(
+    MockFileReader({
+        '/old.yaml': OLD_CONFIG_YAML,
+        '/new.yaml': NEW_CONFIG_YAML,
+    }),
 )
-NEW_CONFIG = load_config_from_file(
-    MockFileReader({'/new.yaml': NEW_CONFIG_YAML}),
-    Path('/new.yaml'),
-)
+OLD_CONFIG = CONFIG_READER.load(Path('/old.yaml'))
+NEW_CONFIG = CONFIG_READER.load(Path('/new.yaml'))
 
 
 class TestPreviewCommand(TestCase):
@@ -96,7 +96,7 @@ class TestPreviewCommand(TestCase):
     class CreateFromArgumentsDataset:
         fixture_comparative_parser: ComparativeConfigCommandParser
         input_parsed_arguments: Namespace
-        expected_old_path: Path | None
+        expected_old_path: Path
         expected_new_path: Path
 
     @datasets({
@@ -115,7 +115,7 @@ class TestPreviewCommand(TestCase):
         ),
         'no old config': CreateFromArgumentsDataset(
             fixture_comparative_parser=ComparativeConfigCommandParser(
-                old_path=None,
+                old_path=MockPath('/default/old.yaml'),
                 new_path=fpath('/default/new.yaml'),
                 file_reader=FILE_READER,
             ),
@@ -123,7 +123,7 @@ class TestPreviewCommand(TestCase):
                 config_file=None,
                 last_config=None,
             ),
-            expected_old_path=None,
+            expected_old_path=MockPath('/default/old.yaml'),
             expected_new_path=fpath('/default/new.yaml'),
         ),
     })
@@ -162,7 +162,7 @@ class TestPreviewCommand(TestCase):
     @dataclass
     class CreateFromContextDataset:
         fixture_files: dict[str, str]
-        input_old_path: Path | None
+        input_old_path: Path
         input_new_path: Path
         expected_old_config: SystemConfig
         expected_new_config: SystemConfig
@@ -182,7 +182,7 @@ class TestPreviewCommand(TestCase):
             fixture_files={
                 '/manual/new.yaml': NEW_CONFIG_YAML,
             },
-            input_old_path=None,
+            input_old_path=MockPath('/manual/old.yaml'),
             input_new_path=fpath('/manual/new.yaml'),
             expected_old_config=EMPTY_CONFIG,
             expected_new_config=NEW_CONFIG,

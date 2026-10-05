@@ -12,7 +12,7 @@ from sysconf.config.system_config import SystemManager
 from sysconf.system.error_handler import FailingErrorHandler
 from sysconf.system.executor import PreviewSystemExecutor
 from sysconf.system.file import FileWriter
-from sysconf.utils.config_loader import load_config_from_file, load_config_from_file_or_default
+from sysconf.utils.config_loader import ConfigReader
 from sysconf.utils.context import Context
 from sysconf.utils.validation import validate
 
@@ -80,7 +80,7 @@ class PreviewCommand (Command):
     def create_from_context(
         cls,
         context: Context,
-        old_path: Path | None,
+        old_path: Path,
         new_path: Path,
     ) -> Self:
         """
@@ -90,8 +90,10 @@ class PreviewCommand (Command):
         defaults = context.get_defaults()
         file_reader = context.get_file_reader()
 
-        old_config = load_config_from_file_or_default(file_reader, old_path)
-        new_config = load_config_from_file(file_reader, new_path)
+        config_reader = ConfigReader(file_reader)
+
+        old_config = config_reader.load_or_default(old_path)
+        new_config = config_reader.load(new_path)
 
         executor = PreviewSystemExecutor()
         error_handler = FailingErrorHandler()
