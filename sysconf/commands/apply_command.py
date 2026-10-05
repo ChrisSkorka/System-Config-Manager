@@ -11,12 +11,12 @@ from sysconf.config.serialization import YamlSerializer
 from sysconf.config.system_config import SystemManager
 from sysconf.system.error_handler import PromptUserErrorHandler
 from sysconf.system.executor import CommandException
-from sysconf.system.file import FileWriter
 from sysconf.utils.choice_prompt import ChoicePromptOptionEnum
 from sysconf.utils.config_loader import ConfigReader
 from sysconf.utils.context import Context
 from sysconf.utils.validation import validate
 from sysconf.utils.config_location import ConfigLocationWriter
+from sysconf.utils.config_writer import ConfigWriter
 
 
 class ApplyFailureResolution(ChoicePromptOptionEnum):
@@ -125,6 +125,11 @@ class ApplyCommand (Command):
 
         system_config_renderer = SystemConfigRenderer()
         yaml_serializer = YamlSerializer()
+        config_writer = ConfigWriter(
+            system_config_renderer=system_config_renderer,
+            yaml_serializer=yaml_serializer,
+            file_writer=file_writer,
+        )
         config_location_writer = ConfigLocationWriter(
             defaults,
             file_reader,
@@ -133,10 +138,8 @@ class ApplyCommand (Command):
 
         return cls(
             manager=system_manager,
-            system_config_renderer=system_config_renderer,
-            yaml_serializer=yaml_serializer,
             current_path=current_path,
-            file_writer=file_writer,
+            config_writer=config_writer,
             config_location_writer=config_location_writer,
             config_path_argument=config_path_argument,
         )
@@ -144,20 +147,16 @@ class ApplyCommand (Command):
     def __init__(
         self,
         manager: SystemManager[ApplyFailureResolution],
-        system_config_renderer: SystemConfigRenderer,
-        yaml_serializer: YamlSerializer,
         current_path: Path,
-        file_writer: FileWriter,
+        config_writer: ConfigWriter,
         config_location_writer: ConfigLocationWriter,
         config_path_argument: Path | None,
     ) -> None:
         super().__init__()
 
         self.manager = manager
-        self.system_config_renderer = system_config_renderer
-        self.yaml_serializer = yaml_serializer
         self.current_path = current_path
-        self.file_writer = file_writer
+        self.config_writer = config_writer
         self.config_location_writer = config_location_writer
         self.config_path_argument = config_path_argument
 
@@ -167,9 +166,7 @@ class ApplyCommand (Command):
 
         return self.manager == value.manager \
             and self.current_path == value.current_path \
-            and self.file_writer == value.file_writer \
-            and self.system_config_renderer == value.system_config_renderer \
-            and self.yaml_serializer == value.yaml_serializer \
+            and self.config_writer == value.config_writer \
             and self.config_location_writer == value.config_location_writer \
             and self.config_path_argument == value.config_path_argument
 
@@ -205,18 +202,16 @@ class ApplyCommand (Command):
         result = self.manager.run_actions()
 
         # Write the new current configuration
-        current_config_data = self.system_config_renderer.render_config(
-            result.system_config,
-        )
-        yaml_string = self.yaml_serializer.get_serialized_data(
-            current_config_data,
-        )
         try:
-            self.file_writer.write_file_contents(
-                self.current_path,
-                yaml_string,
-            )
+            self.config_writer.write(result.system_config, self.current_path)
         except Exception as e:
+            current_config_data = self.config_writer.system_config_renderer.render_config(
+                result.system_config,
+            )
+            yaml_string = self.config_writer.yaml_serializer.get_serialized_data(
+                current_config_data,
+            )
+
             print('Current System Configuration:')
             print(yaml_string)
             print()  # Empty line

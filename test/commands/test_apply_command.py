@@ -17,12 +17,14 @@ from sysconf.system.error_handler import PromptUserErrorHandler
 from sysconf.system.file import FileReader, FileWriter
 from sysconf.utils.config_loader import ConfigReader
 from sysconf.utils.config_location import ConfigLocationWriter
+from sysconf.utils.config_writer import ConfigWriter
 from test.datasets import datasets
 from test.domains.mock_domain_action import MockDomainAction
 from test.system.mock_error_handler import MockSuccessErrorHandler
 from test.system.mock_system_executor import MockSystemExecutor
 from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
+from test.utils.mock_config_writer import MockConfigWriter
 from test.utils.mock_context import MockContext
 from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_file import MockFileReader, MockFileWriter
@@ -33,6 +35,11 @@ RENDERER = SystemConfigRenderer()
 SERIALIZER = YamlSerializer()
 FILE_READER = FileReader()
 FILE_WRITER = FileWriter()
+CONFIG_WRITER = ConfigWriter(
+    system_config_renderer=RENDERER,
+    yaml_serializer=SERIALIZER,
+    file_writer=FILE_WRITER,
+)
 CONFIG_LOCATION_WRITER = ConfigLocationWriter(
     MockDefaults(),
     MockFileReader({}),
@@ -261,7 +268,7 @@ class TestApplyCommand(TestCase):
             PromptUserErrorHandler,
         )
         self.assertEqual(defaults.get_old_config_path(), actual.current_path)
-        self.assertIs(file_writer, actual.file_writer)
+        self.assertIs(file_writer, actual.config_writer.file_writer)
         self.assertEqual(
             expected_config_location_writer,
             actual.config_location_writer,
@@ -335,14 +342,12 @@ class TestApplyCommand(TestCase):
         # Arrange
         apply_command = ApplyCommand(
             manager=dataset.fixture_system_manager,
-            system_config_renderer=MagicMock(),
-            yaml_serializer=MagicMock(),
             current_path=MockPath(
                 '/tmp/current.yaml',
                 is_file=False,
                 exists=False,
             ),
-            file_writer=MagicMock(),
+            config_writer=MockConfigWriter.create(),
             config_location_writer=CONFIG_LOCATION_WRITER,
             config_path_argument=None,
         )
@@ -360,14 +365,12 @@ class TestApplyCommand(TestCase):
     @dataclass
     class WriteDataset:
         fixture_system_manager: MockSystemManager[ApplyFailureResolution]
-        fixture_serialized_config: str
         input_current_path: MockPath
 
     @datasets({
         'no changes still writes the current config': WriteDataset(
             fixture_system_manager=MockSystemManager[ApplyFailureResolution]
             .default(get_actions=[]),
-            fixture_serialized_config='version: 1\nconfig: []\n',
             input_current_path=MockPath(
                 '/config/.history/current.yaml', is_file=False, exists=False),
         ),
@@ -375,27 +378,20 @@ class TestApplyCommand(TestCase):
             fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(get_actions=[
                 MockDomainAction('Add gsettings: font-size = 12'),
             ]),
-            fixture_serialized_config='version: 1\nconfig:\n  - gsettings: {}\n',
             input_current_path=MockPath(
                 '/config/.history/current.yaml', is_file=True, exists=True),
         ),
     })
-    def test_run_writes_the_rendered_config(self, dataset: WriteDataset) -> None:
-        """Test that the rendered config is serialized and written to disk."""
+    def test_run_writes_the_current_config(self, dataset: WriteDataset) -> None:
+        """Test that the resulting config is written to the current path."""
 
         # Arrange
-        mock_renderer = MagicMock()
-        mock_serializer = MagicMock()
-        mock_serializer.get_serialized_data.return_value = \
-            dataset.fixture_serialized_config
-        mock_file_writer = MagicMock()
+        config_writer = MockConfigWriter.create()
 
         apply_command = ApplyCommand(
             manager=dataset.fixture_system_manager,
-            system_config_renderer=mock_renderer,
-            yaml_serializer=mock_serializer,
             current_path=dataset.input_current_path,
-            file_writer=mock_file_writer,
+            config_writer=config_writer,
             config_location_writer=CONFIG_LOCATION_WRITER,
             config_path_argument=None,
         )
@@ -405,16 +401,11 @@ class TestApplyCommand(TestCase):
             apply_command.run()
 
         # Assert
-        mock_renderer.render_config.assert_called_once_with(
+        expected_written = [(
             dataset.fixture_system_manager.new_config,
-        )
-        mock_serializer.get_serialized_data.assert_called_once_with(
-            mock_renderer.render_config.return_value,
-        )
-        mock_file_writer.write_file_contents.assert_called_once_with(
             dataset.input_current_path,
-            dataset.fixture_serialized_config,
-        )
+        )]
+        self.assertEqual(config_writer.written, expected_written)
 
     @dataclass
     class WriteFailureDataset:
@@ -469,14 +460,17 @@ class TestApplyCommand(TestCase):
             dataset.fixture_serialized_config
         mock_file_writer = MagicMock()
         mock_file_writer.write_file_contents.side_effect = dataset.fixture_exception
+        config_writer = ConfigWriter(
+            system_config_renderer=MagicMock(),
+            yaml_serializer=mock_serializer,
+            file_writer=mock_file_writer,
+        )
 
         apply_command = ApplyCommand(
             manager=MockSystemManager[ApplyFailureResolution]
             .default(get_actions=[]),
-            system_config_renderer=MagicMock(),
-            yaml_serializer=mock_serializer,
             current_path=dataset.input_current_path,
-            file_writer=mock_file_writer,
+            config_writer=config_writer,
             config_location_writer=CONFIG_LOCATION_WRITER,
             config_path_argument=None,
         )
@@ -548,10 +542,8 @@ class TestApplyCommand(TestCase):
         apply_command = ApplyCommand(
             manager=MockSystemManager[ApplyFailureResolution]
             .default(get_actions=[]),
-            system_config_renderer=MagicMock(),
-            yaml_serializer=MagicMock(),
             current_path=MockPath('/config/.history/current.yaml'),
-            file_writer=MagicMock(),
+            config_writer=MockConfigWriter.create(),
             config_location_writer=ConfigLocationWriter(
                 dataset.fixture_defaults,
                 dataset.fixture_file_reader,
@@ -584,19 +576,15 @@ class TestApplyCommand(TestCase):
         'same collaborators and path': EqualityDataset(
             input_command=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
-                system_config_renderer=RENDERER,
-                yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
-                file_writer=FILE_WRITER,
+                config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 config_path_argument=None,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
-                system_config_renderer=RENDERER,
-                yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
-                file_writer=FILE_WRITER,
+                config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 config_path_argument=None,
             ),
@@ -605,19 +593,15 @@ class TestApplyCommand(TestCase):
         'different current path': EqualityDataset(
             input_command=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
-                system_config_renderer=RENDERER,
-                yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
-                file_writer=FILE_WRITER,
+                config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 config_path_argument=None,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
-                system_config_renderer=RENDERER,
-                yaml_serializer=SERIALIZER,
                 current_path=fpath('/other/current.yaml'),
-                file_writer=FILE_WRITER,
+                config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 config_path_argument=None,
             ),
@@ -626,10 +610,8 @@ class TestApplyCommand(TestCase):
         'different manager configs': EqualityDataset(
             input_command=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
-                system_config_renderer=RENDERER,
-                yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
-                file_writer=FILE_WRITER,
+                config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 config_path_argument=None,
             ),
@@ -642,10 +624,8 @@ class TestApplyCommand(TestCase):
                         user_domains=(),
                     ),
                 ),
-                system_config_renderer=RENDERER,
-                yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
-                file_writer=FILE_WRITER,
+                config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 config_path_argument=None,
             ),
@@ -654,19 +634,19 @@ class TestApplyCommand(TestCase):
         'different renderer instance': EqualityDataset(
             input_command=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
-                system_config_renderer=RENDERER,
-                yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
-                file_writer=FILE_WRITER,
+                config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 config_path_argument=None,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
-                system_config_renderer=SystemConfigRenderer(),
-                yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
-                file_writer=FILE_WRITER,
+                config_writer=ConfigWriter(
+                    system_config_renderer=SystemConfigRenderer(),
+                    yaml_serializer=SERIALIZER,
+                    file_writer=FILE_WRITER,
+                ),
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 config_path_argument=None,
             ),
@@ -675,19 +655,15 @@ class TestApplyCommand(TestCase):
         'different config path argument': EqualityDataset(
             input_command=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
-                system_config_renderer=RENDERER,
-                yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
-                file_writer=FILE_WRITER,
+                config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 config_path_argument=None,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
-                system_config_renderer=RENDERER,
-                yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
-                file_writer=FILE_WRITER,
+                config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 config_path_argument=fpath('/manual/new.yaml'),
             ),
@@ -696,10 +672,8 @@ class TestApplyCommand(TestCase):
         'not equal to a string': EqualityDataset(
             input_command=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
-                system_config_renderer=RENDERER,
-                yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
-                file_writer=FILE_WRITER,
+                config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 config_path_argument=None,
             ),
