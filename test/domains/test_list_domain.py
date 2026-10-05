@@ -321,6 +321,11 @@ class TestListConfigEntry(TestCase):
             input_other=ListConfigEntry(APT_DOMAIN, (), 'git'),
             expected_equal=True,
         ),
+        'same domain key from another domain instance': EqualityDataset(
+            input_entry=ListConfigEntry(APT_DOMAIN, (), 'git'),
+            input_other=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
+            expected_equal=True,
+        ),
         'different value': EqualityDataset(
             input_entry=ListConfigEntry(APT_DOMAIN, (), 'git'),
             input_other=ListConfigEntry(APT_DOMAIN, (), 'vim'),

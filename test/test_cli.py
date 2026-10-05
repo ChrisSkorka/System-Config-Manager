@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 from sysconf.cli import main
 from sysconf.commands.apply_command import ApplyCommand
 from sysconf.commands.command import Command
+from sysconf.commands.edit_command import EditCommand
 from sysconf.commands.preview_command import PreviewCommand
 from sysconf.commands.show_command import ShowCommand
 from sysconf.utils.context import Context
@@ -95,6 +96,24 @@ class TestMain(TestCase):
                 last_config=Path('/configs/old.yaml'),
             ),
         ),
+        'edit with a config file': MainDataset(
+            fixture_command_class=EditCommand,
+            input_argv=['sysconf', 'edit', '/configs/new.yaml'],
+            expected_parsed_arguments=Namespace(
+                command='edit',
+                config_file=Path('/configs/new.yaml'),
+                last_config=None,
+            ),
+        ),
+        'edit without a config file': MainDataset(
+            fixture_command_class=EditCommand,
+            input_argv=['sysconf', 'edit'],
+            expected_parsed_arguments=Namespace(
+                command='edit',
+                config_file=None,
+                last_config=None,
+            ),
+        ),
     })
     def test_main_runs_the_selected_command(self, dataset: MainDataset) -> None:
         """Test that the sub command is parsed, constructed and run."""
@@ -128,12 +147,13 @@ class TestMain(TestCase):
                 patch('argparse.ArgumentParser.print_help') as mock_print_help, \
                 patch.object(ShowCommand, 'create_from_arguments') as mock_show, \
                 patch.object(PreviewCommand, 'create_from_arguments') as mock_preview, \
-                patch.object(ApplyCommand, 'create_from_arguments') as mock_apply:
+                patch.object(ApplyCommand, 'create_from_arguments') as mock_apply, \
+                patch.object(EditCommand, 'create_from_arguments') as mock_edit:
             main()
 
         # Assert
         mock_print_help.assert_called_once_with()
-        for mock_create in (mock_show, mock_preview, mock_apply):
+        for mock_create in (mock_show, mock_preview, mock_apply, mock_edit):
             mock_create.assert_not_called()
 
     @dataclass

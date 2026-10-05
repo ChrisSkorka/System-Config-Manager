@@ -96,6 +96,9 @@ python3 -m sysconf preview [/path/to/config]
 # apply the config file, execute commands to add & remove things that we're added or removed compared to the last applied config
 python -m sysconf apply [/path/to/config]
 
+# open the config in your editor, then choose to apply, preview, or exit once the editor is closed
+python3 -m sysconf edit [/path/to/config]
+
 # the config path is optional once recorded, see Config Location below
 
 # show last applied config
@@ -146,7 +149,7 @@ The location is saved at `~/.config/system-config-manager/config`, which is eith
 Until a location is recorded, `apply` and `preview` without a path will tell you to run
 `apply` with a path once.
 
-Note that only `apply` records the location, `preview` just reads it.
+Note that only the `apply` command and choosing the apply option within other commands will record the location, but `preview` & `edit` only read it by default.
 
 ### Version
 
@@ -372,6 +375,41 @@ domains:
     update: git config --global $key "$value"
     remove: git config --global --unset $key
 ```
+
+## Commands
+
+### Apply
+
+todo
+
+### Preview
+
+todo
+
+### Edit
+
+The `sysconf edit` command will:
+1. open the config in an editor
+2. wait for the editor to close
+3. validate the newly edited config
+4. if invalid, prompt whether to continue editing
+5. compare the currently applied config to the newly edited config
+6. if changed, prompt to apply, preview, edit, or exit
+
+Notes:
+- Choosing to apply will apply all differences compared to the currently applied config including previously unapplied changes, not just the edits from this very editing session.
+
+The first editor found is used:
+
+| Platform | Editors tried |
+|---|---|
+| Linux (and other) | `editor`, `nano`, `vim`, `vi` |
+| macOS | `nano`, `vim`, `vi` |
+| Windows | `notepad` |
+
+### Show
+
+todo
 
 ## System Design
 

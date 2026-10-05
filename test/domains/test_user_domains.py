@@ -218,6 +218,78 @@ class TestUserListDomain(TestCase):
             dataset.expected_rendered,
         )
 
+    @dataclass
+    class EqualityDataset:
+        input_domain: UserListDomain
+        input_other: object
+        expected_equal: bool
+
+    @datasets({
+        'same specs': EqualityDataset(
+            input_domain=PACKAGES_DOMAIN,
+            input_other=UserListDomain.create_from_specs(
+                key='my-packages',
+                path_depth=0,
+                add_script='my-pm install $value',
+                remove_script='my-pm remove $value',
+            ),
+            expected_equal=True,
+        ),
+        'different key': EqualityDataset(
+            input_domain=PACKAGES_DOMAIN,
+            input_other=UserListDomain.create_from_specs(
+                key='other-packages',
+                path_depth=0,
+                add_script='my-pm install $value',
+                remove_script='my-pm remove $value',
+            ),
+            expected_equal=False,
+        ),
+        'different path depth': EqualityDataset(
+            input_domain=PACKAGES_DOMAIN,
+            input_other=UserListDomain.create_from_specs(
+                key='my-packages',
+                path_depth=1,
+                add_script='my-pm install $value',
+                remove_script='my-pm remove $value',
+            ),
+            expected_equal=False,
+        ),
+        'different add script': EqualityDataset(
+            input_domain=PACKAGES_DOMAIN,
+            input_other=UserListDomain.create_from_specs(
+                key='my-packages',
+                path_depth=0,
+                add_script='other-pm install $value',
+                remove_script='my-pm remove $value',
+            ),
+            expected_equal=False,
+        ),
+        'different remove script': EqualityDataset(
+            input_domain=PACKAGES_DOMAIN,
+            input_other=UserListDomain.create_from_specs(
+                key='my-packages',
+                path_depth=0,
+                add_script='my-pm install $value',
+                remove_script='other-pm remove $value',
+            ),
+            expected_equal=False,
+        ),
+        'not a user list domain': EqualityDataset(
+            input_domain=PACKAGES_DOMAIN,
+            input_other=SETTINGS_DOMAIN,
+            expected_equal=False,
+        ),
+    })
+    def test_equality(self, dataset: EqualityDataset) -> None:
+        """Test that domains compare by their user defined specs."""
+
+        # Act & Assert
+        if dataset.expected_equal:
+            self.assertEqual(dataset.input_domain, dataset.input_other)
+        else:
+            self.assertNotEqual(dataset.input_domain, dataset.input_other)
+
 
 class TestUserMapDomain(TestCase):
     """Test that a user defined map domain delegates to its shell domain."""
@@ -365,3 +437,91 @@ class TestUserMapDomain(TestCase):
                 'remove': 'my-cfg unset "$key"',
             },
         )
+
+    @dataclass
+    class EqualityDataset:
+        input_domain: UserMapDomain
+        input_other: object
+        expected_equal: bool
+
+    @datasets({
+        'same specs': EqualityDataset(
+            input_domain=SETTINGS_DOMAIN,
+            input_other=UserMapDomain.create_from_specs(
+                key='my-config',
+                path_depth=1,
+                add_script='my-cfg set "$key" "$value"',
+                update_script='my-cfg set "$key" "$value"',
+                remove_script='my-cfg unset "$key"',
+            ),
+            expected_equal=True,
+        ),
+        'different key': EqualityDataset(
+            input_domain=SETTINGS_DOMAIN,
+            input_other=UserMapDomain.create_from_specs(
+                key='other-config',
+                path_depth=1,
+                add_script='my-cfg set "$key" "$value"',
+                update_script='my-cfg set "$key" "$value"',
+                remove_script='my-cfg unset "$key"',
+            ),
+            expected_equal=False,
+        ),
+        'different path depth': EqualityDataset(
+            input_domain=SETTINGS_DOMAIN,
+            input_other=UserMapDomain.create_from_specs(
+                key='my-config',
+                path_depth=2,
+                add_script='my-cfg set "$key" "$value"',
+                update_script='my-cfg set "$key" "$value"',
+                remove_script='my-cfg unset "$key"',
+            ),
+            expected_equal=False,
+        ),
+        'different add script': EqualityDataset(
+            input_domain=SETTINGS_DOMAIN,
+            input_other=UserMapDomain.create_from_specs(
+                key='my-config',
+                path_depth=1,
+                add_script='my-cfg add "$key" "$value"',
+                update_script='my-cfg set "$key" "$value"',
+                remove_script='my-cfg unset "$key"',
+            ),
+            expected_equal=False,
+        ),
+        'different update script': EqualityDataset(
+            input_domain=SETTINGS_DOMAIN,
+            input_other=UserMapDomain.create_from_specs(
+                key='my-config',
+                path_depth=1,
+                add_script='my-cfg set "$key" "$value"',
+                update_script='my-cfg update "$key" "$value"',
+                remove_script='my-cfg unset "$key"',
+            ),
+            expected_equal=False,
+        ),
+        'different remove script': EqualityDataset(
+            input_domain=SETTINGS_DOMAIN,
+            input_other=UserMapDomain.create_from_specs(
+                key='my-config',
+                path_depth=1,
+                add_script='my-cfg set "$key" "$value"',
+                update_script='my-cfg set "$key" "$value"',
+                remove_script='my-cfg delete "$key"',
+            ),
+            expected_equal=False,
+        ),
+        'not a user map domain': EqualityDataset(
+            input_domain=SETTINGS_DOMAIN,
+            input_other=PACKAGES_DOMAIN,
+            expected_equal=False,
+        ),
+    })
+    def test_equality(self, dataset: EqualityDataset) -> None:
+        """Test that domains compare by their user defined specs."""
+
+        # Act & Assert
+        if dataset.expected_equal:
+            self.assertEqual(dataset.input_domain, dataset.input_other)
+        else:
+            self.assertNotEqual(dataset.input_domain, dataset.input_other)

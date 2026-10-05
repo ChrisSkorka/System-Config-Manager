@@ -124,7 +124,7 @@ class ListConfigEntry(DomainConfigEntry):
         if not isinstance(value, ListConfigEntry):
             return False
 
-        return self.domain == value.domain \
+        return self.domain.get_key() == value.domain.get_key() \
             and self.path == value.path \
             and self.value == value.value
 

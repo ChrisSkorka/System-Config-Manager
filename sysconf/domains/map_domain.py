@@ -53,6 +53,21 @@ class MapDomain(Generic[Value], Domain):
         self.update_action_factory = update_action_factory
         self.remove_action_factory = remove_action_factory
 
+    def __eq__(self, value: object, /) -> bool:
+        if not isinstance(value, MapDomain):
+            return False
+
+        value = cast(MapDomain[Any], value)
+
+        return (
+            self._key == value._key
+            and self.path_depth == value.path_depth
+            and self.get_value == value.get_value
+            and self.add_action_factory == value.add_action_factory
+            and self.update_action_factory == value.update_action_factory
+            and self.remove_action_factory == value.remove_action_factory
+        )
+
     def get_key(self) -> str:
         return self._key
 
@@ -149,7 +164,7 @@ class MapConfigEntry(Generic[Value], DomainConfigEntry):
 
         value = cast(MapConfigEntry[Any], value)
 
-        return self.domain == value.domain \
+        return self.domain.get_key() == value.domain.get_key() \
             and self.path == value.path \
             and self.value == value.value
 

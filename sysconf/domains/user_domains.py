@@ -59,6 +59,17 @@ class UserListDomain(UserDomain):
         self.remove_script = remove_script
         self.list_domain = list_domain
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, UserListDomain):
+            return False
+        return (
+            self.key == other.key
+            and self.path_depth == other.path_depth
+            and self.add_script == other.add_script
+            and self.remove_script == other.remove_script
+            # and self.list_domain == other.list_domain
+        )
+
     def get_key(self) -> str:
         return self.list_domain.get_key()
 
@@ -134,6 +145,16 @@ class UserMapDomain(UserDomain):
         self.update_script = update_script
         self.remove_script = remove_script
         self.map_domain = map_domain
+
+    def __eq__(self, value: object, /) -> bool:
+        if not isinstance(value, UserMapDomain):
+            return False
+
+        return self.key == value.key \
+            and self.path_depth == value.path_depth \
+            and self.add_script == value.add_script \
+            and self.update_script == value.update_script \
+            and self.remove_script == value.remove_script
 
     def get_key(self) -> str:
         return self.map_domain.get_key()

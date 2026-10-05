@@ -18,6 +18,7 @@ sys.path.append(str(project_root_directory))
 if True:  # prevent formatter from re-ordering these imports
     from sysconf.commands.apply_command import ApplyCommand
     from sysconf.commands.command import Command
+    from sysconf.commands.edit_command import EditCommand
     from sysconf.commands.preview_command import PreviewCommand
     from sysconf.commands.show_command import ShowCommand
     from sysconf.utils.validation import ValidationError
@@ -45,6 +46,7 @@ def main() -> None:
         ShowCommand.get_name(): ShowCommand,
         PreviewCommand.get_name(): PreviewCommand,
         ApplyCommand.get_name(): ApplyCommand,
+        EditCommand.get_name(): EditCommand,
     }
 
     for commandCls in commands.values():
