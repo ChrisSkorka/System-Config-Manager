@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace, _SubParsersAction  # pyright: ignore
 from typing import Self
 
+from sysconf.utils.context import Context
+
 
 # Export this otherwise private type since it's needed to static type checking
 SubParsersAction = _SubParsersAction
@@ -42,8 +44,11 @@ class CommandArgumentParserBuilder (ABC):
 
     @classmethod
     @abstractmethod
-    def create_from_arguments(cls, parsed_arguments: Namespace) -> Self:
-        """Parse the arguments and create a new instance of the command."""
+    def create_from_arguments(cls, context: Context, parsed_arguments: Namespace) -> Self:
+        """
+        Parse the arguments and create a new instance of the command using the
+        provided context.
+        """
         pass  # pragma: no cover
 
 

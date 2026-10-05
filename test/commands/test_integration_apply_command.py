@@ -3,14 +3,16 @@
 from argparse import Namespace
 from dataclasses import dataclass
 import io
-from unittest.mock import MagicMock, _Call, call  # type: ignore
+from unittest.mock import _Call, call  # type: ignore
 from unittest.mock import patch
+from sysconf.system.executor import LiveSystemExecutor
 from sysconf.system.file import FileReader
 from test.commands.test_apply_command import ApplyCommand
 from test.datasets import datasets
 from test.helper import unindent
 from test.system.mock_subprocess import create_mock_run
 from test.test_case import TestCase
+from test.utils.mock_context import MockContext
 from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_file import MockFileReader, MockFileWriter
 from test.utils.mock_path import MockPath, dpath, fpath
@@ -379,29 +381,29 @@ class TestIntegrationApplyCommand (TestCase):
         # Arrange
         mock_run = create_mock_run()
         mock_stdout = io.StringIO()
-        mock_file_writer = MagicMock()
 
-        # The config location already records the config being applied, so
-        # nothing is recorded and nothing extra is printed
+        # The config location is a directory, so nothing is recorded and
+        # nothing extra is printed
         defaults = MockDefaults(
             old_config_path=MockPath('/config/.history/current.yaml'),
-            config_location_path=fpath(CONFIG_LOCATION_PATH),
+            config_location_path=dpath(CONFIG_LOCATION_PATH),
         )
-        location_file_reader = MockFileReader({
-            CONFIG_LOCATION_PATH: f'{NEW_CONFIG_PATH}\n',
-        })
+        file_writer = MockFileWriter()
+        system_executor = LiveSystemExecutor()
+        context = MockContext.create(
+            defaults=defaults,
+            file_reader=dataset.fixture_file_reader,
+            file_writer=file_writer,
+            system_executor=system_executor,
+        )
 
         with patch('subprocess.run', mock_run), \
-                patch('sys.stdout', mock_stdout), \
-                patch('sysconf.commands.comparative_config_command_parser.Defaults', MagicMock(return_value=defaults)), \
-                patch('sysconf.commands.comparative_config_command_parser.FileReader', dataset.fixture_file_reader), \
-                patch('sysconf.commands.apply_command.Defaults', MagicMock(return_value=defaults)), \
-                patch('sysconf.commands.apply_command.FileReader', location_file_reader), \
-                patch('sysconf.commands.apply_command.FileWriter', mock_file_writer):
+                patch('sys.stdout', mock_stdout):
 
             # Act
-            command: ApplyCommand = ApplyCommand.create_from_arguments(
-                dataset.input_parsed_arguments,
+            command = ApplyCommand.create_from_arguments(
+                context=context,
+                parsed_arguments=dataset.input_parsed_arguments,
             )
             command.run()
 
@@ -412,7 +414,7 @@ class TestIntegrationApplyCommand (TestCase):
     @dataclass
     class RunRecordsConfigLocationDataset:
         fixture_defaults: MockDefaults
-        fixture_location_file_reader: MockFileReader
+        fixture_location_files: dict[str, str]
         expected_stdout: str
         expected_recorded_contents: str | None
 
@@ -422,7 +424,7 @@ class TestIntegrationApplyCommand (TestCase):
                 old_config_path=MockPath('/config/.history/current.yaml'),
                 config_location_path=MockPath(CONFIG_LOCATION_PATH),
             ),
-            fixture_location_file_reader=MockFileReader({}),
+            fixture_location_files={},
             expected_stdout=f'Saved "{NEW_CONFIG_PATH}" as your config location\n'
             + '# No changes required.\n',
             expected_recorded_contents=f'{NEW_CONFIG_PATH}\n',
@@ -432,9 +434,9 @@ class TestIntegrationApplyCommand (TestCase):
                 old_config_path=MockPath('/config/.history/current.yaml'),
                 config_location_path=fpath(CONFIG_LOCATION_PATH),
             ),
-            fixture_location_file_reader=MockFileReader({
+            fixture_location_files={
                 CONFIG_LOCATION_PATH: '/configs/other.yaml\n',
-            }),
+            },
             expected_stdout=f'Saved "{NEW_CONFIG_PATH}" as your config location\n'
             + '# No changes required.\n',
             expected_recorded_contents=f'{NEW_CONFIG_PATH}\n',
@@ -444,7 +446,7 @@ class TestIntegrationApplyCommand (TestCase):
                 old_config_path=MockPath('/config/.history/current.yaml'),
                 config_location_path=dpath(CONFIG_LOCATION_PATH),
             ),
-            fixture_location_file_reader=MockFileReader({}),
+            fixture_location_files={},
             expected_stdout='# No changes required.\n',
             expected_recorded_contents=None,
         ),
@@ -458,8 +460,8 @@ class TestIntegrationApplyCommand (TestCase):
         # Arrange
         mock_run = create_mock_run()
         mock_stdout = io.StringIO()
-        mock_file_writer = MockFileWriter()
-        config_file_reader = MockFileReader({
+        file_writer = MockFileWriter()
+        file_reader = MockFileReader({
             OLD_CONFIG_PATH: unindent("""
                 version: 1
                 config: []
@@ -468,28 +470,35 @@ class TestIntegrationApplyCommand (TestCase):
                 version: 1
                 config: []
             """),
+            **dataset.fixture_location_files,
         })
+        system_executor = LiveSystemExecutor()
+        context = MockContext.create(
+            defaults=dataset.fixture_defaults,
+            file_reader=file_reader,
+            file_writer=file_writer,
+            system_executor=system_executor,
+        )
+        old_config_path = fpath(OLD_CONFIG_PATH)
+        new_config_path = fpath(NEW_CONFIG_PATH)
+        parsed_arguments = Namespace(
+            last_config=old_config_path,
+            config_file=new_config_path,
+        )
 
         with patch('subprocess.run', mock_run), \
-                patch('sys.stdout', mock_stdout), \
-                patch('sysconf.commands.comparative_config_command_parser.Defaults', MagicMock(return_value=dataset.fixture_defaults)), \
-                patch('sysconf.commands.comparative_config_command_parser.FileReader', config_file_reader), \
-                patch('sysconf.commands.apply_command.Defaults', MagicMock(return_value=dataset.fixture_defaults)), \
-                patch('sysconf.commands.apply_command.FileReader', dataset.fixture_location_file_reader), \
-                patch('sysconf.commands.apply_command.FileWriter', mock_file_writer):
+                patch('sys.stdout', mock_stdout):
 
             # Act
-            command: ApplyCommand = ApplyCommand.create_from_arguments(
-                Namespace(
-                    last_config=fpath(OLD_CONFIG_PATH),
-                    config_file=fpath(NEW_CONFIG_PATH),
-                ),
+            command = ApplyCommand.create_from_arguments(
+                context=context,
+                parsed_arguments=parsed_arguments,
             )
             command.run()
 
         # Assert
         self.assertEqual(mock_stdout.getvalue(), dataset.expected_stdout)
         self.assertEqual(
-            mock_file_writer.written_files.get(CONFIG_LOCATION_PATH),
+            file_writer.written_files.get(CONFIG_LOCATION_PATH),
             dataset.expected_recorded_contents,
         )

@@ -12,8 +12,9 @@ from sysconf.config.system_config import SystemManager
 from sysconf.system.error_handler import FailingErrorHandler
 from sysconf.system.executor import PreviewSystemExecutor
 from sysconf.system.file import FileWriter
+from sysconf.utils.config_loader import load_config_from_file, load_config_from_file_or_default
+from sysconf.utils.context import Context
 from sysconf.utils.validation import validate
-from sysconf.utils.defaults import Defaults
 
 
 class PreviewCommand (Command):
@@ -52,29 +53,62 @@ class PreviewCommand (Command):
         return parser
 
     @classmethod
-    def create_from_arguments(cls, parsed_arguments: Namespace) -> Self:
+    def create_from_arguments(
+        cls,
+        context: Context,
+        parsed_arguments: Namespace,
+    ) -> Self:
         """
         Validate the arguments and create a ready to run instance from those
         arguments.
         """
 
         comparative_parser = ComparativeConfigCommandParser.create_from_arguments(
-            parsed_arguments,
+            context=context,
+            parsed_arguments=parsed_arguments,
         )
+        old_path = comparative_parser.old_path
+        new_path = comparative_parser.new_path
+
+        return cls.create_from_context(
+            context=context,
+            old_path=old_path,
+            new_path=new_path,
+        )
+
+    @classmethod
+    def create_from_context(
+        cls,
+        context: Context,
+        old_path: Path | None,
+        new_path: Path,
+    ) -> Self:
+        """
+        Create an instance of the command from the given context.
+        """
+
+        defaults = context.get_defaults()
+        file_reader = context.get_file_reader()
+
+        old_config = load_config_from_file_or_default(file_reader, old_path)
+        new_config = load_config_from_file(file_reader, new_path)
+
+        executor = PreviewSystemExecutor()
         error_handler = FailingErrorHandler()
-        system_manager = comparative_parser.get_system_manager(
-            executor=PreviewSystemExecutor(),
+        system_manager = SystemManager(
+            old_config=old_config,
+            new_config=new_config,
+            executor=executor,
             error_handler=error_handler,
         )
 
-        defaults = Defaults()
         current_path = defaults.get_old_config_path()
         validate(
             current_path.is_file() or not current_path.exists(),
             f'Current config path is not a file: {current_path}',
         )
 
-        file_writer = FileWriter()
+        file_writer = context.get_file_writer()
         system_config_renderer = SystemConfigRenderer()
         yaml_serializer = YamlSerializer()
 

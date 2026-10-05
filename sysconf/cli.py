@@ -7,6 +7,8 @@ from argparse import ArgumentParser
 from typing import Type
 from pathlib import Path
 
+from sysconf.utils.context import Context
+
 
 # Add the parent directory of this file to the Python path to enable imports
 current_script_path = Path(os.path.abspath(__file__))
@@ -56,8 +58,11 @@ def main() -> None:
         parser.print_help()
         return
 
+    context = Context()
+
     try:
         command: Command = commands[commands_name].create_from_arguments(
+            context,
             parsed_args,
         )
         command.run()

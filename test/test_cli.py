@@ -12,6 +12,7 @@ from sysconf.commands.apply_command import ApplyCommand
 from sysconf.commands.command import Command
 from sysconf.commands.preview_command import PreviewCommand
 from sysconf.commands.show_command import ShowCommand
+from sysconf.utils.context import Context
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
 from test.test_case import TestCase
@@ -99,10 +100,12 @@ class TestMain(TestCase):
         """Test that the sub command is parsed, constructed and run."""
 
         # Arrange
+        context = Context()
         mock_command = MagicMock()
 
         # Act
         with patch('sys.argv', dataset.input_argv), \
+                patch('sysconf.cli.Context', return_value=context), \
                 patch.object(
                     dataset.fixture_command_class,
                     'create_from_arguments',
@@ -112,6 +115,7 @@ class TestMain(TestCase):
 
         # Assert
         mock_create_from_arguments.assert_called_once_with(
+            context,
             dataset.expected_parsed_arguments,
         )
         mock_command.run.assert_called_once_with()

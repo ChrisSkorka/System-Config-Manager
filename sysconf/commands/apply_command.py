@@ -10,12 +10,13 @@ from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
 from sysconf.config.system_config import SystemManager
 from sysconf.system.error_handler import PromptUserErrorHandler
-from sysconf.system.executor import CommandException, LiveSystemExecutor
-from sysconf.system.file import FileReader, FileWriter
+from sysconf.system.executor import CommandException
+from sysconf.system.file import FileWriter
 from sysconf.utils.choice_prompt import ChoicePromptOptionEnum
+from sysconf.utils.config_loader import load_config_from_file, load_config_from_file_or_default
+from sysconf.utils.context import Context
 from sysconf.utils.validation import validate
 from sysconf.utils.config_location import ConfigLocationWriter
-from sysconf.utils.defaults import Defaults
 
 
 class ApplyFailureResolution(ChoicePromptOptionEnum):
@@ -58,37 +59,73 @@ class ApplyCommand (Command):
         return parser
 
     @classmethod
-    def create_from_arguments(cls, parsed_arguments: Namespace) -> Self:
+    def create_from_arguments(
+        cls,
+        context: Context,
+        parsed_arguments: Namespace,
+    ) -> Self:
         """
         Validate the arguments and create a ready to run instance from those
         arguments.
         """
 
         comparative_parser = ComparativeConfigCommandParser.create_from_arguments(
-            parsed_arguments,
+            context=context,
+            parsed_arguments=parsed_arguments,
         )
+        old_path = comparative_parser.old_path
+        new_path = comparative_parser.new_path
+        config_path_argument: Path | None = parsed_arguments.config_file
+
+        return cls.create_from_context(
+            context=context,
+            old_path=old_path,
+            new_path=new_path,
+            config_path_argument=config_path_argument,
+        )
+
+    @classmethod
+    def create_from_context(
+        cls,
+        context: Context,
+        old_path: Path | None,
+        new_path: Path,
+        config_path_argument: Path | None,
+    ) -> Self:
+        """
+        Create an instance of the command from the given context.
+        """
+
+        defaults = context.get_defaults()
+        executor = context.get_system_executor()
+        file_reader = context.get_file_reader()
+        file_writer = context.get_file_writer()
+
+        old_config = load_config_from_file_or_default(file_reader, old_path)
+        new_config = load_config_from_file(file_reader, new_path)
+
         error_handler = PromptUserErrorHandler[ApplyFailureResolution](
             CommandException,
             failure_resolutions=(ApplyFailureResolution.ABORT,),
         )
-        system_manager = comparative_parser.get_system_manager(
-            executor=LiveSystemExecutor(),
+        system_manager = SystemManager(
+            old_config=old_config,
+            new_config=new_config,
+            executor=executor,
             error_handler=error_handler,
         )
 
-        defaults = Defaults()
         current_path = defaults.get_old_config_path()
         validate(
             current_path.is_file() or not current_path.exists(),
             f'Current config path is not a file: {current_path}',
         )
 
-        file_writer = FileWriter()
         system_config_renderer = SystemConfigRenderer()
         yaml_serializer = YamlSerializer()
         config_location_writer = ConfigLocationWriter(
             defaults,
-            FileReader(),
+            file_reader,
             file_writer,
         )
 
@@ -99,7 +136,7 @@ class ApplyCommand (Command):
             current_path=current_path,
             file_writer=file_writer,
             config_location_writer=config_location_writer,
-            config_path_argument=parsed_arguments.config_file,
+            config_path_argument=config_path_argument,
         )
 
     def __init__(

@@ -3,14 +3,12 @@
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
-from sysconf.config.system_config import SystemConfig, SystemManager
-from sysconf.system.file import FileReader
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
 from test.test_case import TestCase
+from test.utils.mock_context import MockContext
 from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_path import MockPath, dpath, fpath
 
@@ -125,27 +123,27 @@ class TestComparativeConfigCommandParser(TestCase):
             expected_new_path=fpath('/default/new.yaml'),
         ),
     })
-    @patch('sysconf.commands.comparative_config_command_parser.Defaults')
     def test_create_from_arguments_success(
         self,
         dataset: CreateFromArgumentsSuccessDataset,
-        mock_defaults_class: MagicMock,
     ) -> None:
         """Test successful creation from arguments with various input combinations."""
 
         # Arrange
-        mock_defaults_class.return_value = dataset.fixture_defaults
+        context = MockContext.create(defaults=dataset.fixture_defaults)
+        file_reader = context.get_file_reader()
 
         # Act
         actual = ComparativeConfigCommandParser.create_from_arguments(
-            dataset.input_parsed_arguments,
+            context=context,
+            parsed_arguments=dataset.input_parsed_arguments,
         )
 
         # Assert
         self.assertIsInstance(actual, ComparativeConfigCommandParser)
         self.assertEqual(actual.old_path, dataset.expected_old_path)
         self.assertEqual(actual.new_path, dataset.expected_new_path)
-        self.assertIsInstance(actual.file_reader, FileReader)
+        self.assertIs(actual.file_reader, file_reader)
 
     @dataclass
     class CreateFromArgumentsErrorDataset:
@@ -226,59 +224,22 @@ class TestComparativeConfigCommandParser(TestCase):
             expected_exception_message='not a file',
         ),
     })
-    @patch('sysconf.commands.comparative_config_command_parser.Defaults')
     def test_create_from_arguments_error(
         self,
         dataset: CreateFromArgumentsErrorDataset,
-        mock_defaults_class: MagicMock,
     ) -> None:
         """Test that various config loading errors are properly propagated."""
 
         # Arrange
-        mock_defaults_class.return_value = dataset.fixture_defaults
+        context = MockContext.create(defaults=dataset.fixture_defaults)
 
         # Act & Expect
-        with self.assertRaises(ValidationError) as context:
+        with self.assertRaises(ValidationError) as error_context:
             ComparativeConfigCommandParser.create_from_arguments(
-                dataset.input_parsed_arguments)
-
-        # Assert
-        self.assertIn(dataset.expected_exception_message,
-                      str(context.exception))
-
-    def test_get_system_manager(self) -> None:
-        """Test that get_system_manager loads configs and creates a SystemManager."""
-
-        # Arrange
-        from unittest.mock import patch as _patch
-        from test.system.mock_error_handler import MockSuccessErrorHandler
-        from test.system.mock_system_executor import MockSystemExecutor
-
-        old_config = SystemConfig.create_from_entries((), (), (), ())
-        new_config = SystemConfig.create_from_entries((), (), (), ())
-        mock_executor = MockSystemExecutor()
-        mock_error_handler = MockSuccessErrorHandler()
-
-        parser = ComparativeConfigCommandParser(
-            old_path=fpath('/old.yaml'),
-            new_path=fpath('/new.yaml'),
-            file_reader=FileReader(),
-        )
-
-        def mock_load_side_effect(file_reader: object, path: Path) -> SystemConfig:
-            return old_config if path == fpath('/old.yaml') else new_config
-
-        with _patch(
-            'sysconf.commands.comparative_config_command_parser.load_config_from_file',
-            side_effect=mock_load_side_effect,
-        ):
-            # Act
-            result = parser.get_system_manager(
-                executor=mock_executor,
-                error_handler=mock_error_handler,
+                context=context,
+                parsed_arguments=dataset.input_parsed_arguments,
             )
 
         # Assert
-        self.assertIsInstance(result, SystemManager)
-        self.assertEqual(result.old_config, old_config)
-        self.assertEqual(result.new_config, new_config)
+        self.assertIn(dataset.expected_exception_message,
+                      str(error_context.exception))

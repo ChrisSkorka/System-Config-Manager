@@ -26,3 +26,17 @@ def load_config_from_file(file_reader: FileReader, path: Path) -> SystemConfig:
     parser = SystemConfigParser.get_parser(yaml_data)
     system_config = parser.parse_data(yaml_data)
     return system_config
+
+
+def load_config_from_file_or_default(
+    file_reader: FileReader,
+    path: Path | None,
+) -> SystemConfig:
+    """
+    Load a SystemConfig from a YAML file, empty when there is no path.
+    """
+
+    if path is None:
+        return SystemConfig.create_from_entries((), (), (), ())
+
+    return load_config_from_file(file_reader, path)

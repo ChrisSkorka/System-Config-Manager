@@ -2,21 +2,14 @@
 
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import Self, TypeVar
+from typing import Self
 
 from sysconf.commands.command import CommandArgumentParserBuilder
-from sysconf.config.system_config import SystemConfig, SystemManager
-from sysconf.system.error_handler import ErrorHandler, FailureResolution
-from sysconf.system.executor import SystemExecutor
 from sysconf.system.file import FileReader
 from sysconf.system.path import get_validated_file_path
+from sysconf.utils.context import Context
 from sysconf.utils.validation import validate
-from sysconf.utils.config_loader import load_config_from_file
 from sysconf.utils.config_location import ConfigLocationReader
-from sysconf.utils.defaults import Defaults
-
-
-FR = TypeVar('FR', bound=FailureResolution | None)
 
 
 class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
@@ -50,14 +43,18 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
         return parser
 
     @classmethod
-    def create_from_arguments(cls, parsed_arguments: Namespace) -> Self:
+    def create_from_arguments(
+        cls,
+        context: Context,
+        parsed_arguments: Namespace,
+    ) -> Self:
         """
         Parse the arguments and create a new instance that makes available the
         system manager that compares the two configurations.
         """
 
-        defaults = Defaults()
-        file_reader = FileReader()
+        defaults = context.get_defaults()
+        file_reader = context.get_file_reader()
         config_location_reader = ConfigLocationReader(defaults, file_reader)
 
         old_path: Path | None = parsed_arguments.last_config or defaults.get_old_config_path()
@@ -109,30 +106,3 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
         return self.old_path == value.old_path \
             and self.new_path == value.new_path \
             and self.file_reader == value.file_reader
-
-    def get_system_manager(
-        self,
-        executor: SystemExecutor,
-        error_handler: ErrorHandler[FR],
-    ) -> SystemManager[FR]:
-        """
-        Get the system manager that compares the two configurations.
-
-        Relation to cli arguments:
-        - `last-config` is the old configuration
-        - `config_file` is the new configuration.
-        """
-
-        new_config = load_config_from_file(self.file_reader, self.new_path)
-        old_config = load_config_from_file(self.file_reader, self.old_path) \
-            if self.old_path \
-            else SystemConfig.create_from_entries((), (), (), ())
-
-        system_manager = SystemManager(
-            old_config,
-            new_config,
-            executor,
-            error_handler,
-        )
-
-        return system_manager

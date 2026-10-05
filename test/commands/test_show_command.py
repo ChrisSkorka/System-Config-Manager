@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, call, patch
 from sysconf.commands.show_command import ShowCommand
 from test.datasets import datasets
 from test.test_case import TestCase
+from test.utils.mock_context import MockContext
 from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_file import MockFileReader
 from test.utils.mock_path import MockPath, fpath
@@ -103,17 +104,16 @@ class TestShowCommand(TestCase):
         ),
     })
     @patch('sysconf.commands.show_command.get_validated_file_path')
-    @patch('sysconf.commands.show_command.Defaults')
     def test_create_from_arguments(
         self,
         dataset: CreateFromArgumentsDataset,
-        mock_defaults_class: MagicMock,
         mock_get_validated_file_path: MagicMock,
     ) -> None:
         """Test creation from arguments, falling back to the default path."""
 
         # Arrange
-        mock_defaults_class.return_value = dataset.fixture_defaults
+        context = MockContext.create(defaults=dataset.fixture_defaults)
+        file_reader = context.get_file_reader()
 
         def return_path(path: Path, _suffix: str) -> Path:
             return path
@@ -122,12 +122,14 @@ class TestShowCommand(TestCase):
 
         # Act
         actual = ShowCommand.create_from_arguments(
-            dataset.input_parsed_arguments,
+            context=context,
+            parsed_arguments=dataset.input_parsed_arguments,
         )
 
         # Assert
         self.assertIsInstance(actual, ShowCommand)
         self.assertEqual(actual.config_path, dataset.expected_config_path)
+        self.assertIs(actual.file_reader, file_reader)
         mock_get_validated_file_path.assert_called_once_with(
             dataset.expected_config_path,
             '.yaml',

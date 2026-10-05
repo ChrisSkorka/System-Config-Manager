@@ -7,7 +7,7 @@ from typing import Self
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.system.file import FileReader
 from sysconf.system.path import get_validated_file_path
-from sysconf.utils.defaults import Defaults
+from sysconf.utils.context import Context
 
 
 class ShowCommand (Command):
@@ -39,10 +39,14 @@ class ShowCommand (Command):
         return parser
 
     @classmethod
-    def create_from_arguments(cls, parsed_arguments: Namespace) -> Self:
+    def create_from_arguments(
+        cls,
+        context: Context,
+        parsed_arguments: Namespace,
+    ) -> Self:
 
-        defaults = Defaults()
-        file_reader = FileReader()
+        defaults = context.get_defaults()
+        file_reader = context.get_file_reader()
 
         config_path = parsed_arguments.config_path \
             or defaults.get_old_config_path()
