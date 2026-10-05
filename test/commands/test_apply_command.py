@@ -8,12 +8,15 @@ from typing import Any
 from unittest.mock import MagicMock, call, patch
 
 from sysconf.commands.apply_command import ApplyCommand, ApplyFailureResolution
+from sysconf.commands.command import Command
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
+from sysconf.commands.edit_command import EditCommand
 from sysconf.config.actions import ShellAction
 from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.system_config import SystemConfig, SystemManager
 from sysconf.config.serialization import YamlSerializer
 from sysconf.system.error_handler import PromptUserErrorHandler
+from sysconf.system.executor import CommandException
 from sysconf.system.file import FileReader, FileWriter
 from sysconf.utils.config_loader import ConfigReader
 from sysconf.utils.config_location import ConfigLocationWriter
@@ -65,6 +68,16 @@ CONFIG_READER = ConfigReader(
 )
 OLD_CONFIG = CONFIG_READER.load(Path('/old.yaml'))
 NEW_CONFIG = CONFIG_READER.load(Path('/new.yaml'))
+
+EDIT_COMMAND = EditCommand.create_from_context(
+    context=MockContext.create(),
+    old_path=fpath('/config/.history/current.yaml'),
+    new_path=fpath('/manual/new.yaml'),
+)
+
+
+def edit_command_factory() -> EditCommand:
+    return EDIT_COMMAND
 
 
 class TestApplyCommand(TestCase):
@@ -248,6 +261,11 @@ class TestApplyCommand(TestCase):
             executor=system_executor,
             error_handler=error_handler,
         )
+        expected_edit_command = EditCommand.create_from_context(
+            context=context,
+            old_path=dataset.input_old_path,
+            new_path=dataset.input_new_path,
+        )
         expected_config_location_writer = ConfigLocationWriter(
             defaults,
             file_reader,
@@ -265,9 +283,12 @@ class TestApplyCommand(TestCase):
         # Assert
         self.assertEqual(expected_manager, actual.manager)
         self.assertIs(system_executor, actual.manager.executor)
-        self.assertIsInstance(
-            actual.manager.error_handler,
-            PromptUserErrorHandler,
+        error_handler = actual.manager.error_handler
+        assert isinstance(error_handler, PromptUserErrorHandler)
+        self.assertEqual(error_handler.exceptions, (CommandException,))
+        self.assertEqual(
+            error_handler.failure_resolutions,
+            (ApplyFailureResolution.ABORT, ApplyFailureResolution.EDIT),
         )
         self.assertEqual(defaults.get_old_config_path(), actual.current_path)
         self.assertEqual(dataset.input_new_path, actual.new_path)
@@ -280,11 +301,14 @@ class TestApplyCommand(TestCase):
             dataset.input_should_override_config_path,
             actual.should_override_config_path,
         )
+        actual_edit_command = actual.edit_command_factory()
+        self.assertEqual(expected_edit_command, actual_edit_command)
 
     @dataclass
     class RunDataset:
         fixture_system_manager: MockSystemManager[ApplyFailureResolution]
         expected_prints: list[str]
+        expected_next_command: Command | None = None
 
     @datasets({
         'no changes required': RunDataset(
@@ -335,12 +359,35 @@ class TestApplyCommand(TestCase):
                 '# Add dconf: /path/to/key = dconf_value',
             ],
         ),
+        'action failed and abort chosen': RunDataset(
+            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(
+                get_actions=[
+                    MockDomainAction('Add gsettings: font-size = 12'),
+                ],
+                failure_resolution=ApplyFailureResolution.ABORT,
+            ),
+            expected_prints=['# Add gsettings: font-size = 12'],
+            expected_next_command=None,
+        ),
+        'action failed and edit chosen': RunDataset(
+            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(
+                get_actions=[
+                    MockDomainAction('Add gsettings: font-size = 12'),
+                ],
+                failure_resolution=ApplyFailureResolution.EDIT,
+            ),
+            expected_prints=['# Add gsettings: font-size = 12'],
+            expected_next_command=EDIT_COMMAND,
+        ),
     })
     def test_run(
         self,
         dataset: RunDataset,
     ) -> None:
-        """Test that run executes the correct commands and produces expected output."""
+        """
+        Test that run executes the correct commands, produces expected output
+        and returns the next command for the chosen failure resolution.
+        """
 
         # Arrange
         apply_command = ApplyCommand(
@@ -354,13 +401,15 @@ class TestApplyCommand(TestCase):
             config_writer=MockConfigWriter.create(),
             config_location_writer=CONFIG_LOCATION_WRITER,
             should_override_config_path=False,
+            edit_command_factory=edit_command_factory,
         )
 
         # Act
         with patch('builtins.print') as mock_print:
-            apply_command.run()
+            actual = apply_command.run()
 
         # Assert
+        self.assertIs(dataset.expected_next_command, actual)
         mock_print.assert_has_calls(
             [call(p) for p in dataset.expected_prints],
             any_order=False,
@@ -399,6 +448,7 @@ class TestApplyCommand(TestCase):
             config_writer=config_writer,
             config_location_writer=CONFIG_LOCATION_WRITER,
             should_override_config_path=False,
+            edit_command_factory=edit_command_factory,
         )
 
         # Act
@@ -479,6 +529,7 @@ class TestApplyCommand(TestCase):
             config_writer=config_writer,
             config_location_writer=CONFIG_LOCATION_WRITER,
             should_override_config_path=False,
+            edit_command_factory=edit_command_factory,
         )
 
         # Act
@@ -557,6 +608,7 @@ class TestApplyCommand(TestCase):
                 location_file_writer,
             ),
             should_override_config_path=dataset.input_should_override_config_path,
+            edit_command_factory=edit_command_factory,
         )
 
         # Act
@@ -588,6 +640,7 @@ class TestApplyCommand(TestCase):
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 should_override_config_path=False,
+                edit_command_factory=edit_command_factory,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
@@ -596,6 +649,7 @@ class TestApplyCommand(TestCase):
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 should_override_config_path=False,
+                edit_command_factory=edit_command_factory,
             ),
             expected_equal=True,
         ),
@@ -607,6 +661,7 @@ class TestApplyCommand(TestCase):
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 should_override_config_path=False,
+                edit_command_factory=edit_command_factory,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
@@ -615,6 +670,7 @@ class TestApplyCommand(TestCase):
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 should_override_config_path=False,
+                edit_command_factory=edit_command_factory,
             ),
             expected_equal=False,
         ),
@@ -626,6 +682,7 @@ class TestApplyCommand(TestCase):
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 should_override_config_path=False,
+                edit_command_factory=edit_command_factory,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
@@ -634,6 +691,7 @@ class TestApplyCommand(TestCase):
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 should_override_config_path=False,
+                edit_command_factory=edit_command_factory,
             ),
             expected_equal=False,
         ),
@@ -645,6 +703,7 @@ class TestApplyCommand(TestCase):
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 should_override_config_path=False,
+                edit_command_factory=edit_command_factory,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(
@@ -660,6 +719,7 @@ class TestApplyCommand(TestCase):
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 should_override_config_path=False,
+                edit_command_factory=edit_command_factory,
             ),
             expected_equal=False,
         ),
@@ -671,6 +731,7 @@ class TestApplyCommand(TestCase):
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 should_override_config_path=False,
+                edit_command_factory=edit_command_factory,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
@@ -683,6 +744,7 @@ class TestApplyCommand(TestCase):
                 ),
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 should_override_config_path=False,
+                edit_command_factory=edit_command_factory,
             ),
             expected_equal=False,
         ),
@@ -694,6 +756,7 @@ class TestApplyCommand(TestCase):
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 should_override_config_path=False,
+                edit_command_factory=edit_command_factory,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
@@ -702,6 +765,7 @@ class TestApplyCommand(TestCase):
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 should_override_config_path=True,
+                edit_command_factory=edit_command_factory,
             ),
             expected_equal=False,
         ),
@@ -713,6 +777,7 @@ class TestApplyCommand(TestCase):
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
                 should_override_config_path=False,
+                edit_command_factory=edit_command_factory,
             ),
             input_other='apply',
             expected_equal=False,

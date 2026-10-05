@@ -121,6 +121,7 @@ class TestMain(TestCase):
         # Arrange
         context = Context()
         mock_command = MagicMock()
+        mock_command.run.return_value = None
 
         # Act
         with patch('sys.argv', dataset.input_argv), \
@@ -138,6 +139,43 @@ class TestMain(TestCase):
             dataset.expected_parsed_arguments,
         )
         mock_command.run.assert_called_once_with()
+
+    @dataclass
+    class NextCommandDataset:
+        fixture_command_count: int
+
+    @datasets({
+        'one command': NextCommandDataset(
+            fixture_command_count=1,
+        ),
+        'three chained commands': NextCommandDataset(
+            fixture_command_count=3,
+        ),
+    })
+    def test_main_runs_each_next_command(
+        self,
+        dataset: NextCommandDataset,
+    ) -> None:
+        """Test that each command returned by a run is run in turn."""
+
+        # Arrange
+        commands = [MagicMock() for _ in range(dataset.fixture_command_count)]
+        next_commands = [*commands[1:], None]
+        for command, next_command in zip(commands, next_commands):
+            command.run.return_value = next_command
+
+        # Act
+        with patch('sys.argv', ['sysconf', 'edit']), \
+                patch.object(
+                    EditCommand,
+                    'create_from_arguments',
+                    return_value=commands[0],
+        ):
+            main()
+
+        # Assert
+        for command in commands:
+            command.run.assert_called_once_with()
 
     def test_main_without_a_command_prints_help(self) -> None:
         """Test that invoking the cli with no sub command prints the help."""
@@ -187,20 +225,35 @@ class TestMain(TestCase):
 
     @dataclass
     class ValidationErrorDataset:
-        fixture_raise_on_run: bool
-        fixture_message: str
-        input_argv: list[str]
+        fixture_create_error: ValidationError | None
+        fixture_run_error: ValidationError | None
+        fixture_next_run_error: ValidationError | None
+        expected_stderr: str
 
     @datasets({
         'validation fails while building the command': ValidationErrorDataset(
-            fixture_raise_on_run=False,
-            fixture_message='File /configs/missing.yaml does not exist',
-            input_argv=['sysconf', 'show', '/configs/missing.yaml'],
+            fixture_create_error=ValidationError(
+                'File /configs/missing.yaml does not exist',
+            ),
+            fixture_run_error=None,
+            fixture_next_run_error=None,
+            expected_stderr='Error: File /configs/missing.yaml does not exist\n',
         ),
         'validation fails while running the command': ValidationErrorDataset(
-            fixture_raise_on_run=True,
-            fixture_message="Config must contain a 'version' key",
-            input_argv=['sysconf', 'show', '/configs/broken.yaml'],
+            fixture_create_error=None,
+            fixture_run_error=ValidationError(
+                "Config must contain a 'version' key",
+            ),
+            fixture_next_run_error=None,
+            expected_stderr="Error: Config must contain a 'version' key\n",
+        ),
+        'validation fails while running the next command': ValidationErrorDataset(
+            fixture_create_error=None,
+            fixture_run_error=None,
+            fixture_next_run_error=ValidationError(
+                'The invalid config was not applied',
+            ),
+            expected_stderr='Error: The invalid config was not applied\n',
         ),
     })
     def test_main_reports_validation_errors_without_a_traceback(
@@ -210,37 +263,29 @@ class TestMain(TestCase):
         """Test that a validation error is shown as a plain message on stderr."""
 
         # Arrange
-        error = ValidationError(dataset.fixture_message)
-        mock_command = MagicMock()
+        next_command = MagicMock()
+        next_command.run.return_value = None
+        next_command.run.side_effect = dataset.fixture_next_run_error
+        command = MagicMock()
+        command.run.return_value = next_command
+        command.run.side_effect = dataset.fixture_run_error
         stderr = StringIO()
 
-        if dataset.fixture_raise_on_run:
-            mock_command.run.side_effect = error
-            patched_create = patch.object(
-                ShowCommand,
-                'create_from_arguments',
-                return_value=mock_command,
-            )
-        else:
-            patched_create = patch.object(
-                ShowCommand,
-                'create_from_arguments',
-                side_effect=error,
-            )
-
         # Act
-        with patch('sys.argv', dataset.input_argv), \
-                patched_create, \
+        with patch('sys.argv', ['sysconf', 'edit']), \
+                patch.object(
+                    EditCommand,
+                    'create_from_arguments',
+                    return_value=command,
+                    side_effect=dataset.fixture_create_error,
+        ), \
                 patch('sys.stderr', stderr):
             with self.assertRaises(SystemExit) as context:
                 main()
 
         # Assert
         self.assertEqual(context.exception.code, 1)
-        self.assertEqual(
-            stderr.getvalue(),
-            f'Error: {dataset.fixture_message}\n',
-        )
+        self.assertEqual(stderr.getvalue(), dataset.expected_stderr)
 
     def test_main_propagates_unexpected_errors(self) -> None:
         """Test that a programming error still surfaces as a traceback."""

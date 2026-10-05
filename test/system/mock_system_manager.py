@@ -18,6 +18,7 @@ class MockSystemManager (SystemManager[FR]):
         old_config: SystemConfig,
         new_config: SystemConfig,
         get_actions: Sequence[DomainAction] | None = None,
+        failure_resolution: FR | None = None,
     ) -> None:
         mock_error_handler: ErrorHandler[FR] = MagicMock(spec=ErrorHandler)
 
@@ -29,6 +30,7 @@ class MockSystemManager (SystemManager[FR]):
         )
 
         self._actions: list[DomainAction] = list(get_actions or [])
+        self._failure_resolution = failure_resolution
 
     def get_domain_actions(self) -> Iterable[DomainAction]:
         return self._actions
@@ -43,7 +45,7 @@ class MockSystemManager (SystemManager[FR]):
             if not isinstance(action, NoDomainAction):
                 print(f'# {action.get_description()}')
                 action.run(self.executor)
-        return RunActionsResult(self.new_config)
+        return RunActionsResult(self.new_config, self._failure_resolution)
 
     @classmethod
     def default(
@@ -51,10 +53,11 @@ class MockSystemManager (SystemManager[FR]):
         old_config: SystemConfig | None = None,
         new_config: SystemConfig | None = None,
         get_actions: Sequence[DomainAction] | None = None,
+        failure_resolution: FR | None = None,
     ) -> 'MockSystemManager[FR]':
 
         old_config = old_config or SystemConfig.create_from_entries(before_actions=(), after_actions=(), config_entries=(), user_domains=())
         new_config = new_config or SystemConfig.create_from_entries(before_actions=(), after_actions=(), config_entries=(), user_domains=())
         get_actions = get_actions or []
 
-        return cls(old_config=old_config, new_config=new_config, get_actions=get_actions)
+        return cls(old_config=old_config, new_config=new_config, get_actions=get_actions, failure_resolution=failure_resolution)

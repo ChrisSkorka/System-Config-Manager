@@ -63,11 +63,12 @@ def main() -> None:
     context = Context()
 
     try:
-        command: Command = commands[commands_name].create_from_arguments(
+        command: Command | None = commands[commands_name].create_from_arguments(
             context,
             parsed_args,
         )
-        command.run()
+        while command is not None:
+            command = command.run()
     except ValidationError as error:
         print(f'Error: {error}', file=sys.stderr)
         sys.exit(1)

@@ -89,11 +89,11 @@ class Command (CommandArgumentParserBuilder):
         pass  # pragma: no cover
 
     @abstractmethod
-    def run(self) -> None:
+    def run(self) -> 'Command|None':
         """
         Abstract method to execute the command.
 
         Returns:
-            None
+            Command|None: The next command to run, or None if there is no next command.
         """
         pass  # pragma: no cover

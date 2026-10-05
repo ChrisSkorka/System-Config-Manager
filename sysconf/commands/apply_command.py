@@ -2,7 +2,7 @@
 
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import Self
+from typing import TYPE_CHECKING, Callable, Self
 
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
@@ -18,10 +18,14 @@ from sysconf.utils.validation import validate
 from sysconf.utils.config_location import ConfigLocationWriter
 from sysconf.utils.config_writer import ConfigWriter
 
+if TYPE_CHECKING:
+    from sysconf.commands.edit_command import EditCommand
+
 
 class ApplyFailureResolution(ChoicePromptOptionEnum):
 
     ABORT = ('a', 'Abort')
+    EDIT = ('e', 'Edit config')
 
 
 class ApplyCommand (Command):
@@ -108,7 +112,10 @@ class ApplyCommand (Command):
 
         error_handler = PromptUserErrorHandler[ApplyFailureResolution](
             CommandException,
-            failure_resolutions=(ApplyFailureResolution.ABORT,),
+            failure_resolutions=(
+                ApplyFailureResolution.ABORT,
+                ApplyFailureResolution.EDIT,
+            ),
         )
         system_manager = SystemManager(
             old_config=old_config,
@@ -136,6 +143,16 @@ class ApplyCommand (Command):
             file_writer,
         )
 
+        def edit_command_factory() -> 'EditCommand':
+            from sysconf.commands.edit_command import EditCommand
+
+            edit_command = EditCommand.create_from_context(
+                context=context,
+                old_path=old_path,
+                new_path=new_path,
+            )
+            return edit_command
+
         return cls(
             manager=system_manager,
             current_path=current_path,
@@ -143,6 +160,7 @@ class ApplyCommand (Command):
             config_writer=config_writer,
             config_location_writer=config_location_writer,
             should_override_config_path=should_override_config_path,
+            edit_command_factory=edit_command_factory,
         )
 
     def __init__(
@@ -153,6 +171,7 @@ class ApplyCommand (Command):
         config_writer: ConfigWriter,
         config_location_writer: ConfigLocationWriter,
         should_override_config_path: bool,
+        edit_command_factory: 'Callable[[], EditCommand]',
     ) -> None:
         super().__init__()
 
@@ -162,6 +181,7 @@ class ApplyCommand (Command):
         self.config_writer = config_writer
         self.config_location_writer = config_location_writer
         self.should_override_config_path = should_override_config_path
+        self.edit_command_factory = edit_command_factory
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, ApplyCommand):
@@ -173,8 +193,10 @@ class ApplyCommand (Command):
             and self.config_writer == value.config_writer \
             and self.config_location_writer == value.config_location_writer \
             and self.should_override_config_path == value.should_override_config_path
+        # excluded:
+        # and self.edit_command_factory == value.edit_command_factory
 
-    def run(self) -> None:
+    def run(self) -> Command | None:
         """
         Execute the command.
 
@@ -187,7 +209,7 @@ class ApplyCommand (Command):
         next invocation.
 
         Incase an action fails, the user will be prompted if they want to
-        continue with the remaining actions or abort.
+        continue with the remaining actions, abort, or edit the config.
         If the user chooses to continue, that action will not be commited to the
         current configuration file.
         """
@@ -227,3 +249,9 @@ class ApplyCommand (Command):
             print(
                 f'Please copy the above configuration and save it to {self.current_path}.',
             )
+
+        match result.failure_resolution:
+            case ApplyFailureResolution.EDIT:
+                return self.edit_command_factory()
+            case ApplyFailureResolution.ABORT | None:
+                return None

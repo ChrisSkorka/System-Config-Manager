@@ -184,7 +184,7 @@ class EditCommand (Command):
         # and self.preview_command_factory == value.preview_command_factory
         # and self.apply_command_factory == value.apply_command_factory
 
-    def run(self) -> None:
+    def run(self) -> Command | None:
         """
         Execute the command.
 
@@ -215,8 +215,7 @@ class EditCommand (Command):
             new_config = self.config_reader.load(self.new_path)
         except ValidationError as error:
             if self.prompt_to_edit_invalid_config(error):
-                self.run()
-                return
+                return self
 
             raise ValidationError(
                 'The invalid config was not applied',
@@ -231,14 +230,15 @@ class EditCommand (Command):
 
             match choice:
                 case ApplyChoice.APPLY:
-                    apply_command = self.apply_command_factory()
-                    apply_command.run()
+                    return self.apply_command_factory()
                 case ApplyChoice.EDIT:
-                    self.run()
+                    return self
                 case ApplyChoice.EXIT:
                     print('The edited config was not applied.')
+                    return None
         else:
             print('# No changes required.')
+            return None
 
     def prompt_to_edit_invalid_config(self, error: ValidationError) -> bool:
         """

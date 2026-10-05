@@ -5,26 +5,33 @@ import sys
 
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass, field
+from enum import Enum, auto
 from pathlib import Path
 from textwrap import dedent
-from unittest.mock import patch
+from unittest.mock import call, patch
 
-from sysconf.commands.apply_command import ApplyCommand
+from sysconf.commands.apply_command import ApplyCommand, ApplyFailureResolution
+from sysconf.commands.command import Command
 from sysconf.commands.edit_command import EditCommand
 from sysconf.commands.preview_command import PreviewCommand
 from sysconf.config.actions import ShellAction
+from sysconf.config.parser import SystemConfigRenderer
+from sysconf.config.serialization import YamlSerializer
 from sysconf.config.system_config import SystemConfig
 from sysconf.system.editor import EditResult, EditorLauncher, EditorResolver
 from sysconf.system.file import FileReader
 from sysconf.utils.config_loader import ConfigReader
+from sysconf.utils.config_location import ConfigLocationWriter
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
 from test.system.mock_editor import MockEditorLauncher, MockWhich
 from test.system.mock_system_executor import MockRaisingSystemExecutor, MockSystemExecutor
+from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
+from test.utils.mock_config_writer import MockConfigWriter
 from test.utils.mock_context import MockContext
 from test.utils.mock_defaults import MockDefaults
-from test.utils.mock_file import MockFileReader
+from test.utils.mock_file import MockFileReader, MockFileWriter
 from test.utils.mock_path import MockPath, dpath, fpath
 
 
@@ -59,6 +66,14 @@ NEW_CONFIG_YAML = dedent('''\
 FILE_READER = FileReader()
 EDITOR_RESOLVER = EditorResolver('linux', MockWhich(PATHS_BY_NAME))
 EDITOR_LAUNCHER = EditorLauncher(MockSystemExecutor())
+
+
+class NextCommand (Enum):
+    """The command a test expects `run` to return."""
+
+    SELF = auto()
+    APPLY = auto()
+    NONE = auto()
 
 
 class MockConfigReader (ConfigReader):
@@ -106,6 +121,12 @@ class MockConfigReader (ConfigReader):
         return self.old_config
 
 
+def unexpected_edit_command_factory() -> EditCommand:
+    raise AssertionError(
+        'The edit command factory is not expected to be called',
+    )
+
+
 def unexpected_preview_command_factory() -> PreviewCommand:
     raise AssertionError(
         'The preview command factory is not expected to be called',
@@ -115,6 +136,34 @@ def unexpected_preview_command_factory() -> PreviewCommand:
 def unexpected_apply_command_factory() -> ApplyCommand:
     raise AssertionError(
         'The apply command factory is not expected to be called',
+    )
+
+
+def make_apply_command() -> ApplyCommand:
+    """Build an apply command for the edited config."""
+
+    manager = MockSystemManager[ApplyFailureResolution].default(
+        old_config=OLD_CONFIG,
+        new_config=NEW_CONFIG,
+    )
+    config_writer = MockConfigWriter.create()
+    defaults = MockDefaults()
+    file_reader = MockFileReader({})
+    file_writer = MockFileWriter()
+    config_location_writer = ConfigLocationWriter(
+        defaults,
+        file_reader,
+        file_writer,
+    )
+
+    return ApplyCommand(
+        manager=manager,
+        current_path=OLD_PATH,
+        new_path=NEW_PATH,
+        config_writer=config_writer,
+        config_location_writer=config_location_writer,
+        should_override_config_path=False,
+        edit_command_factory=unexpected_edit_command_factory,
     )
 
 
@@ -318,6 +367,213 @@ class TestEditCommand(TestCase):
             expected_apply_command.should_override_config_path,
             actual_apply_command.should_override_config_path,
         )
+
+    @dataclass
+    class RunDataset:
+        fixture_new_config: SystemConfig | ValidationError
+        fixture_user_inputs: tuple[str, ...]
+        expected_next_command: NextCommand
+        fixture_old_config: SystemConfig = field(
+            default_factory=lambda: OLD_CONFIG)
+        expected_preview_runs: int = 0
+        expected_prints: list[str] = field(default_factory=lambda: [])
+
+    @datasets({
+        'apply with y': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('y',),
+            expected_next_command=NextCommand.APPLY,
+            expected_prints=[
+                'Apply changes:',
+                '[y] Apply config',
+                '[p] Preview actions',
+                '[e] Edit config',
+                '[n] Exit without applying',
+            ],
+        ),
+        'apply with yes': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('yes',),
+            expected_next_command=NextCommand.APPLY,
+        ),
+        'apply with apply': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('apply',),
+            expected_next_command=NextCommand.APPLY,
+        ),
+        'apply with a': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('a',),
+            expected_next_command=NextCommand.APPLY,
+        ),
+        'apply with padded uppercase y': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=(' Y ',),
+            expected_next_command=NextCommand.APPLY,
+        ),
+        'edit with e': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('e',),
+            expected_next_command=NextCommand.SELF,
+        ),
+        'edit with edit': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('edit',),
+            expected_next_command=NextCommand.SELF,
+        ),
+        'exit with n': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('n',),
+            expected_next_command=NextCommand.NONE,
+            expected_prints=['The edited config was not applied.'],
+        ),
+        'exit with no': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('no',),
+            expected_next_command=NextCommand.NONE,
+            expected_prints=['The edited config was not applied.'],
+        ),
+        'exit with x': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('x',),
+            expected_next_command=NextCommand.NONE,
+            expected_prints=['The edited config was not applied.'],
+        ),
+        'exit with exit': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('exit',),
+            expected_next_command=NextCommand.NONE,
+            expected_prints=['The edited config was not applied.'],
+        ),
+        'preview with p then apply': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('p', 'y'),
+            expected_next_command=NextCommand.APPLY,
+            expected_preview_runs=1,
+            expected_prints=['Planned actions:'],
+        ),
+        'preview with preview twice then exit': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('preview', 'preview', 'n'),
+            expected_next_command=NextCommand.NONE,
+            expected_preview_runs=2,
+            expected_prints=[
+                'Planned actions:',
+                'The edited config was not applied.',
+            ],
+        ),
+        'invalid choice then apply': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('z', 'y'),
+            expected_next_command=NextCommand.APPLY,
+            expected_prints=['Invalid choice. Please try again.'],
+        ),
+        'five invalid choices': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('z',) * 5,
+            expected_next_command=NextCommand.NONE,
+            expected_prints=['The edited config was not applied.'],
+        ),
+        'four invalid choices and a preview then apply': RunDataset(
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('z', 'z', 'p', 'z', 'z', 'y'),
+            expected_next_command=NextCommand.APPLY,
+            expected_preview_runs=1,
+        ),
+        'unchanged config': RunDataset(
+            fixture_new_config=OLD_CONFIG,
+            fixture_user_inputs=(),
+            expected_next_command=NextCommand.NONE,
+            expected_prints=['# No changes required.'],
+        ),
+        'no old config': RunDataset(
+            fixture_old_config=EMPTY_CONFIG,
+            fixture_new_config=NEW_CONFIG,
+            fixture_user_inputs=('y',),
+            expected_next_command=NextCommand.APPLY,
+        ),
+        'invalid config edited again': RunDataset(
+            fixture_new_config=ValidationError('Unknown domain: not-a-domain'),
+            fixture_user_inputs=('e',),
+            expected_next_command=NextCommand.SELF,
+            expected_prints=[
+                'The config is invalid:',
+                'Unknown domain: not-a-domain',
+                '[e] Edit config',
+                '[a] Abort',
+            ],
+        ),
+        'invalid choice for an invalid config then edit': RunDataset(
+            fixture_new_config=ValidationError('Unknown domain: not-a-domain'),
+            fixture_user_inputs=('x', 'e'),
+            expected_next_command=NextCommand.SELF,
+            expected_prints=['Invalid choice. Please try again.'],
+        ),
+    })
+    def test_run_returns(self, dataset: RunDataset) -> None:
+        """
+        Test that the config is edited once and the user's choice decides the
+        next command, instead of running it.
+        """
+
+        # Arrange
+        config_reader = MockConfigReader.create(
+            old_config=dataset.fixture_old_config,
+            new_config=dataset.fixture_new_config,
+        )
+        edit_results = (EditResult.CLOSED,)
+        editor_launcher = MockEditorLauncher(edit_results)
+
+        preview_manager = MockSystemManager[None].default()
+        system_config_renderer = SystemConfigRenderer()
+        yaml_serializer = YamlSerializer()
+        preview_command = PreviewCommand(
+            manager=preview_manager,
+            system_config_renderer=system_config_renderer,
+            yaml_serializer=yaml_serializer,
+        )
+        apply_command = make_apply_command()
+        preview_commands: list[PreviewCommand] = []
+
+        def preview_command_factory() -> PreviewCommand:
+            preview_commands.append(preview_command)
+            return preview_command
+
+        def apply_command_factory() -> ApplyCommand:
+            return apply_command
+
+        edit_command = EditCommand(
+            config_reader=config_reader,
+            old_path=OLD_PATH,
+            new_path=NEW_PATH,
+            editor_resolver=EDITOR_RESOLVER,
+            editor_launcher=editor_launcher,
+            preview_command_factory=preview_command_factory,
+            apply_command_factory=apply_command_factory,
+        )
+        next_commands: dict[NextCommand, Command | None] = {
+            NextCommand.SELF: edit_command,
+            NextCommand.APPLY: apply_command,
+            NextCommand.NONE: None,
+        }
+        expected_next_command = next_commands[dataset.expected_next_command]
+
+        # Act
+        with patch('builtins.input', side_effect=dataset.fixture_user_inputs) as mock_input, \
+                patch('builtins.print') as mock_print:
+            actual = edit_command.run()
+
+        # Assert
+        self.assertIs(expected_next_command, actual)
+        self.assertEqual(editor_launcher.calls, [(NANO, NEW_PATH)])
+        self.assertEqual(config_reader.loaded_paths, [OLD_PATH, NEW_PATH])
+        self.assertEqual(
+            mock_input.call_count,
+            len(dataset.fixture_user_inputs),
+        )
+        self.assertEqual(len(preview_commands), dataset.expected_preview_runs)
+        for expected_print in dataset.expected_prints:
+            self.assertIn(call(expected_print), mock_print.call_args_list)
 
     @dataclass
     class RaiseDataset:
