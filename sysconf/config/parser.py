@@ -7,6 +7,7 @@ from sysconf.config import domain_registry
 from sysconf.config.actions import Action, ShellAction
 from sysconf.config.domains import Domain, DomainConfigEntry
 from sysconf.config.serialization import YamlSerializable
+from sysconf.config.settings import ToolSettings
 from sysconf.config.system_config import SystemConfig
 from sysconf.domains.user_domains import UserDomain, UserListDomain, UserMapDomain
 from sysconf.utils.validation import ValidationError, validate, validate_type
@@ -106,6 +107,7 @@ class SystemConfigParserV1(SystemConfigParser):
             'config' in data,
             'Config must contain a \'config\' key',
         )
+        settings_data = data.get('system-config-manager') or {}
         user_domains = data.get('domains') or {}
         before_scripts = data.get('before') or []
         after_scripts = data.get('after') or []
@@ -156,6 +158,31 @@ class SystemConfigParserV1(SystemConfigParser):
                 dict,
                 'each config item must be a mapping of domain keys to domain data',
             )
+
+        assert validate_type(
+            settings_data,
+            dict,
+            f"'{'system-config-manager'}' must be a mapping",
+        )
+        for setting_key in settings_data.keys():
+            validate(
+                setting_key in ('editor',),
+                f"Unknown '{'system-config-manager'}' setting: {setting_key}",
+            )
+        editor = settings_data.get('editor')
+        if editor is not None:
+            assert validate_type(
+                editor,
+                str,
+                f"'{'system-config-manager'}.{'editor'}' must be a string",
+            )
+            validate(
+                bool(editor.strip()),
+                f"'{'system-config-manager'}.{'editor'}' must not be empty",
+            )
+
+        # parse settings
+        settings = ToolSettings(editor=editor)
 
         # parse user domains
         user_domains_by_key: dict[str, UserDomain] = {}
@@ -267,6 +294,7 @@ class SystemConfigParserV1(SystemConfigParser):
             after_actions,
             config_entries,
             tuple(user_domains_by_key.values()),
+            settings,
         )
 
 
@@ -284,6 +312,11 @@ class SystemConfigRenderer:
         Returns:
             YamlSerializable: The rendered configuration data.
         """
+
+        # render settings
+        settings: dict[str, YamlSerializable] = {
+            'editor': system_config.settings.editor
+        }
 
         # render domains
         domains = {
@@ -327,6 +360,7 @@ class SystemConfigRenderer:
             YamlSerializable,
             {
                 'version': VERSION_1,
+                'system-config-manager': settings,
                 'before': before_items,
                 'after': after_items,
                 'config': config_items,

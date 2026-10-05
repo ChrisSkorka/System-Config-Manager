@@ -197,7 +197,8 @@ class EditCommand (Command):
         """
 
         old_config = self.config_reader.load_or_default(self.old_path)
-        editor_command = self.editor_resolver.get_editor_command()
+        editor_command = self.editor_resolver \
+            .get_editor_command(old_config.settings.editor)
         edit_result = self.editor_launcher.edit(
             editor_command,
             self.new_path,
@@ -223,7 +224,7 @@ class EditCommand (Command):
 
         # offer to apply for any changes to the config, even when no action
         # needs to run
-        # e.g. when changing domain definitions only
+        # e.g. when changing tool settings only
         has_config_changed_from_current = old_config != new_config
         if has_config_changed_from_current:
             choice = self.prompt_to_apply()

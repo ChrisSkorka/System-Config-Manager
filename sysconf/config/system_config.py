@@ -5,6 +5,7 @@ from typing import Generic, Iterable, Self, Sequence, TypeVar
 from sysconf.config.domain_registry import builtin_domains
 from sysconf.config.domains import ConfigEntryId, Domain, DomainAction, DomainConfigEntry, NoDomainAction
 from sysconf.config.actions import Action
+from sysconf.config.settings import ToolSettings
 from sysconf.domains.user_domains import UserDomain
 from sysconf.system.error_handler import ErrorHandler, FailureResolution
 from sysconf.system.executor import SystemExecutor
@@ -24,6 +25,7 @@ class SystemConfig:
         after_actions: Sequence[Action],
         config_entries: Sequence[DomainConfigEntry],
         user_domains: Sequence[UserDomain],
+        settings: ToolSettings = ToolSettings(),
     ) -> 'SystemConfig':
         map_ids_to_entries: dict[ConfigEntryId, DomainConfigEntry] = {
             entry.get_id(): entry
@@ -43,6 +45,7 @@ class SystemConfig:
             after_actions=tuple(after_actions),
             config_entries=map_ids_to_entries,
             user_domains=user_domains_by_key,
+            settings=settings,
         )
 
     def __init__(
@@ -51,6 +54,7 @@ class SystemConfig:
         after_actions: tuple[Action, ...],
         config_entries: dict[ConfigEntryId, DomainConfigEntry],
         user_domains: dict[str, UserDomain],
+        settings: ToolSettings = ToolSettings(),
     ) -> None:
         super().__init__()
 
@@ -58,6 +62,7 @@ class SystemConfig:
         self.after_actions = after_actions
         self.config_entries = config_entries
         self.domains = user_domains
+        self.settings = settings
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SystemConfig):
@@ -66,7 +71,8 @@ class SystemConfig:
         return self.config_entries == other.config_entries \
             and self.before_actions == other.before_actions \
             and self.after_actions == other.after_actions \
-            and self.domains == other.domains
+            and self.domains == other.domains \
+            and self.settings == other.settings
 
     def __repr__(self) -> str:
         return f'SystemConfig({self.config_entries})'
@@ -266,6 +272,8 @@ class SystemConfigTransitioner:
       or add new ones to the new list
     - Domains will be picked from the new and old configs based on usage in the
       final configuration.
+    - Settings are taken from the new config as is, since they need no actions
+      to be applied.
     """
 
     @classmethod
@@ -288,6 +296,7 @@ class SystemConfigTransitioner:
             new_domains=new_system_config.domains,
             builtin_domains={
                 domain.get_key(): domain for domain in builtin_domains},
+            settings=new_system_config.settings,
         )
 
     def __init__(
@@ -298,6 +307,7 @@ class SystemConfigTransitioner:
         old_domains: dict[str, UserDomain],
         new_domains: dict[str, UserDomain],
         builtin_domains: dict[str, Domain],
+        settings: ToolSettings = ToolSettings(),
     ) -> None:
         super().__init__()
 
@@ -307,6 +317,7 @@ class SystemConfigTransitioner:
         self.old_domains = old_domains
         self.new_domains = new_domains
         self.builtin_domains = builtin_domains
+        self.settings = settings
 
     def update_before_action(
         self,
@@ -384,6 +395,7 @@ class SystemConfigTransitioner:
             after_actions=after_actions,
             config_entries=config_entries,
             user_domains=tuple(user_domains.values()),
+            settings=self.settings,
         )
 
 

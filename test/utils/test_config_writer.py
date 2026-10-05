@@ -5,9 +5,9 @@ from pathlib import Path
 from textwrap import dedent
 from unittest.mock import MagicMock
 
-from sysconf.config.actions import ShellAction
 from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
+from sysconf.config.settings import ToolSettings
 from sysconf.config.system_config import SystemConfig
 from sysconf.utils.config_writer import ConfigWriter
 from test.datasets import datasets
@@ -25,12 +25,14 @@ class TestConfigWriter(TestCase):
         expected_written_files: dict[str, str]
 
     @datasets({
-        'empty config': WriteDataset(
+        'no settings': WriteDataset(
             input_config=SystemConfig.create_from_entries((), (), (), ()),
             input_path=Path('/config/.history/current.yaml'),
             expected_written_files={
                 '/config/.history/current.yaml': dedent('''\
                     version: '1'
+                    system-config-manager:
+                      editor: null
                     before: []
                     after: []
                     config: []
@@ -38,16 +40,18 @@ class TestConfigWriter(TestCase):
                     '''),
             },
         ),
-        'before script': WriteDataset(
+        'editor set': WriteDataset(
             input_config=SystemConfig.create_from_entries(
-                (ShellAction('echo hi'),), (), (), (),
+                (), (), (), (),
+                settings=ToolSettings(editor='nano'),
             ),
             input_path=Path('/other/config.yaml'),
             expected_written_files={
                 '/other/config.yaml': dedent('''\
                     version: '1'
-                    before:
-                    - echo hi
+                    system-config-manager:
+                      editor: nano
+                    before: []
                     after: []
                     config: []
                     domains: {}

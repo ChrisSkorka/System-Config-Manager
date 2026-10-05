@@ -6,6 +6,7 @@ from unittest.mock import call, patch
 
 from sysconf.config.actions import Action, ShellAction
 from sysconf.config.domains import ConfigEntryId, Domain, DomainConfigEntry
+from sysconf.config.settings import ToolSettings
 from sysconf.config.system_config import SystemConfig, SystemConfigTransitioner, SystemManager
 from sysconf.domains.user_domains import UserDomain
 from sysconf.system.error_handler import ErrorHandler
@@ -39,6 +40,7 @@ def make_system_config(
     after_actions: tuple[Action, ...] = (),
     config_entries: Sequence[DomainConfigEntry] = (),
     user_domains: Sequence[UserDomain] = (),
+    settings: ToolSettings = ToolSettings(),
 ) -> SystemConfig:
     """Build a SystemConfig from its parts, defaulting each to empty."""
 
@@ -47,6 +49,7 @@ def make_system_config(
         after_actions=after_actions,
         config_entries=config_entries,
         user_domains=user_domains,
+        settings=settings,
     )
 
 
@@ -60,6 +63,7 @@ class TestSystemConfig(TestCase):
         input_entries: list[MockDomainConfigEntry]
         input_user_domains: list[MockUserDomain]
         expected: SystemConfig
+        input_settings: ToolSettings = ToolSettings()
 
     @datasets({
         'empty config': CreateFromEntriesDataset(
@@ -95,6 +99,20 @@ class TestSystemConfig(TestCase):
                 },
             ),
         ),
+        'config with settings': CreateFromEntriesDataset(
+            input_before_actions=(),
+            input_after_actions=(),
+            input_entries=[],
+            input_user_domains=[],
+            input_settings=ToolSettings(editor='nano'),
+            expected=SystemConfig(
+                before_actions=(),
+                after_actions=(),
+                config_entries={},
+                user_domains={},
+                settings=ToolSettings(editor='nano'),
+            ),
+        ),
     })
     def test_creates_correct_config(self, dataset: CreateFromEntriesDataset) -> None:
         # Act
@@ -103,6 +121,7 @@ class TestSystemConfig(TestCase):
             after_actions=dataset.input_after_actions,
             config_entries=dataset.input_entries,
             user_domains=dataset.input_user_domains,
+            settings=dataset.input_settings,
         )
 
         # Assert
@@ -224,6 +243,11 @@ class TestSystemConfig(TestCase):
                 config_entries={},
                 user_domains={'d2': MockUserDomain('d2')},
             ),
+            expected_equal=False,
+        ),
+        'different settings': EqualityDataset(
+            input_a=make_system_config(settings=ToolSettings(editor='nano')),
+            input_b=make_system_config(settings=ToolSettings(editor='vim')),
             expected_equal=False,
         ),
         'not a SystemConfig': EqualityDataset(
@@ -415,6 +439,34 @@ class TestSystemManager(TestCase):
                 user_domains=[MockUserDomain('test-a')],
             ),
         ),
+        'only settings change returns new settings': RunActionsDataset(
+            input_old_config=make_system_config(
+                settings=ToolSettings(editor='nano')),
+            input_new_config=make_system_config(
+                settings=ToolSettings(editor='vim')),
+            input_error_handler=MockSuccessErrorHandler(),
+            expected_config=make_system_config(
+                settings=ToolSettings(editor='vim'),
+            ),
+        ),
+        'failed action still carries new settings': RunActionsDataset(
+            input_old_config=make_system_config(
+                config_entries=[ENTRY_A],
+                user_domains=[DOMAIN_A],
+                settings=ToolSettings(editor='nano'),
+            ),
+            input_new_config=make_system_config(
+                config_entries=[ENTRY_B],
+                user_domains=[DOMAIN_B],
+                settings=ToolSettings(editor='vim'),
+            ),
+            input_error_handler=MockFailErrorHandler(),
+            expected_config=make_system_config(
+                config_entries=[ENTRY_A],
+                user_domains=[DOMAIN_A],
+                settings=ToolSettings(editor='vim'),
+            ),
+        ),
         'failed action returns the chosen resolution': RunActionsDataset(
             input_old_config=make_system_config(
                 config_entries=[ENTRY_A],
@@ -432,6 +484,22 @@ class TestSystemManager(TestCase):
                 user_domains=[DOMAIN_A],
             ),
             expected_failure_resolution=MockFailureResolution.EDIT,
+        ),
+        'removed settings are removed': RunActionsDataset(
+            input_old_config=make_system_config(
+                config_entries=[ENTRY_A],
+                user_domains=[DOMAIN_A],
+                settings=ToolSettings(editor='nano'),
+            ),
+            input_new_config=make_system_config(
+                config_entries=[ENTRY_B],
+                user_domains=[DOMAIN_B],
+            ),
+            input_error_handler=MockSuccessErrorHandler(),
+            expected_config=make_system_config(
+                config_entries=[ENTRY_B],
+                user_domains=[DOMAIN_B],
+            ),
         ),
     })
     def test_run_actions(self, dataset: RunActionsDataset) -> None:

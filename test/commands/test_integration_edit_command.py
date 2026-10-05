@@ -56,6 +56,8 @@ INVALID_CONFIG = dedent('''\
 
 PARTIAL_CURRENT_CONFIG = dedent('''\
     version: '1'
+    system-config-manager:
+      editor: null
     before: []
     after: []
     config:
@@ -70,6 +72,8 @@ PARTIAL_CURRENT_CONFIG = dedent('''\
     ''')
 FIXED_CURRENT_CONFIG = dedent('''\
     version: '1'
+    system-config-manager:
+      editor: null
     before: []
     after: []
     config:

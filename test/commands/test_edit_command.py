@@ -17,6 +17,7 @@ from sysconf.commands.preview_command import PreviewCommand
 from sysconf.config.actions import ShellAction
 from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
+from sysconf.config.settings import ToolSettings
 from sysconf.config.system_config import SystemConfig
 from sysconf.system.editor import EditResult, EditorLauncher, EditorResolver
 from sysconf.system.file import FileReader
@@ -42,22 +43,31 @@ PATHS_BY_NAME = {
     'code': '/usr/bin/code',
     'nano': '/usr/bin/nano',
 }
+CODE = ('/usr/bin/code', '--wait')
 NANO = ('/usr/bin/nano',)
 
+CODE_SETTINGS = ToolSettings(editor='code --wait')
+NANO_SETTINGS = ToolSettings(editor='nano')
 EMPTY_CONFIG = SystemConfig.create_from_entries((), (), (), ())
 OLD_CONFIG = SystemConfig.create_from_entries(
-    (ShellAction('echo old'),), (), (), ())
+    (ShellAction('echo old'),), (), (), (), CODE_SETTINGS)
 NEW_CONFIG = SystemConfig.create_from_entries(
-    (ShellAction('echo new'),), (), (), ())
+    (ShellAction('echo new'),), (), (), (), CODE_SETTINGS)
+NANO_CONFIG = SystemConfig.create_from_entries(
+    (ShellAction('echo old'),), (), (), (), NANO_SETTINGS)
 
 OLD_CONFIG_YAML = dedent('''\
     version: 1
+    system-config-manager:
+      editor: code --wait
     before:
       - echo old
     config: []
     ''')
 NEW_CONFIG_YAML = dedent('''\
     version: 1
+    system-config-manager:
+      editor: code --wait
     before:
       - echo new
     config: []
@@ -375,6 +385,7 @@ class TestEditCommand(TestCase):
         expected_next_command: NextCommand
         fixture_old_config: SystemConfig = field(
             default_factory=lambda: OLD_CONFIG)
+        expected_editor_command: tuple[str, ...] = CODE
         expected_preview_runs: int = 0
         expected_prints: list[str] = field(default_factory=lambda: [])
 
@@ -486,11 +497,17 @@ class TestEditCommand(TestCase):
             expected_next_command=NextCommand.NONE,
             expected_prints=['# No changes required.'],
         ),
+        'only settings changed': RunDataset(
+            fixture_new_config=NANO_CONFIG,
+            fixture_user_inputs=('y',),
+            expected_next_command=NextCommand.APPLY,
+        ),
         'no old config': RunDataset(
             fixture_old_config=EMPTY_CONFIG,
             fixture_new_config=NEW_CONFIG,
             fixture_user_inputs=('y',),
             expected_next_command=NextCommand.APPLY,
+            expected_editor_command=NANO,
         ),
         'invalid config edited again': RunDataset(
             fixture_new_config=ValidationError('Unknown domain: not-a-domain'),
@@ -512,8 +529,8 @@ class TestEditCommand(TestCase):
     })
     def test_run_returns(self, dataset: RunDataset) -> None:
         """
-        Test that the config is edited once and the user's choice decides the
-        next command, instead of running it.
+        Test that the config is edited with the last applied editor and the
+        user's choice decides the next command.
         """
 
         # Arrange
@@ -565,7 +582,10 @@ class TestEditCommand(TestCase):
 
         # Assert
         self.assertIs(expected_next_command, actual)
-        self.assertEqual(editor_launcher.calls, [(NANO, NEW_PATH)])
+        self.assertEqual(
+            editor_launcher.calls,
+            [(dataset.expected_editor_command, NEW_PATH)],
+        )
         self.assertEqual(config_reader.loaded_paths, [OLD_PATH, NEW_PATH])
         self.assertEqual(
             mock_input.call_count,
@@ -610,7 +630,15 @@ class TestEditCommand(TestCase):
             fixture_paths_by_name={},
             fixture_edit_results=(),
             fixture_new_config=NEW_CONFIG,
-            expected_message='No editor found (tried editor, nano, vim, vi)',
+            expected_message='No editor found (tried editor, nano, vim, vi), '
+            + "set one with 'system-config-manager.editor' in your config",
+        ),
+        'configured editor not found': RaiseDataset(
+            fixture_paths_by_name={},
+            fixture_edit_results=(),
+            fixture_new_config=NEW_CONFIG,
+            expected_message="Editor 'code' from "
+            + "'system-config-manager.editor' was not found",
         ),
     })
     def test_run_raises(self, dataset: RaiseDataset) -> None:

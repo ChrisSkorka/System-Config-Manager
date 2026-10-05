@@ -16,7 +16,6 @@ E.g. a major system update may add and remove system packages, but this tool wil
 - usability
   - edit command
     - sub command to launch editor, wait, apply
-    - editor configurability
   - cli config edit commands (e.g. `sysconf add snap app-name`) (depends on ruamel)
   - better assert error messages (no stack trace)
   - logging
@@ -97,6 +96,7 @@ python3 -m sysconf preview [/path/to/config]
 python -m sysconf apply [/path/to/config]
 
 # open the config in your editor, then choose to apply, preview, or exit once the editor is closed
+# see System Config Manager below to choose the editor
 python3 -m sysconf edit [/path/to/config]
 
 # the config path is optional once recorded, see Config Location below
@@ -154,6 +154,26 @@ Note that only the `apply` command and choosing the apply option within other co
 ### Version
 
 Currently only version `1` is supported and documented below
+
+### System Config Manager (optional)
+
+Settings for this tool itself. They travel with your config and are recorded with the
+applied config, but never cause any commands to run.
+
+```yaml
+system-config-manager:
+  editor: code --wait
+```
+
+#### Editor
+
+The shell command used by `sysconf edit` to open & edit your config, with the config path added as the last argument.
+
+The command needs to be blocking until the changes are saved and the file is closed.
+
+Example:
+- `editor: nano` -> `nano path/to/config`
+- `editor: code --wait` -> `code --wait path/to/config`
 
 ### Before (optional)
 
@@ -399,7 +419,7 @@ The `sysconf edit` command will:
 Notes:
 - Choosing to apply will apply all differences compared to the currently applied config including previously unapplied changes, not just the edits from this very editing session.
 
-The first editor found is used:
+When no editor is configured, the first one found is used:
 
 | Platform | Editors tried |
 |---|---|
