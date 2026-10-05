@@ -68,6 +68,7 @@ class TestComparativeConfigCommandParser(TestCase):
         input_parsed_arguments: Namespace
         expected_old_path: Path | None
         expected_new_path: Path
+        expected_is_config_file_explicit: bool
 
     @datasets({
         'both paths provided': CreateFromArgumentsSuccessDataset(
@@ -82,6 +83,7 @@ class TestComparativeConfigCommandParser(TestCase):
             ),
             expected_old_path=fpath('/manual/old.yaml'),
             expected_new_path=fpath('/manual/new.yaml'),
+            expected_is_config_file_explicit=True,
         ),
         'only new config provided, uses default old path': CreateFromArgumentsSuccessDataset(
             fixture_defaults=MockDefaults(
@@ -95,6 +97,7 @@ class TestComparativeConfigCommandParser(TestCase):
             ),
             expected_old_path=fpath('/default/old.yaml'),
             expected_new_path=fpath('/manual/new.yaml'),
+            expected_is_config_file_explicit=True,
         ),
         'only old config provided, uses the recorded config location': CreateFromArgumentsSuccessDataset(
             fixture_defaults=MockDefaults(
@@ -108,6 +111,7 @@ class TestComparativeConfigCommandParser(TestCase):
             ),
             expected_old_path=fpath('/manual/old.yaml'),
             expected_new_path=fpath('/default/new.yaml'),
+            expected_is_config_file_explicit=False,
         ),
         'no paths provided, uses the recorded config location': CreateFromArgumentsSuccessDataset(
             fixture_defaults=MockDefaults(
@@ -121,6 +125,7 @@ class TestComparativeConfigCommandParser(TestCase):
             ),
             expected_old_path=fpath('/default/old.yaml'),
             expected_new_path=fpath('/default/new.yaml'),
+            expected_is_config_file_explicit=False,
         ),
     })
     def test_create_from_arguments_success(
@@ -143,6 +148,10 @@ class TestComparativeConfigCommandParser(TestCase):
         self.assertIsInstance(actual, ComparativeConfigCommandParser)
         self.assertEqual(actual.old_path, dataset.expected_old_path)
         self.assertEqual(actual.new_path, dataset.expected_new_path)
+        self.assertEqual(
+            actual.is_config_file_explicit,
+            dataset.expected_is_config_file_explicit,
+        )
         self.assertIs(actual.file_reader, file_reader)
 
     @dataclass

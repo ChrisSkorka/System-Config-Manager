@@ -75,13 +75,13 @@ class ApplyCommand (Command):
         )
         old_path = comparative_parser.old_path
         new_path = comparative_parser.new_path
-        config_path_argument: Path | None = parsed_arguments.config_file
+        should_override_config_path = comparative_parser.is_config_file_explicit
 
         return cls.create_from_context(
             context=context,
             old_path=old_path,
             new_path=new_path,
-            config_path_argument=config_path_argument,
+            should_override_config_path=should_override_config_path,
         )
 
     @classmethod
@@ -90,7 +90,7 @@ class ApplyCommand (Command):
         context: Context,
         old_path: Path,
         new_path: Path,
-        config_path_argument: Path | None,
+        should_override_config_path: bool,
     ) -> Self:
         """
         Create an instance of the command from the given context.
@@ -139,26 +139,29 @@ class ApplyCommand (Command):
         return cls(
             manager=system_manager,
             current_path=current_path,
+            new_path=new_path,
             config_writer=config_writer,
             config_location_writer=config_location_writer,
-            config_path_argument=config_path_argument,
+            should_override_config_path=should_override_config_path,
         )
 
     def __init__(
         self,
         manager: SystemManager[ApplyFailureResolution],
         current_path: Path,
+        new_path: Path,
         config_writer: ConfigWriter,
         config_location_writer: ConfigLocationWriter,
-        config_path_argument: Path | None,
+        should_override_config_path: bool,
     ) -> None:
         super().__init__()
 
         self.manager = manager
         self.current_path = current_path
+        self.new_path = new_path
         self.config_writer = config_writer
         self.config_location_writer = config_location_writer
-        self.config_path_argument = config_path_argument
+        self.should_override_config_path = should_override_config_path
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, ApplyCommand):
@@ -166,9 +169,10 @@ class ApplyCommand (Command):
 
         return self.manager == value.manager \
             and self.current_path == value.current_path \
+            and self.new_path == value.new_path \
             and self.config_writer == value.config_writer \
             and self.config_location_writer == value.config_location_writer \
-            and self.config_path_argument == value.config_path_argument
+            and self.should_override_config_path == value.should_override_config_path
 
     def run(self) -> None:
         """
@@ -189,13 +193,13 @@ class ApplyCommand (Command):
         """
 
         # Record where the configuration we are about to apply came from
-        if self.config_path_argument is not None:
+        if self.should_override_config_path:
             is_path_saved = self.config_location_writer \
-                .record_config_path(self.config_path_argument)
+                .record_config_path(self.new_path)
 
             if is_path_saved:
                 print(
-                    f'Saved "{self.config_path_argument}" as your config location',
+                    f'Saved "{self.new_path}" as your config location',
                 )
 
         # Execute the actions

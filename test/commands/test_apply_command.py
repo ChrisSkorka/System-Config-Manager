@@ -126,13 +126,14 @@ class TestApplyCommand(TestCase):
         input_parsed_arguments: Namespace
         expected_old_path: Path
         expected_new_path: Path
-        expected_config_path_argument: Path | None
+        expected_should_override_config_path: bool
 
     @datasets({
         'both paths provided': CreateFromArgumentsDataset(
             fixture_comparative_parser=ComparativeConfigCommandParser(
                 old_path=fpath('/manual/old.yaml'),
                 new_path=fpath('/manual/new.yaml'),
+                is_config_file_explicit=True,
                 file_reader=FILE_READER,
             ),
             input_parsed_arguments=Namespace(
@@ -141,12 +142,13 @@ class TestApplyCommand(TestCase):
             ),
             expected_old_path=fpath('/manual/old.yaml'),
             expected_new_path=fpath('/manual/new.yaml'),
-            expected_config_path_argument=fpath('/manual/new.yaml'),
+            expected_should_override_config_path=True,
         ),
         'no old config': CreateFromArgumentsDataset(
             fixture_comparative_parser=ComparativeConfigCommandParser(
                 old_path=MockPath('/default/old.yaml'),
                 new_path=fpath('/default/new.yaml'),
+                is_config_file_explicit=False,
                 file_reader=FILE_READER,
             ),
             input_parsed_arguments=Namespace(
@@ -155,7 +157,7 @@ class TestApplyCommand(TestCase):
             ),
             expected_old_path=MockPath('/default/old.yaml'),
             expected_new_path=fpath('/default/new.yaml'),
-            expected_config_path_argument=None,
+            expected_should_override_config_path=False,
         ),
     })
     @patch('sysconf.commands.apply_command.ApplyCommand.create_from_context')
@@ -188,7 +190,7 @@ class TestApplyCommand(TestCase):
             context=context,
             old_path=dataset.expected_old_path,
             new_path=dataset.expected_new_path,
-            config_path_argument=dataset.expected_config_path_argument,
+            should_override_config_path=dataset.expected_should_override_config_path,
         )
 
     @dataclass
@@ -196,7 +198,7 @@ class TestApplyCommand(TestCase):
         fixture_files: dict[str, str]
         input_old_path: Path
         input_new_path: Path
-        input_config_path_argument: Path | None
+        input_should_override_config_path: bool
         expected_old_config: SystemConfig
         expected_new_config: SystemConfig
 
@@ -208,7 +210,7 @@ class TestApplyCommand(TestCase):
             },
             input_old_path=fpath('/manual/old.yaml'),
             input_new_path=fpath('/manual/new.yaml'),
-            input_config_path_argument=fpath('/manual/new.yaml'),
+            input_should_override_config_path=True,
             expected_old_config=OLD_CONFIG,
             expected_new_config=NEW_CONFIG,
         ),
@@ -218,7 +220,7 @@ class TestApplyCommand(TestCase):
             },
             input_old_path=MockPath('/manual/old.yaml'),
             input_new_path=fpath('/manual/new.yaml'),
-            input_config_path_argument=None,
+            input_should_override_config_path=False,
             expected_old_config=EMPTY_CONFIG,
             expected_new_config=NEW_CONFIG,
         ),
@@ -257,7 +259,7 @@ class TestApplyCommand(TestCase):
             context=context,
             old_path=dataset.input_old_path,
             new_path=dataset.input_new_path,
-            config_path_argument=dataset.input_config_path_argument,
+            should_override_config_path=dataset.input_should_override_config_path,
         )
 
         # Assert
@@ -268,14 +270,15 @@ class TestApplyCommand(TestCase):
             PromptUserErrorHandler,
         )
         self.assertEqual(defaults.get_old_config_path(), actual.current_path)
+        self.assertEqual(dataset.input_new_path, actual.new_path)
         self.assertIs(file_writer, actual.config_writer.file_writer)
         self.assertEqual(
             expected_config_location_writer,
             actual.config_location_writer,
         )
         self.assertEqual(
-            dataset.input_config_path_argument,
-            actual.config_path_argument,
+            dataset.input_should_override_config_path,
+            actual.should_override_config_path,
         )
 
     @dataclass
@@ -347,9 +350,10 @@ class TestApplyCommand(TestCase):
                 is_file=False,
                 exists=False,
             ),
+            new_path=fpath('/manual/new.yaml'),
             config_writer=MockConfigWriter.create(),
             config_location_writer=CONFIG_LOCATION_WRITER,
-            config_path_argument=None,
+            should_override_config_path=False,
         )
 
         # Act
@@ -391,9 +395,10 @@ class TestApplyCommand(TestCase):
         apply_command = ApplyCommand(
             manager=dataset.fixture_system_manager,
             current_path=dataset.input_current_path,
+            new_path=fpath('/manual/new.yaml'),
             config_writer=config_writer,
             config_location_writer=CONFIG_LOCATION_WRITER,
-            config_path_argument=None,
+            should_override_config_path=False,
         )
 
         # Act
@@ -470,9 +475,10 @@ class TestApplyCommand(TestCase):
             manager=MockSystemManager[ApplyFailureResolution]
             .default(get_actions=[]),
             current_path=dataset.input_current_path,
+            new_path=fpath('/manual/new.yaml'),
             config_writer=config_writer,
             config_location_writer=CONFIG_LOCATION_WRITER,
-            config_path_argument=None,
+            should_override_config_path=False,
         )
 
         # Act
@@ -489,7 +495,7 @@ class TestApplyCommand(TestCase):
     class RecordConfigLocationDataset:
         fixture_defaults: MockDefaults
         fixture_file_reader: MockFileReader
-        input_config_path_argument: Path | None
+        input_should_override_config_path: bool
         expected_prints: list[str]
         expected_written_files: dict[str, str]
 
@@ -499,7 +505,7 @@ class TestApplyCommand(TestCase):
                 config_location_path=MockPath('/config/config'),
             ),
             fixture_file_reader=MockFileReader({}),
-            input_config_path_argument=fpath('/manual/new.yaml'),
+            input_should_override_config_path=True,
             expected_prints=[
                 'Saved "/manual/new.yaml" as your config location',
                 '# No changes required.',
@@ -513,7 +519,7 @@ class TestApplyCommand(TestCase):
                 config_location_path=MockPath('/config/config'),
             ),
             fixture_file_reader=MockFileReader({}),
-            input_config_path_argument=None,
+            input_should_override_config_path=False,
             expected_prints=[
                 '# No changes required.',
             ],
@@ -524,7 +530,7 @@ class TestApplyCommand(TestCase):
                 config_location_path=dpath('/config/config'),
             ),
             fixture_file_reader=MockFileReader({}),
-            input_config_path_argument=fpath('/manual/new.yaml'),
+            input_should_override_config_path=True,
             expected_prints=[
                 '# No changes required.',
             ],
@@ -543,13 +549,14 @@ class TestApplyCommand(TestCase):
             manager=MockSystemManager[ApplyFailureResolution]
             .default(get_actions=[]),
             current_path=MockPath('/config/.history/current.yaml'),
+            new_path=fpath('/manual/new.yaml'),
             config_writer=MockConfigWriter.create(),
             config_location_writer=ConfigLocationWriter(
                 dataset.fixture_defaults,
                 dataset.fixture_file_reader,
                 location_file_writer,
             ),
-            config_path_argument=dataset.input_config_path_argument,
+            should_override_config_path=dataset.input_should_override_config_path,
         )
 
         # Act
@@ -577,16 +584,18 @@ class TestApplyCommand(TestCase):
             input_command=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
                 current_path=fpath('/config/current.yaml'),
+                new_path=fpath('/manual/new.yaml'),
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
-                config_path_argument=None,
+                should_override_config_path=False,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
                 current_path=fpath('/config/current.yaml'),
+                new_path=fpath('/manual/new.yaml'),
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
-                config_path_argument=None,
+                should_override_config_path=False,
             ),
             expected_equal=True,
         ),
@@ -594,16 +603,37 @@ class TestApplyCommand(TestCase):
             input_command=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
                 current_path=fpath('/config/current.yaml'),
+                new_path=fpath('/manual/new.yaml'),
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
-                config_path_argument=None,
+                should_override_config_path=False,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
                 current_path=fpath('/other/current.yaml'),
+                new_path=fpath('/manual/new.yaml'),
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
-                config_path_argument=None,
+                should_override_config_path=False,
+            ),
+            expected_equal=False,
+        ),
+        'different new path': EqualityDataset(
+            input_command=ApplyCommand(
+                manager=MockSystemManager[ApplyFailureResolution].default(),
+                current_path=fpath('/config/current.yaml'),
+                new_path=fpath('/manual/new.yaml'),
+                config_writer=CONFIG_WRITER,
+                config_location_writer=CONFIG_LOCATION_WRITER,
+                should_override_config_path=False,
+            ),
+            input_other=ApplyCommand(
+                manager=MockSystemManager[ApplyFailureResolution].default(),
+                current_path=fpath('/config/current.yaml'),
+                new_path=fpath('/manual/other.yaml'),
+                config_writer=CONFIG_WRITER,
+                config_location_writer=CONFIG_LOCATION_WRITER,
+                should_override_config_path=False,
             ),
             expected_equal=False,
         ),
@@ -611,9 +641,10 @@ class TestApplyCommand(TestCase):
             input_command=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
                 current_path=fpath('/config/current.yaml'),
+                new_path=fpath('/manual/new.yaml'),
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
-                config_path_argument=None,
+                should_override_config_path=False,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(
@@ -625,9 +656,10 @@ class TestApplyCommand(TestCase):
                     ),
                 ),
                 current_path=fpath('/config/current.yaml'),
+                new_path=fpath('/manual/new.yaml'),
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
-                config_path_argument=None,
+                should_override_config_path=False,
             ),
             expected_equal=False,
         ),
@@ -635,20 +667,22 @@ class TestApplyCommand(TestCase):
             input_command=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
                 current_path=fpath('/config/current.yaml'),
+                new_path=fpath('/manual/new.yaml'),
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
-                config_path_argument=None,
+                should_override_config_path=False,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
                 current_path=fpath('/config/current.yaml'),
+                new_path=fpath('/manual/new.yaml'),
                 config_writer=ConfigWriter(
                     system_config_renderer=SystemConfigRenderer(),
                     yaml_serializer=SERIALIZER,
                     file_writer=FILE_WRITER,
                 ),
                 config_location_writer=CONFIG_LOCATION_WRITER,
-                config_path_argument=None,
+                should_override_config_path=False,
             ),
             expected_equal=False,
         ),
@@ -656,16 +690,18 @@ class TestApplyCommand(TestCase):
             input_command=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
                 current_path=fpath('/config/current.yaml'),
+                new_path=fpath('/manual/new.yaml'),
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
-                config_path_argument=None,
+                should_override_config_path=False,
             ),
             input_other=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
                 current_path=fpath('/config/current.yaml'),
+                new_path=fpath('/manual/new.yaml'),
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
-                config_path_argument=fpath('/manual/new.yaml'),
+                should_override_config_path=True,
             ),
             expected_equal=False,
         ),
@@ -673,9 +709,10 @@ class TestApplyCommand(TestCase):
             input_command=ApplyCommand(
                 manager=MockSystemManager[ApplyFailureResolution].default(),
                 current_path=fpath('/config/current.yaml'),
+                new_path=fpath('/manual/new.yaml'),
                 config_writer=CONFIG_WRITER,
                 config_location_writer=CONFIG_LOCATION_WRITER,
-                config_path_argument=None,
+                should_override_config_path=False,
             ),
             input_other='apply',
             expected_equal=False,

@@ -18,8 +18,7 @@ from test.domains.mock_domain_action import MockDomainAction
 from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
 from test.utils.mock_context import MockContext
-from test.utils.mock_defaults import MockDefaults
-from test.utils.mock_file import MockFileReader, MockFileWriter
+from test.utils.mock_file import MockFileReader
 from test.utils.mock_path import MockPath, fpath
 
 
@@ -104,6 +103,7 @@ class TestPreviewCommand(TestCase):
             fixture_comparative_parser=ComparativeConfigCommandParser(
                 old_path=fpath('/manual/old.yaml'),
                 new_path=fpath('/manual/new.yaml'),
+                is_config_file_explicit=True,
                 file_reader=FILE_READER,
             ),
             input_parsed_arguments=Namespace(
@@ -117,6 +117,7 @@ class TestPreviewCommand(TestCase):
             fixture_comparative_parser=ComparativeConfigCommandParser(
                 old_path=MockPath('/default/old.yaml'),
                 new_path=fpath('/default/new.yaml'),
+                is_config_file_explicit=False,
                 file_reader=FILE_READER,
             ),
             input_parsed_arguments=Namespace(
@@ -192,16 +193,8 @@ class TestPreviewCommand(TestCase):
         """Test that the configs are loaded into a manager that only previews."""
 
         # Arrange
-        defaults = MockDefaults(
-            old_config_path=MockPath('/config/.history/current.yaml'),
-        )
         file_reader = MockFileReader(dataset.fixture_files)
-        file_writer = MockFileWriter()
-        context = MockContext.create(
-            defaults=defaults,
-            file_reader=file_reader,
-            file_writer=file_writer,
-        )
+        context = MockContext.create(file_reader=file_reader)
         executor = PreviewSystemExecutor()
         error_handler = FailingErrorHandler()
         expected_manager = SystemManager(
@@ -225,8 +218,6 @@ class TestPreviewCommand(TestCase):
             actual.manager.error_handler,
             FailingErrorHandler,
         )
-        self.assertEqual(defaults.get_old_config_path(), actual.current_path)
-        self.assertIs(file_writer, actual.file_writer)
 
     @dataclass
     class RunDataset:
@@ -294,12 +285,6 @@ class TestPreviewCommand(TestCase):
             manager=dataset.fixture_system_manager,
             system_config_renderer=MagicMock(),
             yaml_serializer=MagicMock(),
-            current_path=MockPath(
-                '/tmp/current.yaml',
-                is_file=False,
-                exists=False,
-            ),
-            file_writer=MagicMock(),
         )
 
         # Act

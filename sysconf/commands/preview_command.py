@@ -11,10 +11,8 @@ from sysconf.config.serialization import YamlSerializer
 from sysconf.config.system_config import SystemManager
 from sysconf.system.error_handler import FailingErrorHandler
 from sysconf.system.executor import PreviewSystemExecutor
-from sysconf.system.file import FileWriter
 from sysconf.utils.config_loader import ConfigReader
 from sysconf.utils.context import Context
-from sysconf.utils.validation import validate
 
 
 class PreviewCommand (Command):
@@ -84,10 +82,10 @@ class PreviewCommand (Command):
         new_path: Path,
     ) -> Self:
         """
-        Create an instance of the command from the given context.
+        Create a new instance of the command from the given context and
+        system manager.
         """
 
-        defaults = context.get_defaults()
         file_reader = context.get_file_reader()
 
         config_reader = ConfigReader(file_reader)
@@ -103,14 +101,6 @@ class PreviewCommand (Command):
             executor=executor,
             error_handler=error_handler,
         )
-
-        current_path = defaults.get_old_config_path()
-        validate(
-            current_path.is_file() or not current_path.exists(),
-            f'Current config path is not a file: {current_path}',
-        )
-
-        file_writer = context.get_file_writer()
         system_config_renderer = SystemConfigRenderer()
         yaml_serializer = YamlSerializer()
 
@@ -118,8 +108,6 @@ class PreviewCommand (Command):
             manager=system_manager,
             system_config_renderer=system_config_renderer,
             yaml_serializer=yaml_serializer,
-            current_path=current_path,
-            file_writer=file_writer,
         )
 
     def __init__(
@@ -127,24 +115,18 @@ class PreviewCommand (Command):
         manager: SystemManager[None],
         system_config_renderer: SystemConfigRenderer,
         yaml_serializer: YamlSerializer,
-        current_path: Path,
-        file_writer: FileWriter,
     ) -> None:
         super().__init__()
 
         self.manager = manager
         self.system_config_renderer = system_config_renderer
         self.yaml_serializer = yaml_serializer
-        self.current_path = current_path
-        self.file_writer = file_writer
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, PreviewCommand):
             return False
 
         return self.manager == value.manager \
-            and self.current_path == value.current_path \
-            and self.file_writer == value.file_writer \
             and self.system_config_renderer == value.system_config_renderer \
             and self.yaml_serializer == value.yaml_serializer
 

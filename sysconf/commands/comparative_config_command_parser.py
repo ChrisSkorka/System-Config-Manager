@@ -8,7 +8,6 @@ from sysconf.commands.command import CommandArgumentParserBuilder
 from sysconf.system.file import FileReader
 from sysconf.system.path import get_validated_file_path
 from sysconf.utils.context import Context
-from sysconf.utils.validation import validate
 from sysconf.utils.config_location import ConfigLocationReader
 
 
@@ -36,7 +35,6 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
             type=Path,
             nargs='?',
             default=None,
-            # todo: remove default and use configurable default path
             help='Path to the last applied configuration (default: ~/.config/config.yaml)',
         )
 
@@ -50,38 +48,44 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
     ) -> Self:
         """
         Parse the arguments and create a new instance that makes available the
-        system manager that compares the two configurations.
+        old and new configurations.
         """
 
         defaults = context.get_defaults()
         file_reader = context.get_file_reader()
         config_location_reader = ConfigLocationReader(defaults, file_reader)
 
-        old_path: Path = parsed_arguments.last_config or defaults.get_old_config_path()
-        new_path: Path = parsed_arguments.config_file \
-            or config_location_reader.get_config_path()
+        arg_last_config_path: Path | None = parsed_arguments.last_config
+        default_last_config_path: Path = defaults.get_old_config_path()
 
-        current_path = defaults.get_old_config_path()
-        validate(
-            current_path.is_file() or not current_path.exists(),
-            f'Current config path is not a file: {current_path}',
-        )
+        arg_config_path: Path | None = parsed_arguments.config_file
+        is_config_file_explicit = arg_config_path is not None
 
-        new_path = get_validated_file_path(
-            new_path,
-            '.yaml',
-        )
+        # argument or default path for the old config path
+        old_path: Path
+        new_path: Path
 
-        # todo: allow default to not exists but not argument path
+        # if a last config path is given, it must exists & be valid,
+        # otherwise use the default,
+        # default has to either be non-existent or valid
+        if arg_last_config_path is not None:
+            old_path = get_validated_file_path(arg_last_config_path, '.yaml')
+        else:
+            old_path = default_last_config_path
+
         if old_path.exists():
-            old_path = get_validated_file_path(
-                old_path,
-                '.yaml',
-            )
+            old_path = get_validated_file_path(old_path, '.yaml')
+
+        if arg_config_path is not None:
+            new_path = arg_config_path
+        else:
+            new_path = config_location_reader.get_config_path()
+        new_path = get_validated_file_path(new_path, '.yaml')
 
         return cls(
             old_path=old_path,
             new_path=new_path,
+            is_config_file_explicit=is_config_file_explicit,
             file_reader=file_reader,
         )
 
@@ -89,6 +93,7 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
         self,
         old_path: Path,
         new_path: Path,
+        is_config_file_explicit: bool,
         file_reader: FileReader,
 
     ) -> None:
@@ -96,6 +101,7 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
 
         self.old_path = old_path
         self.new_path = new_path
+        self.is_config_file_explicit = is_config_file_explicit
         self.file_reader = file_reader
 
     def __eq__(self, value: object) -> bool:
@@ -103,4 +109,5 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
             return False
         return self.old_path == value.old_path \
             and self.new_path == value.new_path \
+            and self.is_config_file_explicit == value.is_config_file_explicit \
             and self.file_reader == value.file_reader
