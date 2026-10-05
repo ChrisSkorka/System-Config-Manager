@@ -3,12 +3,14 @@
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 from pathlib import Path
+from textwrap import dedent
 from unittest.mock import MagicMock, call, patch
 
 from sysconf.commands.show_command import ShowCommand
 from test.datasets import datasets
 from test.test_case import TestCase
 from test.utils.mock_defaults import MockDefaults
+from test.utils.mock_file import MockFileReader
 from test.utils.mock_path import MockPath, fpath
 
 
@@ -132,29 +134,31 @@ class TestShowCommand(TestCase):
         )
 
     def test_run(self) -> None:
-        """Test that run prints the header and the loaded configuration."""
+        """Test that run prints the header and the config file contents."""
 
         # Arrange
         config_path = fpath('/config/current.yaml')
-        loaded_config = MagicMock()
-        show_command = ShowCommand(config_path=config_path)
+        config_contents = dedent('''
+            version: 1
+            config: []
+        ''').lstrip()
+        file_reader = MockFileReader({
+            '/config/current.yaml': config_contents,
+        })
+        show_command = ShowCommand(
+            config_path=config_path,
+            file_reader=file_reader,
+        )
 
         # Act
-        with patch(
-            'sysconf.commands.show_command.load_config_from_file',
-            return_value=loaded_config,
-        ) as mock_load_config, patch('builtins.print') as mock_print:
+        with patch('builtins.print') as mock_print:
             show_command.run()
 
         # Assert
-        mock_load_config.assert_called_once_with(
-            show_command.file_reader,
-            config_path,
-        )
         mock_print.assert_has_calls(
             [
                 call('Listing current system configuration...'),
-                call(loaded_config),
+                call(config_contents),
             ],
             any_order=False,
         )

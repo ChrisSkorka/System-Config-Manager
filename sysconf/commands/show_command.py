@@ -7,7 +7,6 @@ from typing import Self
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.system.file import FileReader
 from sysconf.system.path import get_validated_file_path
-from sysconf.utils.config_loader import load_config_from_file
 from sysconf.utils.defaults import Defaults
 
 
@@ -43,6 +42,7 @@ class ShowCommand (Command):
     def create_from_arguments(cls, parsed_arguments: Namespace) -> Self:
 
         defaults = Defaults()
+        file_reader = FileReader()
 
         config_path = parsed_arguments.config_path \
             or defaults.get_old_config_path()
@@ -52,16 +52,22 @@ class ShowCommand (Command):
             '.yaml',
         )
 
-        return cls(config_path=config_path)
+        return cls(config_path=config_path, file_reader=file_reader)
 
-    def __init__(self, config_path: Path) -> None:
+    def __init__(
+        self,
+        config_path: Path,
+        file_reader: FileReader,
+    ) -> None:
         super().__init__()
 
         self.config_path = config_path
-        self.file_reader = FileReader()
+        self.file_reader = file_reader
 
     def run(self) -> None:
         print('Listing current system configuration...')
 
-        config = load_config_from_file(self.file_reader, self.config_path)
-        print(config)
+        serialized_config = self.file_reader \
+            .get_file_contents(self.config_path)
+
+        print(serialized_config)
