@@ -15,6 +15,7 @@ from test.domains.mock_domain_config_entry import MockDomainConfigEntry
 from test.domains.mock_user_domain import MockUserDomain
 from test.system.mock_error_handler import (
     MockFailErrorHandler,
+    MockFailureResolution,
     MockSequencedErrorHandler,
     MockSuccessErrorHandler,
 )
@@ -352,8 +353,9 @@ class TestSystemManager(TestCase):
     class RunActionsDataset:
         input_old_config: SystemConfig
         input_new_config: SystemConfig
-        input_error_handler: ErrorHandler
-        expected: SystemConfig
+        input_error_handler: ErrorHandler[MockFailureResolution]
+        expected_config: SystemConfig
+        expected_failure_resolution: MockFailureResolution | None = None
 
     @datasets({
         'no changes returns new config': RunActionsDataset(
@@ -362,7 +364,7 @@ class TestSystemManager(TestCase):
             input_new_config=SystemConfig.create_from_entries(
                 before_actions=(), after_actions=(), config_entries=(), user_domains=()),
             input_error_handler=MockSuccessErrorHandler(),
-            expected=SystemConfig.create_from_entries(
+            expected_config=SystemConfig.create_from_entries(
                 before_actions=(), after_actions=(), config_entries=(), user_domains=()),
         ),
         'all actions succeed returns new config': RunActionsDataset(
@@ -381,7 +383,7 @@ class TestSystemManager(TestCase):
                 user_domains=[MockUserDomain('test-b')],
             ),
             input_error_handler=MockSuccessErrorHandler(),
-            expected=SystemConfig.create_from_entries(
+            expected_config=SystemConfig.create_from_entries(
                 before_actions=(),
                 after_actions=(),
                 config_entries=[MockDomainConfigEntry(
@@ -405,13 +407,31 @@ class TestSystemManager(TestCase):
                 user_domains=[MockUserDomain('test-b')],
             ),
             input_error_handler=MockFailErrorHandler(),
-            expected=SystemConfig.create_from_entries(
+            expected_config=SystemConfig.create_from_entries(
                 before_actions=(),
                 after_actions=(),
                 config_entries=[MockDomainConfigEntry(
                     ('a',), MockUserDomain('test-a'))],
                 user_domains=[MockUserDomain('test-a')],
             ),
+        ),
+        'failed action returns the chosen resolution': RunActionsDataset(
+            input_old_config=make_system_config(
+                config_entries=[ENTRY_A],
+                user_domains=[DOMAIN_A],
+            ),
+            input_new_config=make_system_config(
+                config_entries=[ENTRY_B],
+                user_domains=[DOMAIN_B],
+            ),
+            input_error_handler=MockFailErrorHandler(
+                MockFailureResolution.EDIT,
+            ),
+            expected_config=make_system_config(
+                config_entries=[ENTRY_A],
+                user_domains=[DOMAIN_A],
+            ),
+            expected_failure_resolution=MockFailureResolution.EDIT,
         ),
     })
     def test_run_actions(self, dataset: RunActionsDataset) -> None:
@@ -428,7 +448,11 @@ class TestSystemManager(TestCase):
             result = manager.run_actions()
 
         # Assert
-        self.assertEqual(dataset.expected, result)
+        self.assertEqual(dataset.expected_config, result.system_config)
+        self.assertEqual(
+            dataset.expected_failure_resolution,
+            result.failure_resolution,
+        )
 
     @dataclass
     class BeforeAndAfterActionsDataset:
@@ -522,7 +546,7 @@ class TestSystemManager(TestCase):
             actual = manager.run_actions()
 
         # Assert
-        self.assertEqual(dataset.expected, actual)
+        self.assertEqual(dataset.expected, actual.system_config)
         self.assertEqual(
             executor.shell_mock.call_args_list,
             [call(script) for script in dataset.expected_scripts],
@@ -533,6 +557,7 @@ class TestSystemManager(TestCase):
         input_statuses: tuple[ErrorHandler.Status, ...]
         expected: SystemConfig
         expected_handler_calls: int
+        expected_failure_resolution: MockFailureResolution | None = None
 
     @datasets({
         'before action fails, nothing is committed': ErrorRecoveryDataset(
@@ -542,6 +567,7 @@ class TestSystemManager(TestCase):
                 user_domains=[DOMAIN_A],
             ),
             expected_handler_calls=1,
+            expected_failure_resolution=MockFailureResolution.EDIT,
         ),
         'before action skipped, remaining changes are committed': ErrorRecoveryDataset(
             input_statuses=(
@@ -568,6 +594,7 @@ class TestSystemManager(TestCase):
                 user_domains=[DOMAIN_A],
             ),
             expected_handler_calls=2,
+            expected_failure_resolution=MockFailureResolution.EDIT,
         ),
         'remove action skipped, the old entry is retained': ErrorRecoveryDataset(
             input_statuses=(
@@ -594,6 +621,7 @@ class TestSystemManager(TestCase):
                 before_actions=(BEFORE_ACTION,),
             ),
             expected_handler_calls=3,
+            expected_failure_resolution=MockFailureResolution.EDIT,
         ),
         'after action fails, all config changes are committed': ErrorRecoveryDataset(
             input_statuses=(
@@ -608,6 +636,7 @@ class TestSystemManager(TestCase):
                 user_domains=[DOMAIN_B],
             ),
             expected_handler_calls=4,
+            expected_failure_resolution=MockFailureResolution.EDIT,
         ),
         'after action skipped, it is not committed': ErrorRecoveryDataset(
             input_statuses=(
@@ -638,7 +667,10 @@ class TestSystemManager(TestCase):
         """Test the partially applied config returned for each failure point."""
 
         # Arrange
-        error_handler = MockSequencedErrorHandler(*dataset.input_statuses)
+        error_handler = MockSequencedErrorHandler(
+            *dataset.input_statuses,
+            failure_resolution=MockFailureResolution.EDIT,
+        )
         manager = SystemManager(
             old_config=make_system_config(
                 config_entries=[ENTRY_A],
@@ -659,7 +691,11 @@ class TestSystemManager(TestCase):
             actual = manager.run_actions()
 
         # Assert
-        self.assertEqual(dataset.expected, actual)
+        self.assertEqual(dataset.expected, actual.system_config)
+        self.assertEqual(
+            dataset.expected_failure_resolution,
+            actual.failure_resolution,
+        )
         self.assertEqual(error_handler.calls, dataset.expected_handler_calls)
 
     @dataclass
@@ -709,8 +745,9 @@ class TestSystemManager(TestCase):
                 config_entries=[ENTRY_A],
                 user_domains=[DOMAIN_A],
             ),
-            actual,
+            actual.system_config,
         )
+        self.assertIsNone(actual.failure_resolution)
         mock_print.assert_has_calls(
             [call(text) for text in dataset.expected_prints],
             any_order=False,
@@ -718,7 +755,7 @@ class TestSystemManager(TestCase):
 
     @dataclass
     class EqualityDataset:
-        input_manager: SystemManager
+        input_manager: SystemManager[MockFailureResolution]
         input_other: object
         expected_equal: bool
 

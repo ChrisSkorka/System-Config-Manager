@@ -1,12 +1,12 @@
 # pyright: strict
 
-from typing import Iterable, Self, Sequence
+from typing import Generic, Iterable, Self, Sequence, TypeVar
 
 from sysconf.config.domain_registry import builtin_domains
 from sysconf.config.domains import ConfigEntryId, Domain, DomainAction, DomainConfigEntry, NoDomainAction
 from sysconf.config.actions import Action
 from sysconf.domains.user_domains import UserDomain
-from sysconf.system.error_handler import ErrorHandler
+from sysconf.system.error_handler import ErrorHandler, FailureResolution
 from sysconf.system.executor import SystemExecutor
 from sysconf.utils.diff import Diff
 from sysconf.utils.transition import SequenceTransitioner
@@ -72,7 +72,10 @@ class SystemConfig:
         return f'SystemConfig({self.config_entries})'
 
 
-class SystemManager:
+FR = TypeVar('FR', bound=FailureResolution | None, covariant=True)
+
+
+class SystemManager(Generic[FR]):
     """
     Manages the application of system configurations across multiple domains.
     """
@@ -82,7 +85,7 @@ class SystemManager:
         old_config: SystemConfig,
         new_config: SystemConfig,
         executor: SystemExecutor,
-        error_handler: ErrorHandler,
+        error_handler: ErrorHandler[FR],
     ) -> None:
         self.old_config = old_config
         self.new_config = new_config
@@ -136,7 +139,7 @@ class SystemManager:
 
         return actions
 
-    def run_actions(self) -> SystemConfig:
+    def run_actions(self) -> RunActionsResult[FR]:
         """
         Get and run all actions required to transition from the old 
         configuration to the new configuration.
@@ -163,7 +166,7 @@ class SystemManager:
 
         if not has_changes:
             print('# No changes required.')
-            return self.new_config
+            return RunActionsResult(self.new_config)
 
         config_interpolator = SystemConfigTransitioner.create_from_system_configs(
             self.old_config,
@@ -174,14 +177,17 @@ class SystemManager:
             for action_entry in diff_before_actions.get_entries():
                 if action_entry.new_item is not None:
                     new_action = action_entry.new_item
-                    status = self.error_handler.try_run(
+                    result = self.error_handler.try_run(
                         lambda: new_action.run(self.executor),
                     )
-                    match status:
+                    match result.status:
                         case ErrorHandler.Status.SUCCESS:
                             pass
                         case ErrorHandler.Status.FAILED:
-                            return config_interpolator.get_system_config()
+                            return RunActionsResult(
+                                system_config=config_interpolator.get_system_config(),
+                                failure_resolution=result.failure_resolution,
+                            )
                         case ErrorHandler.Status.SKIPPED:
                             continue
 
@@ -194,14 +200,17 @@ class SystemManager:
                 if not isinstance(action, NoDomainAction):
                     print(f'# {action.get_description()}')
 
-                    status = self.error_handler.try_run(
+                    result = self.error_handler.try_run(
                         lambda: action.run(self.executor),
                     )
-                    match status:
+                    match result.status:
                         case ErrorHandler.Status.SUCCESS:
                             pass
                         case ErrorHandler.Status.FAILED:
-                            return config_interpolator.get_system_config()
+                            return RunActionsResult(
+                                system_config=config_interpolator.get_system_config(),
+                                failure_resolution=result.failure_resolution,
+                            )
                         case ErrorHandler.Status.SKIPPED:
                             continue
 
@@ -213,14 +222,17 @@ class SystemManager:
             for action_entry in diff_after_actions.get_entries():
                 if action_entry.new_item is not None:
                     new_action = action_entry.new_item
-                    status = self.error_handler.try_run(
+                    result = self.error_handler.try_run(
                         lambda: new_action.run(self.executor),
                     )
-                    match status:
+                    match result.status:
                         case ErrorHandler.Status.SUCCESS:
                             pass
                         case ErrorHandler.Status.FAILED:
-                            return config_interpolator.get_system_config()
+                            return RunActionsResult(
+                                system_config=config_interpolator.get_system_config(),
+                                failure_resolution=result.failure_resolution,
+                            )
                         case ErrorHandler.Status.SKIPPED:
                             continue
 
@@ -235,7 +247,10 @@ class SystemManager:
             print('An unexpected error occurred during the configuration update:')
             print(e)
 
-        return config_interpolator.get_system_config()
+        return RunActionsResult(
+            system_config=config_interpolator.get_system_config(),
+            failure_resolution=None,
+        )
 
 
 class SystemConfigTransitioner:
@@ -370,3 +385,17 @@ class SystemConfigTransitioner:
             config_entries=config_entries,
             user_domains=tuple(user_domains.values()),
         )
+
+
+class RunActionsResult(Generic[FR]):
+    """
+    Represents the result of running an action.
+    """
+
+    def __init__(
+        self,
+        system_config: SystemConfig,
+        failure_resolution: FR | None = None,
+    ) -> None:
+        self.system_config = system_config
+        self.failure_resolution = failure_resolution

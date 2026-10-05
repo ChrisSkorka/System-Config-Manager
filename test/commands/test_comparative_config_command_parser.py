@@ -251,12 +251,13 @@ class TestComparativeConfigCommandParser(TestCase):
 
         # Arrange
         from unittest.mock import patch as _patch
+        from test.system.mock_error_handler import MockSuccessErrorHandler
         from test.system.mock_system_executor import MockSystemExecutor
 
         old_config = SystemConfig.create_from_entries((), (), (), ())
         new_config = SystemConfig.create_from_entries((), (), (), ())
         mock_executor = MockSystemExecutor()
-        mock_error_handler: MagicMock = MagicMock()
+        mock_error_handler = MockSuccessErrorHandler()
 
         parser = ComparativeConfigCommandParser(
             old_path=fpath('/old.yaml'),

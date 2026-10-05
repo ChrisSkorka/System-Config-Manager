@@ -1,14 +1,17 @@
 # pyright: strict
 
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, TypeVar
 from unittest.mock import MagicMock
 from sysconf.config.domains import DomainAction, NoDomainAction
-from sysconf.config.system_config import SystemConfig, SystemManager
-from sysconf.system.error_handler import ErrorHandler
+from sysconf.config.system_config import RunActionsResult, SystemConfig, SystemManager
+from sysconf.system.error_handler import ErrorHandler, FailureResolution
 from test.system.mock_system_executor import MockSystemExecutor
 
 
-class MockSystemManager (SystemManager):
+FR = TypeVar('FR', bound=FailureResolution | None)
+
+
+class MockSystemManager (SystemManager[FR]):
 
     def __init__(
         self,
@@ -16,7 +19,7 @@ class MockSystemManager (SystemManager):
         new_config: SystemConfig,
         get_actions: Sequence[DomainAction] | None = None,
     ) -> None:
-        mock_error_handler: ErrorHandler = MagicMock(spec=ErrorHandler)
+        mock_error_handler: ErrorHandler[FR] = MagicMock(spec=ErrorHandler)
 
         super().__init__(
             old_config=old_config,
@@ -30,17 +33,17 @@ class MockSystemManager (SystemManager):
     def get_domain_actions(self) -> Iterable[DomainAction]:
         return self._actions
 
-    def run_actions(self) -> SystemConfig:
+    def run_actions(self) -> RunActionsResult[FR]:
         actions = list(self.get_domain_actions())
         has_non_noop = any(not isinstance(a, NoDomainAction) for a in actions)
         if not has_non_noop:
             print('# No changes required.')
-            return self.new_config
+            return RunActionsResult(self.new_config)
         for action in actions:
             if not isinstance(action, NoDomainAction):
                 print(f'# {action.get_description()}')
                 action.run(self.executor)
-        return self.new_config
+        return RunActionsResult(self.new_config)
 
     @classmethod
     def default(
@@ -48,7 +51,7 @@ class MockSystemManager (SystemManager):
         old_config: SystemConfig | None = None,
         new_config: SystemConfig | None = None,
         get_actions: Sequence[DomainAction] | None = None,
-    ) -> 'MockSystemManager':
+    ) -> 'MockSystemManager[FR]':
 
         old_config = old_config or SystemConfig.create_from_entries(before_actions=(), after_actions=(), config_entries=(), user_domains=())
         new_config = new_config or SystemConfig.create_from_entries(before_actions=(), after_actions=(), config_entries=(), user_domains=())

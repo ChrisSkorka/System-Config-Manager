@@ -68,9 +68,7 @@ class TestPreviewCommand(TestCase):
 
     @datasets({
         'both paths provided': CreateFromArgumentsDataset(
-            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(
-                system_manager=MockSystemManager.default(),
-            ),
+            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(),
             input_parsed_arguments=Namespace(
                 config_file=fpath('/manual/new.yaml'),
                 last_config=fpath('/manual/old.yaml'),
@@ -81,9 +79,7 @@ class TestPreviewCommand(TestCase):
             ),
         ),
         'only new config provided': CreateFromArgumentsDataset(
-            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(
-                system_manager=MockSystemManager.default(),
-            ),
+            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(),
             input_parsed_arguments=Namespace(
                 config_file=fpath('/manual/new.yaml'),
                 last_config=None,
@@ -94,9 +90,7 @@ class TestPreviewCommand(TestCase):
             ),
         ),
         'only old config provided': CreateFromArgumentsDataset(
-            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(
-                system_manager=MockSystemManager.default(),
-            ),
+            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(),
             input_parsed_arguments=Namespace(
                 config_file=None,
                 last_config=fpath('/manual/old.yaml'),
@@ -107,9 +101,7 @@ class TestPreviewCommand(TestCase):
             ),
         ),
         'no paths provided': CreateFromArgumentsDataset(
-            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(
-                system_manager=MockSystemManager.default(),
-            ),
+            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(),
             input_parsed_arguments=Namespace(
                 config_file=None,
                 last_config=None,
@@ -144,17 +136,17 @@ class TestPreviewCommand(TestCase):
 
     @dataclass
     class RunDataset:
-        fixture_system_manager: MockSystemManager
+        fixture_system_manager: MockSystemManager[None]
         expected_prints: list[str]
 
     @datasets({
         'no changes required': RunDataset(
-            fixture_system_manager=MockSystemManager
+            fixture_system_manager=MockSystemManager[None]
             .default(get_actions=[]),
             expected_prints=['# No changes required.'],
         ),
         'gsettings add and update': RunDataset(
-            fixture_system_manager=MockSystemManager.default(get_actions=[
+            fixture_system_manager=MockSystemManager[None].default(get_actions=[
                 MockDomainAction(
                     'Update gsettings: theme = old_value -> new_value'),
                 MockDomainAction('Add gsettings: font-size = 12'),
@@ -165,7 +157,7 @@ class TestPreviewCommand(TestCase):
             ],
         ),
         'gsettings remove': RunDataset(
-            fixture_system_manager=MockSystemManager.default(get_actions=[
+            fixture_system_manager=MockSystemManager[None].default(get_actions=[
                 MockDomainAction('Remove gsettings: font-size'),
             ]),
             expected_prints=[
@@ -173,7 +165,7 @@ class TestPreviewCommand(TestCase):
             ],
         ),
         'dconf add and remove': RunDataset(
-            fixture_system_manager=MockSystemManager.default(get_actions=[
+            fixture_system_manager=MockSystemManager[None].default(get_actions=[
                 MockDomainAction('Remove dconf: /path/to/key2'),
                 MockDomainAction(
                     'Update dconf: /path/to/key1 = old_value -> new_value'),
@@ -186,7 +178,7 @@ class TestPreviewCommand(TestCase):
             ],
         ),
         'mixed domains': RunDataset(
-            fixture_system_manager=MockSystemManager.default(get_actions=[
+            fixture_system_manager=MockSystemManager[None].default(get_actions=[
                 MockDomainAction(
                     'Update gsettings: theme = old_value -> new_value'),
                 MockDomainAction('Add dconf: /path/to/key = dconf_value'),

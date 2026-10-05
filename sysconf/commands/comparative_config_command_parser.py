@@ -2,11 +2,11 @@
 
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import Self
+from typing import Self, TypeVar
 
 from sysconf.commands.command import CommandArgumentParserBuilder
 from sysconf.config.system_config import SystemConfig, SystemManager
-from sysconf.system.error_handler import ErrorHandler
+from sysconf.system.error_handler import ErrorHandler, FailureResolution
 from sysconf.system.executor import SystemExecutor
 from sysconf.system.file import FileReader
 from sysconf.system.path import get_validated_file_path
@@ -14,6 +14,9 @@ from sysconf.utils.validation import validate
 from sysconf.utils.config_loader import load_config_from_file
 from sysconf.utils.config_location import ConfigLocationReader
 from sysconf.utils.defaults import Defaults
+
+
+FR = TypeVar('FR', bound=FailureResolution | None)
 
 
 class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
@@ -110,8 +113,8 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
     def get_system_manager(
         self,
         executor: SystemExecutor,
-        error_handler: ErrorHandler,
-    ) -> SystemManager:
+        error_handler: ErrorHandler[FR],
+    ) -> SystemManager[FR]:
         """
         Get the system manager that compares the two configurations.
 

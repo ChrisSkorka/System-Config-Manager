@@ -9,8 +9,8 @@ from sysconf.commands.comparative_config_command_parser import ComparativeConfig
 from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
 from sysconf.config.system_config import SystemManager
-from sysconf.system.error_handler import PromptUserErrorHandler
-from sysconf.system.executor import CommandException, PreviewSystemExecutor
+from sysconf.system.error_handler import FailingErrorHandler
+from sysconf.system.executor import PreviewSystemExecutor
 from sysconf.system.file import FileWriter
 from sysconf.utils.validation import validate
 from sysconf.utils.defaults import Defaults
@@ -61,9 +61,10 @@ class PreviewCommand (Command):
         comparative_parser = ComparativeConfigCommandParser.create_from_arguments(
             parsed_arguments,
         )
+        error_handler = FailingErrorHandler()
         system_manager = comparative_parser.get_system_manager(
             executor=PreviewSystemExecutor(),
-            error_handler=PromptUserErrorHandler(CommandException),
+            error_handler=error_handler,
         )
 
         defaults = Defaults()
@@ -87,7 +88,7 @@ class PreviewCommand (Command):
 
     def __init__(
         self,
-        manager: SystemManager,
+        manager: SystemManager[None],
         system_config_renderer: SystemConfigRenderer,
         yaml_serializer: YamlSerializer,
         current_path: Path,
@@ -119,7 +120,7 @@ class PreviewCommand (Command):
         """
 
         # Execute the actions
-        current_config = self.manager.run_actions()
+        result = self.manager.run_actions()
 
         # Prepare to write the new current configuration to file but don't
         # actually write it
@@ -127,6 +128,6 @@ class PreviewCommand (Command):
         # should surface it insteead of the apply command failing after applying
         # changes to the system
         current_config_data = self.system_config_renderer.render_config(
-            current_config,
+            result.system_config,
         )
         self.yaml_serializer.get_serialized_data(current_config_data)

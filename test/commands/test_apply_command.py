@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, call, patch
 
-from sysconf.commands.apply_command import ApplyCommand
+from sysconf.commands.apply_command import ApplyCommand, ApplyFailureResolution
 from sysconf.config.actions import ShellAction
 from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.system_config import SystemConfig
@@ -94,9 +94,7 @@ class TestApplyCommand(TestCase):
 
     @datasets({
         'both paths provided': CreateFromArgumentsDataset(
-            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(
-                system_manager=MockSystemManager.default(),
-            ),
+            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(),
             input_parsed_arguments=Namespace(
                 config_file=fpath('/manual/new.yaml'),
                 last_config=fpath('/manual/old.yaml'),
@@ -107,9 +105,7 @@ class TestApplyCommand(TestCase):
             ),
         ),
         'only new config provided': CreateFromArgumentsDataset(
-            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(
-                system_manager=MockSystemManager.default(),
-            ),
+            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(),
             input_parsed_arguments=Namespace(
                 config_file=fpath('/manual/new.yaml'),
                 last_config=None,
@@ -120,9 +116,7 @@ class TestApplyCommand(TestCase):
             ),
         ),
         'only old config provided': CreateFromArgumentsDataset(
-            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(
-                system_manager=MockSystemManager.default(),
-            ),
+            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(),
             input_parsed_arguments=Namespace(
                 config_file=None,
                 last_config=fpath('/manual/old.yaml'),
@@ -133,9 +127,7 @@ class TestApplyCommand(TestCase):
             ),
         ),
         'no paths provided': CreateFromArgumentsDataset(
-            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(
-                system_manager=MockSystemManager.default(),
-            ),
+            fixture_create_from_arguments=MockComparativeConfigCommandParser.default(),
             input_parsed_arguments=Namespace(
                 config_file=None,
                 last_config=None,
@@ -170,16 +162,17 @@ class TestApplyCommand(TestCase):
 
     @dataclass
     class RunDataset:
-        fixture_system_manager: MockSystemManager
+        fixture_system_manager: MockSystemManager[ApplyFailureResolution]
         expected_prints: list[str]
 
     @datasets({
         'no changes required': RunDataset(
-            fixture_system_manager=MockSystemManager.default(get_actions=[]),
+            fixture_system_manager=MockSystemManager[ApplyFailureResolution]
+            .default(get_actions=[]),
             expected_prints=['# No changes required.'],
         ),
         'gsettings add and update': RunDataset(
-            fixture_system_manager=MockSystemManager.default(get_actions=[
+            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(get_actions=[
                 MockDomainAction(
                     'Update gsettings: theme = old_value -> new_value'),
                 MockDomainAction('Add gsettings: font-size = 12'),
@@ -190,7 +183,7 @@ class TestApplyCommand(TestCase):
             ],
         ),
         'gsettings remove': RunDataset(
-            fixture_system_manager=MockSystemManager.default(get_actions=[
+            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(get_actions=[
                 MockDomainAction('Remove gsettings: font-size'),
             ]),
             expected_prints=[
@@ -198,7 +191,7 @@ class TestApplyCommand(TestCase):
             ],
         ),
         'dconf add and remove': RunDataset(
-            fixture_system_manager=MockSystemManager.default(get_actions=[
+            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(get_actions=[
                 MockDomainAction('Remove dconf: /path/to/key2'),
                 MockDomainAction(
                     'Update dconf: /path/to/key1 = old_value -> new_value'),
@@ -211,7 +204,7 @@ class TestApplyCommand(TestCase):
             ],
         ),
         'mixed domains': RunDataset(
-            fixture_system_manager=MockSystemManager.default(get_actions=[
+            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(get_actions=[
                 MockDomainAction(
                     'Update gsettings: theme = old_value -> new_value'),
                 MockDomainAction('Add dconf: /path/to/key = dconf_value'),
@@ -255,19 +248,20 @@ class TestApplyCommand(TestCase):
 
     @dataclass
     class WriteDataset:
-        fixture_system_manager: MockSystemManager
+        fixture_system_manager: MockSystemManager[ApplyFailureResolution]
         fixture_serialized_config: str
         input_current_path: MockPath
 
     @datasets({
         'no changes still writes the current config': WriteDataset(
-            fixture_system_manager=MockSystemManager.default(get_actions=[]),
+            fixture_system_manager=MockSystemManager[ApplyFailureResolution]
+            .default(get_actions=[]),
             fixture_serialized_config='version: 1\nconfig: []\n',
             input_current_path=MockPath(
                 '/config/.history/current.yaml', is_file=False, exists=False),
         ),
         'changes are written after the actions run': WriteDataset(
-            fixture_system_manager=MockSystemManager.default(get_actions=[
+            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(get_actions=[
                 MockDomainAction('Add gsettings: font-size = 12'),
             ]),
             fixture_serialized_config='version: 1\nconfig:\n  - gsettings: {}\n',
@@ -366,7 +360,8 @@ class TestApplyCommand(TestCase):
         mock_file_writer.write_file_contents.side_effect = dataset.fixture_exception
 
         apply_command = ApplyCommand(
-            manager=MockSystemManager.default(get_actions=[]),
+            manager=MockSystemManager[ApplyFailureResolution]
+            .default(get_actions=[]),
             system_config_renderer=MagicMock(),
             yaml_serializer=mock_serializer,
             current_path=dataset.input_current_path,
@@ -440,7 +435,8 @@ class TestApplyCommand(TestCase):
         # Arrange
         location_file_writer = MockFileWriter()
         apply_command = ApplyCommand(
-            manager=MockSystemManager.default(get_actions=[]),
+            manager=MockSystemManager[ApplyFailureResolution]
+            .default(get_actions=[]),
             system_config_renderer=MagicMock(),
             yaml_serializer=MagicMock(),
             current_path=MockPath('/config/.history/current.yaml'),
@@ -476,7 +472,7 @@ class TestApplyCommand(TestCase):
     @datasets({
         'same collaborators and path': EqualityDataset(
             input_command=ApplyCommand(
-                manager=MockSystemManager.default(),
+                manager=MockSystemManager[ApplyFailureResolution].default(),
                 system_config_renderer=RENDERER,
                 yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
@@ -485,7 +481,7 @@ class TestApplyCommand(TestCase):
                 config_path_argument=None,
             ),
             input_other=ApplyCommand(
-                manager=MockSystemManager.default(),
+                manager=MockSystemManager[ApplyFailureResolution].default(),
                 system_config_renderer=RENDERER,
                 yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
@@ -497,7 +493,7 @@ class TestApplyCommand(TestCase):
         ),
         'different current path': EqualityDataset(
             input_command=ApplyCommand(
-                manager=MockSystemManager.default(),
+                manager=MockSystemManager[ApplyFailureResolution].default(),
                 system_config_renderer=RENDERER,
                 yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
@@ -506,7 +502,7 @@ class TestApplyCommand(TestCase):
                 config_path_argument=None,
             ),
             input_other=ApplyCommand(
-                manager=MockSystemManager.default(),
+                manager=MockSystemManager[ApplyFailureResolution].default(),
                 system_config_renderer=RENDERER,
                 yaml_serializer=SERIALIZER,
                 current_path=fpath('/other/current.yaml'),
@@ -518,7 +514,7 @@ class TestApplyCommand(TestCase):
         ),
         'different manager configs': EqualityDataset(
             input_command=ApplyCommand(
-                manager=MockSystemManager.default(),
+                manager=MockSystemManager[ApplyFailureResolution].default(),
                 system_config_renderer=RENDERER,
                 yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
@@ -527,7 +523,7 @@ class TestApplyCommand(TestCase):
                 config_path_argument=None,
             ),
             input_other=ApplyCommand(
-                manager=MockSystemManager.default(
+                manager=MockSystemManager[ApplyFailureResolution].default(
                     new_config=SystemConfig.create_from_entries(
                         before_actions=(ShellAction('echo hi'),),
                         after_actions=(),
@@ -546,7 +542,7 @@ class TestApplyCommand(TestCase):
         ),
         'different renderer instance': EqualityDataset(
             input_command=ApplyCommand(
-                manager=MockSystemManager.default(),
+                manager=MockSystemManager[ApplyFailureResolution].default(),
                 system_config_renderer=RENDERER,
                 yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
@@ -555,7 +551,7 @@ class TestApplyCommand(TestCase):
                 config_path_argument=None,
             ),
             input_other=ApplyCommand(
-                manager=MockSystemManager.default(),
+                manager=MockSystemManager[ApplyFailureResolution].default(),
                 system_config_renderer=SystemConfigRenderer(),
                 yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
@@ -567,7 +563,7 @@ class TestApplyCommand(TestCase):
         ),
         'different config path argument': EqualityDataset(
             input_command=ApplyCommand(
-                manager=MockSystemManager.default(),
+                manager=MockSystemManager[ApplyFailureResolution].default(),
                 system_config_renderer=RENDERER,
                 yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
@@ -576,7 +572,7 @@ class TestApplyCommand(TestCase):
                 config_path_argument=None,
             ),
             input_other=ApplyCommand(
-                manager=MockSystemManager.default(),
+                manager=MockSystemManager[ApplyFailureResolution].default(),
                 system_config_renderer=RENDERER,
                 yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),
@@ -588,7 +584,7 @@ class TestApplyCommand(TestCase):
         ),
         'not equal to a string': EqualityDataset(
             input_command=ApplyCommand(
-                manager=MockSystemManager.default(),
+                manager=MockSystemManager[ApplyFailureResolution].default(),
                 system_config_renderer=RENDERER,
                 yaml_serializer=SERIALIZER,
                 current_path=fpath('/config/current.yaml'),

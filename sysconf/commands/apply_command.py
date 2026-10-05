@@ -12,9 +12,15 @@ from sysconf.config.system_config import SystemManager
 from sysconf.system.error_handler import PromptUserErrorHandler
 from sysconf.system.executor import CommandException, LiveSystemExecutor
 from sysconf.system.file import FileReader, FileWriter
+from sysconf.utils.choice_prompt import ChoicePromptOptionEnum
 from sysconf.utils.validation import validate
 from sysconf.utils.config_location import ConfigLocationWriter
 from sysconf.utils.defaults import Defaults
+
+
+class ApplyFailureResolution(ChoicePromptOptionEnum):
+
+    ABORT = ('a', 'Abort')
 
 
 class ApplyCommand (Command):
@@ -61,9 +67,13 @@ class ApplyCommand (Command):
         comparative_parser = ComparativeConfigCommandParser.create_from_arguments(
             parsed_arguments,
         )
+        error_handler = PromptUserErrorHandler[ApplyFailureResolution](
+            CommandException,
+            failure_resolutions=(ApplyFailureResolution.ABORT,),
+        )
         system_manager = comparative_parser.get_system_manager(
             executor=LiveSystemExecutor(),
-            error_handler=PromptUserErrorHandler(CommandException),
+            error_handler=error_handler,
         )
 
         defaults = Defaults()
@@ -94,7 +104,7 @@ class ApplyCommand (Command):
 
     def __init__(
         self,
-        manager: SystemManager,
+        manager: SystemManager[ApplyFailureResolution],
         system_config_renderer: SystemConfigRenderer,
         yaml_serializer: YamlSerializer,
         current_path: Path,
@@ -153,11 +163,11 @@ class ApplyCommand (Command):
                 )
 
         # Execute the actions
-        current_config = self.manager.run_actions()
+        result = self.manager.run_actions()
 
         # Write the new current configuration
         current_config_data = self.system_config_renderer.render_config(
-            current_config,
+            result.system_config,
         )
         yaml_string = self.yaml_serializer.get_serialized_data(
             current_config_data,
