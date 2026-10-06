@@ -533,7 +533,8 @@ class TestSystemManager(TestCase):
         'before action added': BeforeAndAfterActionsDataset(
             input_old_config=make_system_config(),
             input_new_config=make_system_config(
-                before_actions=(BEFORE_ACTION,)),
+                before_actions=(BEFORE_ACTION,),
+            ),
             expected=make_system_config(before_actions=(BEFORE_ACTION,)),
             expected_scripts=['echo before'],
         ),

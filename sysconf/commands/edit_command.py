@@ -238,7 +238,7 @@ class EditCommand (Command):
                     print('The edited config was not applied.')
                     return None
         else:
-            print('# No changes required.')
+            print('# No changes.')
             return None
 
     def prompt_to_edit_invalid_config(self, error: ValidationError) -> bool:

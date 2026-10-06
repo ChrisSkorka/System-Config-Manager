@@ -208,6 +208,18 @@ class TestLoadConfigFromFile(TestCase):
             input_path=Path('/tmp/invalid.yaml'),
             expected_exception=ValidationError,
         ),
+        'unknown domain': ErrorCaseDataset(
+            input_file_reader=MockFileReader({
+                '/tmp/unknown_domain.yaml': dedent('''\
+                    version: "1"
+                    config:
+                      - not-a-domain:
+                          - git
+                    ''').strip(),
+            }),
+            input_path=Path('/tmp/unknown_domain.yaml'),
+            expected_exception=ValidationError,
+        ),
         'missing version': ErrorCaseDataset(
             input_file_reader=MockFileReader({
                 '/tmp/no_version.yaml': dedent('''\
@@ -298,14 +310,17 @@ class TestConfigReader(TestCase):
         expected_exception_message: str
 
     @datasets({
-        'missing version': LoadErrorDataset(
+        'unknown domain': LoadErrorDataset(
             fixture_files={
                 '/config/config.yaml': dedent('''\
-                    config: []
+                    version: "1"
+                    config:
+                      - not-a-domain:
+                          - git
                     '''),
             },
             input_path=fpath('/config/config.yaml'),
-            expected_exception_message="Config must contain a 'version' key",
+            expected_exception_message='Undefined domain: not-a-domain',
         ),
     })
     def test_load_raises(self, dataset: LoadErrorDataset) -> None:

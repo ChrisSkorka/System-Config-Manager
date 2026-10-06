@@ -166,12 +166,17 @@ class SystemManager(Generic[FR]):
         )
         actions = self.get_domain_actions()
 
-        has_changes = diff_before_actions.old != diff_before_actions.new \
+        # Without system changes there is nothing for the before & after
+        # actions to run around, so they are skipped too
+        has_config_actions = diff_before_actions.old != diff_before_actions.new \
             or diff_after_actions.old != diff_after_actions.new \
             or any(not isinstance(action, NoDomainAction) for action in actions)
 
-        if not has_changes:
-            print('# No changes required.')
+        if not has_config_actions:
+            print(
+                '# No system config changes. '
+                '(no differential commands to run)',
+            )
             return RunActionsResult(self.new_config)
 
         config_interpolator = SystemConfigTransitioner.create_from_system_configs(
@@ -367,6 +372,10 @@ class SystemConfigTransitioner:
     def get_system_config(self) -> SystemConfig:
         """
         Get a SystemConfig instance representing the current configuration state.
+
+        Key properties:
+        - if no actions/entries were updates, a config equivalent to the old state
+        - if all actions/entries were updated, a config equivalent to the new state
         """
 
         before_actions = self.before_actions_transitioner.get_current_items()

@@ -58,7 +58,8 @@ class TestIntegrationApplyCommand (TestCase):
                 last_config=fpath('/configs/config-old.yaml'),
                 config_file=fpath('/configs/config-new.yaml'),
             ),
-            expected_stdout='# No changes required.\n',
+            expected_stdout='# No system config changes. '
+            '(no differential commands to run)\n',
             expected_subprocess_calls=[],
         ),
         'simple, empty last config': RunSuccessDataset(
@@ -450,7 +451,7 @@ class TestIntegrationApplyCommand (TestCase):
             ),
             fixture_location_files={},
             expected_stdout=f'Saved "{NEW_CONFIG_PATH}" as your config location\n'
-            + '# No changes required.\n',
+            + '# No system config changes. (no differential commands to run)\n',
             expected_recorded_contents=f'{NEW_CONFIG_PATH}\n',
         ),
         'a different location is recorded': RunRecordsConfigLocationDataset(
@@ -462,7 +463,7 @@ class TestIntegrationApplyCommand (TestCase):
                 CONFIG_LOCATION_PATH: '/configs/other.yaml\n',
             },
             expected_stdout=f'Saved "{NEW_CONFIG_PATH}" as your config location\n'
-            + '# No changes required.\n',
+            + '# No system config changes. (no differential commands to run)\n',
             expected_recorded_contents=f'{NEW_CONFIG_PATH}\n',
         ),
         'config location is a directory': RunRecordsConfigLocationDataset(
@@ -471,7 +472,8 @@ class TestIntegrationApplyCommand (TestCase):
                 config_location_path=dpath(CONFIG_LOCATION_PATH),
             ),
             fixture_location_files={},
-            expected_stdout='# No changes required.\n',
+            expected_stdout='# No system config changes. '
+            '(no differential commands to run)\n',
             expected_recorded_contents=None,
         ),
     })

@@ -268,6 +268,14 @@ class SystemConfigParserV1(SystemConfigParser):
             **user_domains_by_key,
         }
 
+        for config_item in config_items:
+            assert isinstance(config_item, dict)
+            for domain_key in config_item.keys():
+                validate(
+                    domain_key in domains,
+                    f'Undefined domain: {domain_key}',
+                )
+
         # parse before and after scripts
         before_actions: Iterable[Action] = tuple(
             ShellAction.create_from_serialized(script)

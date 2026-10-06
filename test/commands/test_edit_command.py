@@ -497,7 +497,7 @@ class TestEditCommand(TestCase):
             fixture_new_config=OLD_CONFIG,
             fixture_user_inputs=(),
             expected_next_command=NextCommand.NONE,
-            expected_prints=['# No changes required.'],
+            expected_prints=['# No changes.'],
         ),
         'only settings changed': RunDataset(
             fixture_new_config=NANO_CONFIG,
@@ -512,18 +512,18 @@ class TestEditCommand(TestCase):
             expected_editor_command=NANO,
         ),
         'invalid config edited again': RunDataset(
-            fixture_new_config=ValidationError('Unknown domain: not-a-domain'),
+            fixture_new_config=ValidationError('Undefined domain: not-a-domain'),
             fixture_user_inputs=('e',),
             expected_next_command=NextCommand.SELF,
             expected_prints=[
                 'The config is invalid:',
-                'Unknown domain: not-a-domain',
+                'Undefined domain: not-a-domain',
                 '[e] Edit config',
                 '[a] Abort',
             ],
         ),
         'invalid choice for an invalid config then edit': RunDataset(
-            fixture_new_config=ValidationError('Unknown domain: not-a-domain'),
+            fixture_new_config=ValidationError('Undefined domain: not-a-domain'),
             fixture_user_inputs=('x', 'e'),
             expected_next_command=NextCommand.SELF,
             expected_prints=['Invalid choice. Please try again.'],
@@ -621,13 +621,13 @@ class TestEditCommand(TestCase):
         ),
         'invalid config aborted': RaiseDataset(
             fixture_edit_results=(EditResult.CLOSED,),
-            fixture_new_config=ValidationError('Unknown domain: not-a-domain'),
+            fixture_new_config=ValidationError('Undefined domain: not-a-domain'),
             fixture_user_inputs=('a',),
             expected_message='The invalid config was not applied',
         ),
         'five invalid choices for an invalid config': RaiseDataset(
             fixture_edit_results=(EditResult.CLOSED,),
-            fixture_new_config=ValidationError('Unknown domain: not-a-domain'),
+            fixture_new_config=ValidationError('Undefined domain: not-a-domain'),
             fixture_user_inputs=('x',) * 5,
             expected_message='The invalid config was not applied',
         ),
