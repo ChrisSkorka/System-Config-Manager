@@ -68,7 +68,8 @@ class TestSequenceTransitioner(TestCase):
     })
     def test_get_current_items(self, dataset: GetCurrentItemsDataset) -> None:
         # Arrange
-        transitioner = SequenceTransitioner[str].create_from_old_items(dataset.fixture_old_items)
+        transitioner = SequenceTransitioner[str] \
+            .create_from_old_items(dataset.fixture_old_items)
 
         # Act
         for old_item, new_item in dataset.input_updates:
@@ -108,7 +109,8 @@ class TestSequenceTransitioner(TestCase):
     })
     def test_raises_on_invalid_update(self, dataset: DuplicatePreventionDataset) -> None:
         # Arrange
-        transitioner = SequenceTransitioner[str].create_from_old_items(dataset.fixture_old_items)
+        transitioner = SequenceTransitioner[str] \
+            .create_from_old_items(dataset.fixture_old_items)
 
         # Act & Assert
         with self.assertRaises(AssertionError) as ctx:

@@ -37,7 +37,7 @@ class TestMain(TestCase):
                 config_path=Path('/configs/system.yaml'),
             ),
         ),
-        'show without a path defaults None': MainDataset(
+        'show without a path uses the default': MainDataset(
             fixture_command_class=ShowCommand,
             input_argv=['sysconf', 'show'],
             expected_parsed_arguments=Namespace(

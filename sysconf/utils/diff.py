@@ -45,7 +45,7 @@ class Diff(Generic[T]):
         self.intersection = intersection
         self.union = union
 
-    def __eq__(self, value: Any) -> bool:
+    def __eq__(self, value: object) -> bool:
         if not isinstance(value, Diff):
             return False
 

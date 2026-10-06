@@ -44,7 +44,7 @@ class FileWriter:
 
         assert path.is_file() or not path.exists(), \
             f'File path is not a file: {path}'
-        
+
         path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(file=path, mode='w', encoding='utf-8') as file:

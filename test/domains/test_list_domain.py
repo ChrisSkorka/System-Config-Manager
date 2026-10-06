@@ -41,7 +41,8 @@ MAP_DOMAIN: MapDomain[str] = MapDomain[str](
     path_depth=1,
     get_value=str,
     add_action_factory=lambda new_entry: MockDomainAction('add'),
-    update_action_factory=lambda old_entry, new_entry: MockDomainAction('update'),
+    update_action_factory=lambda old_entry, new_entry:
+        MockDomainAction('update'),
     remove_action_factory=lambda old_entry: MockDomainAction('remove'),
 )
 
@@ -113,9 +114,21 @@ class TestListDomain(TestCase):
                 },
             },
             expected_entries=(
-                ListConfigEntry(FILES_DOMAIN, ('root', '/root/dir-1'), 'a.txt'),
-                ListConfigEntry(FILES_DOMAIN, ('root', '/root/dir-1'), 'b.txt'),
-                ListConfigEntry(FILES_DOMAIN, ('root', '/root/dir-2'), 'c.txt'),
+                ListConfigEntry(
+                    FILES_DOMAIN,
+                    ('root', '/root/dir-1'),
+                    'a.txt',
+                ),
+                ListConfigEntry(
+                    FILES_DOMAIN,
+                    ('root', '/root/dir-1'),
+                    'b.txt',
+                ),
+                ListConfigEntry(
+                    FILES_DOMAIN,
+                    ('root', '/root/dir-2'),
+                    'c.txt',
+                ),
             ),
         ),
     })
@@ -123,7 +136,9 @@ class TestListDomain(TestCase):
         """Test that data is flattened into entries preserving document order."""
 
         # Act
-        actual = tuple(dataset.fixture_domain.get_config_entries(dataset.input_data))
+        actual = tuple(
+            dataset.fixture_domain.get_config_entries(dataset.input_data),
+        )
 
         # Assert
         self.assertEqual(actual, dataset.expected_entries)
@@ -168,9 +183,21 @@ class TestListDomain(TestCase):
         'two keys': RenderDataset(
             fixture_domain=FILES_DOMAIN,
             input_entries=(
-                ListConfigEntry(FILES_DOMAIN, ('root', '/root/dir-1'), 'a.txt'),
-                ListConfigEntry(FILES_DOMAIN, ('root', '/root/dir-1'), 'b.txt'),
-                ListConfigEntry(FILES_DOMAIN, ('root', '/root/dir-2'), 'c.txt'),
+                ListConfigEntry(
+                    FILES_DOMAIN,
+                    ('root', '/root/dir-1'),
+                    'a.txt',
+                ),
+                ListConfigEntry(
+                    FILES_DOMAIN,
+                    ('root', '/root/dir-1'),
+                    'b.txt',
+                ),
+                ListConfigEntry(
+                    FILES_DOMAIN,
+                    ('root', '/root/dir-2'),
+                    'c.txt',
+                ),
             ),
             expected_data={
                 'root': {
@@ -184,7 +211,8 @@ class TestListDomain(TestCase):
         """Test that entries render back into the nested list structure."""
 
         # Act
-        actual = dataset.fixture_domain.render_config_entries(dataset.input_entries)
+        actual = dataset.fixture_domain \
+            .render_config_entries(dataset.input_entries)
 
         # Assert
         self.assertEqual(actual, dataset.expected_data)
@@ -332,8 +360,16 @@ class TestListConfigEntry(TestCase):
             expected_equal=False,
         ),
         'different path': EqualityDataset(
-            input_entry=ListConfigEntry(USER_GROUPS_DOMAIN, ('alice',), 'docker'),
-            input_other=ListConfigEntry(USER_GROUPS_DOMAIN, ('bob',), 'docker'),
+            input_entry=ListConfigEntry(
+                USER_GROUPS_DOMAIN,
+                ('alice',),
+                'docker',
+            ),
+            input_other=ListConfigEntry(
+                USER_GROUPS_DOMAIN,
+                ('bob',),
+                'docker',
+            ),
             expected_equal=False,
         ),
         'different domain': EqualityDataset(
@@ -376,13 +412,21 @@ class TestListConfigEntry(TestCase):
             expected_repr="ListConfigEntry(apt, (), git)",
         ),
         'one key': EntryDataset(
-            input_entry=ListConfigEntry(USER_GROUPS_DOMAIN, ('alice',), 'docker'),
+            input_entry=ListConfigEntry(
+                USER_GROUPS_DOMAIN,
+                ('alice',),
+                'docker',
+            ),
             expected_id=('user-groups', 'alice', 'docker'),
             expected_domain=USER_GROUPS_DOMAIN,
             expected_repr="ListConfigEntry(user-groups, ('alice',), docker)",
         ),
         'two keys': EntryDataset(
-            input_entry=ListConfigEntry(FILES_DOMAIN, ('root', '/dir'), 'a.txt'),
+            input_entry=ListConfigEntry(
+                FILES_DOMAIN,
+                ('root', '/dir'),
+                'a.txt',
+            ),
             expected_id=('files', 'root', '/dir', 'a.txt'),
             expected_domain=FILES_DOMAIN,
             expected_repr="ListConfigEntry(files, ('root', '/dir'), a.txt)",
@@ -393,5 +437,8 @@ class TestListConfigEntry(TestCase):
 
         # Act & Assert
         self.assertEqual(dataset.input_entry.get_id(), dataset.expected_id)
-        self.assertIs(dataset.input_entry.get_domain(), dataset.expected_domain)
+        self.assertIs(
+            dataset.input_entry.get_domain(),
+            dataset.expected_domain,
+        )
         self.assertEqual(repr(dataset.input_entry), dataset.expected_repr)

@@ -50,9 +50,11 @@ class MockPath(Path):
             expanded_path=self._expanded_path,
         )
 
+
 def fpath(path: str) -> MockPath:
     """Convenience function to create a MockPath for an existing file."""
     return MockPath(path, is_file=True, exists=True)
+
 
 def dpath(path: str) -> MockPath:
     """Convenience function to create a MockPath for an existing directory."""

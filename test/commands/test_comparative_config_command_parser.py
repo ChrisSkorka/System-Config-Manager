@@ -5,12 +5,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
+from sysconf.system.file import FileReader
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
 from test.test_case import TestCase
 from test.utils.mock_context import MockContext
 from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_path import MockPath, dpath, fpath
+
+
+FILE_READER = FileReader()
 
 
 class TestComparativeConfigCommandParser(TestCase):
@@ -66,7 +70,7 @@ class TestComparativeConfigCommandParser(TestCase):
     class CreateFromArgumentsSuccessDataset:
         fixture_defaults: MockDefaults
         input_parsed_arguments: Namespace
-        expected_old_path: Path | None
+        expected_old_path: Path
         expected_new_path: Path
         expected_is_config_file_explicit: bool
 
@@ -127,6 +131,20 @@ class TestComparativeConfigCommandParser(TestCase):
             expected_new_path=fpath('/default/new.yaml'),
             expected_is_config_file_explicit=False,
         ),
+        'default old path does not exist yet': CreateFromArgumentsSuccessDataset(
+            fixture_defaults=MockDefaults(
+                old_config_path=MockPath('/default/old.yaml'),
+                new_config_path=fpath('/default/new.yaml'),
+                config_location_path=dpath('/config/config'),
+            ),
+            input_parsed_arguments=Namespace(
+                config_file=None,
+                last_config=None,
+            ),
+            expected_old_path=MockPath('/default/old.yaml'),
+            expected_new_path=fpath('/default/new.yaml'),
+            expected_is_config_file_explicit=False,
+        ),
     })
     def test_create_from_arguments_success(
         self,
@@ -137,6 +155,12 @@ class TestComparativeConfigCommandParser(TestCase):
         # Arrange
         context = MockContext.create(defaults=dataset.fixture_defaults)
         file_reader = context.get_file_reader()
+        expected = ComparativeConfigCommandParser(
+            old_path=dataset.expected_old_path,
+            new_path=dataset.expected_new_path,
+            is_config_file_explicit=dataset.expected_is_config_file_explicit,
+            file_reader=file_reader,
+        )
 
         # Act
         actual = ComparativeConfigCommandParser.create_from_arguments(
@@ -145,14 +169,7 @@ class TestComparativeConfigCommandParser(TestCase):
         )
 
         # Assert
-        self.assertIsInstance(actual, ComparativeConfigCommandParser)
-        self.assertEqual(actual.old_path, dataset.expected_old_path)
-        self.assertEqual(actual.new_path, dataset.expected_new_path)
-        self.assertEqual(
-            actual.is_config_file_explicit,
-            dataset.expected_is_config_file_explicit,
-        )
-        self.assertIs(actual.file_reader, file_reader)
+        self.assertEqual(expected, actual)
 
     @dataclass
     class CreateFromArgumentsErrorDataset:
@@ -161,9 +178,6 @@ class TestComparativeConfigCommandParser(TestCase):
         expected_exception_message: str
 
     @datasets({
-        # Note: missing old config (default or argument) is silently treated as
-        # "no previous config" rather than an error — see the # todo comment in
-        # ComparativeConfigCommandParser.create_from_arguments.
         'no config location recorded': CreateFromArgumentsErrorDataset(
             fixture_defaults=MockDefaults(
                 old_config_path=fpath('/default/old.yaml'),
@@ -232,6 +246,30 @@ class TestComparativeConfigCommandParser(TestCase):
             ),
             expected_exception_message='not a file',
         ),
+        'old config param file not found': CreateFromArgumentsErrorDataset(
+            fixture_defaults=MockDefaults(
+                old_config_path=fpath('/default/old.yaml'),
+                new_config_path=fpath('/default/new.yaml'),
+                config_location_path=dpath('/config/config'),
+            ),
+            input_parsed_arguments=Namespace(
+                config_file=None,
+                last_config=MockPath('/manual/old.yaml'),
+            ),
+            expected_exception_message='does not exist',
+        ),
+        'default old path is directory': CreateFromArgumentsErrorDataset(
+            fixture_defaults=MockDefaults(
+                old_config_path=dpath('/default/old.yaml'),
+                new_config_path=fpath('/default/new.yaml'),
+                config_location_path=dpath('/config/config'),
+            ),
+            input_parsed_arguments=Namespace(
+                config_file=None,
+                last_config=None,
+            ),
+            expected_exception_message='not a file',
+        ),
     })
     def test_create_from_arguments_error(
         self,
@@ -250,5 +288,109 @@ class TestComparativeConfigCommandParser(TestCase):
             )
 
         # Assert
-        self.assertIn(dataset.expected_exception_message,
-                      str(error_context.exception))
+        self.assertIn(
+            dataset.expected_exception_message,
+            str(error_context.exception),
+        )
+
+    @dataclass
+    class EqualityDataset:
+        input_parser: ComparativeConfigCommandParser
+        input_other: object
+        expected_equal: bool
+
+    @datasets({
+        'same paths and reader': EqualityDataset(
+            input_parser=ComparativeConfigCommandParser(
+                old_path=Path('/old.yaml'),
+                new_path=Path('/new.yaml'),
+                is_config_file_explicit=True,
+                file_reader=FILE_READER,
+            ),
+            input_other=ComparativeConfigCommandParser(
+                old_path=Path('/old.yaml'),
+                new_path=Path('/new.yaml'),
+                is_config_file_explicit=True,
+                file_reader=FILE_READER,
+            ),
+            expected_equal=True,
+        ),
+        'different old path': EqualityDataset(
+            input_parser=ComparativeConfigCommandParser(
+                old_path=Path('/old.yaml'),
+                new_path=Path('/new.yaml'),
+                is_config_file_explicit=True,
+                file_reader=FILE_READER,
+            ),
+            input_other=ComparativeConfigCommandParser(
+                old_path=Path('/other.yaml'),
+                new_path=Path('/new.yaml'),
+                is_config_file_explicit=True,
+                file_reader=FILE_READER,
+            ),
+            expected_equal=False,
+        ),
+        'different new path': EqualityDataset(
+            input_parser=ComparativeConfigCommandParser(
+                old_path=Path('/old.yaml'),
+                new_path=Path('/new.yaml'),
+                is_config_file_explicit=True,
+                file_reader=FILE_READER,
+            ),
+            input_other=ComparativeConfigCommandParser(
+                old_path=Path('/old.yaml'),
+                new_path=Path('/other.yaml'),
+                is_config_file_explicit=True,
+                file_reader=FILE_READER,
+            ),
+            expected_equal=False,
+        ),
+        'different config file explicitness': EqualityDataset(
+            input_parser=ComparativeConfigCommandParser(
+                old_path=Path('/old.yaml'),
+                new_path=Path('/new.yaml'),
+                is_config_file_explicit=True,
+                file_reader=FILE_READER,
+            ),
+            input_other=ComparativeConfigCommandParser(
+                old_path=Path('/old.yaml'),
+                new_path=Path('/new.yaml'),
+                is_config_file_explicit=False,
+                file_reader=FILE_READER,
+            ),
+            expected_equal=False,
+        ),
+        'different file reader instance': EqualityDataset(
+            input_parser=ComparativeConfigCommandParser(
+                old_path=Path('/old.yaml'),
+                new_path=Path('/new.yaml'),
+                is_config_file_explicit=True,
+                file_reader=FILE_READER,
+            ),
+            input_other=ComparativeConfigCommandParser(
+                old_path=Path('/old.yaml'),
+                new_path=Path('/new.yaml'),
+                is_config_file_explicit=True,
+                file_reader=FileReader(),
+            ),
+            expected_equal=False,
+        ),
+        'not a parser': EqualityDataset(
+            input_parser=ComparativeConfigCommandParser(
+                old_path=Path('/old.yaml'),
+                new_path=Path('/new.yaml'),
+                is_config_file_explicit=True,
+                file_reader=FILE_READER,
+            ),
+            input_other='parser',
+            expected_equal=False,
+        ),
+    })
+    def test_equality(self, dataset: EqualityDataset) -> None:
+        """Test that parsers compare by paths, explicitness and file reader."""
+
+        # Act & Assert
+        if dataset.expected_equal:
+            self.assertEqual(dataset.input_parser, dataset.input_other)
+        else:
+            self.assertNotEqual(dataset.input_parser, dataset.input_other)

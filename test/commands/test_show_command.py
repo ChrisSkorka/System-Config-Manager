@@ -4,15 +4,16 @@ from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import call, patch
 
 from sysconf.commands.show_command import ShowCommand
+from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
 from test.test_case import TestCase
 from test.utils.mock_context import MockContext
 from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_file import MockFileReader
-from test.utils.mock_path import MockPath, fpath
+from test.utils.mock_path import MockPath, dpath, fpath
 
 
 class TestShowCommand(TestCase):
@@ -39,12 +40,10 @@ class TestShowCommand(TestCase):
         actual = ShowCommand.get_subparser(subparsers)
 
         # Assert
-        self.assertIsInstance(actual, ArgumentParser)
-
-        help_text = actual.format_help()
+        self.assertEqual(actual.prog, 'sysconf show')
         self.assertIn(
             'Prints the last applied System Configuration',
-            help_text,
+            parser.format_help(),
         )
 
     @dataclass
@@ -57,7 +56,7 @@ class TestShowCommand(TestCase):
             input_argv=['/manual/config.yaml'],
             expected_config_path=Path('/manual/config.yaml'),
         ),
-        'no path returns None': AddArgumentsDataset(
+        'no path': AddArgumentsDataset(
             input_argv=[],
             expected_config_path=None,
         ),
@@ -93,7 +92,7 @@ class TestShowCommand(TestCase):
             ),
             expected_config_path=fpath('/manual/config.yaml'),
         ),
-        'no path falls back to default': CreateFromArgumentsDataset(
+        'no path': CreateFromArgumentsDataset(
             fixture_defaults=MockDefaults(
                 old_config_path=fpath('/default/old.yaml'),
             ),
@@ -103,22 +102,14 @@ class TestShowCommand(TestCase):
             expected_config_path=fpath('/default/old.yaml'),
         ),
     })
-    @patch('sysconf.commands.show_command.get_validated_file_path')
-    def test_create_from_arguments(
+    def test_create_from_arguments_returns(
         self,
         dataset: CreateFromArgumentsDataset,
-        mock_get_validated_file_path: MagicMock,
     ) -> None:
         """Test creation from arguments, falling back to the default path."""
 
         # Arrange
         context = MockContext.create(defaults=dataset.fixture_defaults)
-        file_reader = context.get_file_reader()
-
-        def return_path(path: Path, _suffix: str) -> Path:
-            return path
-
-        mock_get_validated_file_path.side_effect = return_path
 
         # Act
         actual = ShowCommand.create_from_arguments(
@@ -127,25 +118,67 @@ class TestShowCommand(TestCase):
         )
 
         # Assert
-        self.assertIsInstance(actual, ShowCommand)
         self.assertEqual(actual.config_path, dataset.expected_config_path)
-        self.assertIs(actual.file_reader, file_reader)
-        mock_get_validated_file_path.assert_called_once_with(
-            dataset.expected_config_path,
-            '.yaml',
+        self.assertIs(actual.file_reader, context.get_file_reader())
+
+    @dataclass
+    class CreateFromArgumentsErrorDataset:
+        fixture_defaults: MockDefaults
+        input_parsed_arguments: Namespace
+        expected_exception_message: str
+
+    @datasets({
+        'default path does not exist yet': CreateFromArgumentsErrorDataset(
+            fixture_defaults=MockDefaults(
+                old_config_path=MockPath('/default/old.yaml'),
+            ),
+            input_parsed_arguments=Namespace(
+                config_path=None,
+            ),
+            expected_exception_message='File /default/old.yaml does not exist',
+        ),
+        'explicit path is a directory': CreateFromArgumentsErrorDataset(
+            fixture_defaults=MockDefaults(
+                old_config_path=fpath('/default/old.yaml'),
+            ),
+            input_parsed_arguments=Namespace(
+                config_path=dpath('/manual/config.yaml'),
+            ),
+            expected_exception_message='Path /manual/config.yaml is not a file',
+        ),
+    })
+    def test_create_from_arguments_raises(
+        self,
+        dataset: CreateFromArgumentsErrorDataset,
+    ) -> None:
+        """Test that a missing or invalid config path is rejected."""
+
+        # Arrange
+        context = MockContext.create(defaults=dataset.fixture_defaults)
+
+        # Act & Assert
+        with self.assertRaises(ValidationError) as error_context:
+            ShowCommand.create_from_arguments(
+                context=context,
+                parsed_arguments=dataset.input_parsed_arguments,
+            )
+
+        self.assertEqual(
+            str(error_context.exception),
+            dataset.expected_exception_message,
         )
 
     def test_run(self) -> None:
-        """Test that run prints the header and the config file contents."""
+        """Test that run prints the header and the raw configuration file."""
 
         # Arrange
         config_path = fpath('/config/current.yaml')
-        config_contents = dedent('''
-            version: 1
+        serialized_config = dedent('''\
+            version: '1'
             config: []
-        ''').lstrip()
+            ''')
         file_reader = MockFileReader({
-            '/config/current.yaml': config_contents,
+            '/config/current.yaml': serialized_config,
         })
         show_command = ShowCommand(
             config_path=config_path,
@@ -154,13 +187,14 @@ class TestShowCommand(TestCase):
 
         # Act
         with patch('builtins.print') as mock_print:
-            show_command.run()
+            actual = show_command.run()
 
         # Assert
-        mock_print.assert_has_calls(
+        self.assertIsNone(actual)
+        self.assertEqual(
+            mock_print.call_args_list,
             [
                 call('Listing current system configuration...'),
-                call(config_contents),
+                call(serialized_config),
             ],
-            any_order=False,
         )

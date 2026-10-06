@@ -68,6 +68,7 @@ class ConfigLocationReader:
         return 'run `sysconf apply <path/to/config.yaml>` for an initial sync ' \
             + 'and to record where your configuration lives'
 
+
 class ConfigLocationWriter:
     """
     Record where the user's source of truth configuration lives, so that later

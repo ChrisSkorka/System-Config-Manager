@@ -4,45 +4,40 @@ from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock
 
-from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
 from sysconf.commands.preview_command import PreviewCommand
-from sysconf.config.system_config import SystemConfig, SystemManager
+from sysconf.config.actions import ShellAction
+from sysconf.config.system_config import RunActionsResult, SystemConfig, SystemManager
 from sysconf.system.error_handler import FailingErrorHandler
 from sysconf.system.executor import PreviewSystemExecutor
-from sysconf.system.file import FileReader
-from sysconf.utils.config_loader import ConfigReader
 from test.datasets import datasets
-from test.domains.mock_domain_action import MockDomainAction
+from test.system.mock_system_executor import MockSystemExecutor
 from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
 from test.utils.mock_context import MockContext
+from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_file import MockFileReader
 from test.utils.mock_path import MockPath, fpath
 
 
-FILE_READER = FileReader()
-
-OLD_CONFIG_YAML = dedent('''
-    version: "1"
+OLD_CONFIG_YAML = dedent('''\
+    version: 1
+    before:
+      - echo old
     config: []
-''').lstrip()
-NEW_CONFIG_YAML = dedent('''
-    version: "1"
-    config:
-      - apt:
-          - git
-''').lstrip()
+    ''')
+NEW_CONFIG_YAML = dedent('''\
+    version: 1
+    before:
+      - echo new
+    config: []
+    ''')
 EMPTY_CONFIG = SystemConfig.create_from_entries((), (), (), ())
-CONFIG_READER = ConfigReader(
-    MockFileReader({
-        '/old.yaml': OLD_CONFIG_YAML,
-        '/new.yaml': NEW_CONFIG_YAML,
-    }),
-)
-OLD_CONFIG = CONFIG_READER.load(Path('/old.yaml'))
-NEW_CONFIG = CONFIG_READER.load(Path('/new.yaml'))
+OLD_CONFIG = SystemConfig.create_from_entries(
+    (ShellAction('echo old'),), (), (), ())
+NEW_CONFIG = SystemConfig.create_from_entries(
+    (ShellAction('echo new'),), (), (), ())
 
 
 class TestPreviewCommand(TestCase):
@@ -56,7 +51,7 @@ class TestPreviewCommand(TestCase):
         result = PreviewCommand.get_name()
 
         # Assert
-        self.assertIsInstance(result, str)
+        self.assertEqual(result, 'preview')
 
     def test_get_subparser(self) -> None:
         """Test that get_subparser creates a subparser correctly."""
@@ -69,10 +64,11 @@ class TestPreviewCommand(TestCase):
         actual = PreviewCommand.get_subparser(subparsers)
 
         # Assert
-        self.assertIsInstance(actual, ArgumentParser)
-
-        help_text = actual.format_help()
-        self.assertIn('not execute', help_text)
+        self.assertEqual(actual.prog, 'sysconf preview')
+        self.assertIn(
+            'Preview planned actions without executing',
+            parser.format_help(),
+        )
 
     def test_add_arguments(self) -> None:
         """Test that add_arguments adds the expected arguments to the parser."""
@@ -93,19 +89,50 @@ class TestPreviewCommand(TestCase):
 
     @dataclass
     class CreateFromArgumentsDataset:
-        fixture_comparative_parser: ComparativeConfigCommandParser
+        fixture_defaults: MockDefaults
+        fixture_file_reader: MockFileReader
         input_parsed_arguments: Namespace
         expected_old_path: Path
         expected_new_path: Path
 
     @datasets({
-        'both paths provided': CreateFromArgumentsDataset(
-            fixture_comparative_parser=ComparativeConfigCommandParser(
-                old_path=fpath('/manual/old.yaml'),
-                new_path=fpath('/manual/new.yaml'),
-                is_config_file_explicit=True,
-                file_reader=FILE_READER,
+        'old config exists': CreateFromArgumentsDataset(
+            fixture_defaults=MockDefaults(
+                old_config_path=fpath('/config/.history/current.yaml'),
             ),
+            fixture_file_reader=MockFileReader({
+                '/config/.history/current.yaml': OLD_CONFIG_YAML,
+                '/manual/new.yaml': NEW_CONFIG_YAML,
+            }),
+            input_parsed_arguments=Namespace(
+                config_file=fpath('/manual/new.yaml'),
+                last_config=None,
+            ),
+            expected_old_path=fpath('/config/.history/current.yaml'),
+            expected_new_path=fpath('/manual/new.yaml'),
+        ),
+        'old config does not exist yet': CreateFromArgumentsDataset(
+            fixture_defaults=MockDefaults(
+                old_config_path=MockPath('/config/.history/current.yaml'),
+            ),
+            fixture_file_reader=MockFileReader({
+                '/manual/new.yaml': NEW_CONFIG_YAML,
+            }),
+            input_parsed_arguments=Namespace(
+                config_file=fpath('/manual/new.yaml'),
+                last_config=None,
+            ),
+            expected_old_path=MockPath('/config/.history/current.yaml'),
+            expected_new_path=fpath('/manual/new.yaml'),
+        ),
+        'old config given': CreateFromArgumentsDataset(
+            fixture_defaults=MockDefaults(
+                old_config_path=MockPath('/config/.history/current.yaml'),
+            ),
+            fixture_file_reader=MockFileReader({
+                '/manual/old.yaml': OLD_CONFIG_YAML,
+                '/manual/new.yaml': NEW_CONFIG_YAML,
+            }),
             input_parsed_arguments=Namespace(
                 config_file=fpath('/manual/new.yaml'),
                 last_config=fpath('/manual/old.yaml'),
@@ -113,34 +140,23 @@ class TestPreviewCommand(TestCase):
             expected_old_path=fpath('/manual/old.yaml'),
             expected_new_path=fpath('/manual/new.yaml'),
         ),
-        'no old config': CreateFromArgumentsDataset(
-            fixture_comparative_parser=ComparativeConfigCommandParser(
-                old_path=MockPath('/default/old.yaml'),
-                new_path=fpath('/default/new.yaml'),
-                is_config_file_explicit=False,
-                file_reader=FILE_READER,
-            ),
-            input_parsed_arguments=Namespace(
-                config_file=None,
-                last_config=None,
-            ),
-            expected_old_path=MockPath('/default/old.yaml'),
-            expected_new_path=fpath('/default/new.yaml'),
-        ),
     })
-    @patch('sysconf.commands.preview_command.PreviewCommand.create_from_context')
-    @patch('sysconf.commands.comparative_config_command_parser.ComparativeConfigCommandParser.create_from_arguments')
     def test_create_from_arguments(
         self,
         dataset: CreateFromArgumentsDataset,
-        mock_create_from_arguments: MagicMock,
-        mock_create_from_context: MagicMock,
     ) -> None:
-        """Test that the parsed paths are passed on to create_from_context."""
+        """Test that the parsed paths are used to create the command."""
 
         # Arrange
-        mock_create_from_arguments.return_value = dataset.fixture_comparative_parser
-        context = MockContext.create()
+        context = MockContext.create(
+            defaults=dataset.fixture_defaults,
+            file_reader=dataset.fixture_file_reader,
+        )
+        expected = PreviewCommand.create_from_context(
+            context=context,
+            old_path=dataset.expected_old_path,
+            new_path=dataset.expected_new_path,
+        )
 
         # Act
         actual = PreviewCommand.create_from_arguments(
@@ -149,20 +165,11 @@ class TestPreviewCommand(TestCase):
         )
 
         # Assert
-        self.assertIs(actual, mock_create_from_context.return_value)
-        mock_create_from_arguments.assert_called_once_with(
-            context=context,
-            parsed_arguments=dataset.input_parsed_arguments,
-        )
-        mock_create_from_context.assert_called_once_with(
-            context=context,
-            old_path=dataset.expected_old_path,
-            new_path=dataset.expected_new_path,
-        )
+        self.assertEqual(expected.manager, actual.manager)
 
     @dataclass
     class CreateFromContextDataset:
-        fixture_files: dict[str, str]
+        fixture_file_reader: MockFileReader
         input_old_path: Path
         input_new_path: Path
         expected_old_config: SystemConfig
@@ -170,19 +177,19 @@ class TestPreviewCommand(TestCase):
 
     @datasets({
         'old config exists': CreateFromContextDataset(
-            fixture_files={
+            fixture_file_reader=MockFileReader({
                 '/manual/old.yaml': OLD_CONFIG_YAML,
                 '/manual/new.yaml': NEW_CONFIG_YAML,
-            },
+            }),
             input_old_path=fpath('/manual/old.yaml'),
             input_new_path=fpath('/manual/new.yaml'),
             expected_old_config=OLD_CONFIG,
             expected_new_config=NEW_CONFIG,
         ),
-        'no old config': CreateFromContextDataset(
-            fixture_files={
+        'old config does not exist yet': CreateFromContextDataset(
+            fixture_file_reader=MockFileReader({
                 '/manual/new.yaml': NEW_CONFIG_YAML,
-            },
+            }),
             input_old_path=MockPath('/manual/old.yaml'),
             input_new_path=fpath('/manual/new.yaml'),
             expected_old_config=EMPTY_CONFIG,
@@ -190,12 +197,13 @@ class TestPreviewCommand(TestCase):
         ),
     })
     def test_create_from_context(self, dataset: CreateFromContextDataset) -> None:
-        """Test that the configs are loaded into a manager that only previews."""
+        """Test that both configs are loaded into a manager that only previews."""
 
         # Arrange
-        file_reader = MockFileReader(dataset.fixture_files)
-        context = MockContext.create(file_reader=file_reader)
-        executor = PreviewSystemExecutor()
+        context = MockContext.create(
+            file_reader=dataset.fixture_file_reader,
+        )
+        executor = MockSystemExecutor()
         error_handler = FailingErrorHandler()
         expected_manager = SystemManager(
             old_config=dataset.expected_old_config,
@@ -221,78 +229,73 @@ class TestPreviewCommand(TestCase):
 
     @dataclass
     class RunDataset:
-        fixture_system_manager: MockSystemManager[None]
-        expected_prints: list[str]
+        fixture_result: RunActionsResult[None]
 
     @datasets({
-        'no changes required': RunDataset(
-            fixture_system_manager=MockSystemManager[None]
-            .default(get_actions=[]),
-            expected_prints=['# No changes required.'],
+        'all actions succeed': RunDataset(
+            fixture_result=RunActionsResult(NEW_CONFIG),
         ),
-        'gsettings add and update': RunDataset(
-            fixture_system_manager=MockSystemManager[None].default(get_actions=[
-                MockDomainAction(
-                    'Update gsettings: theme = old_value -> new_value'),
-                MockDomainAction('Add gsettings: font-size = 12'),
-            ]),
-            expected_prints=[
-                '# Update gsettings: theme = old_value -> new_value',
-                '# Add gsettings: font-size = 12',
-            ],
-        ),
-        'gsettings remove': RunDataset(
-            fixture_system_manager=MockSystemManager[None].default(get_actions=[
-                MockDomainAction('Remove gsettings: font-size'),
-            ]),
-            expected_prints=[
-                '# Remove gsettings: font-size',
-            ],
-        ),
-        'dconf add and remove': RunDataset(
-            fixture_system_manager=MockSystemManager[None].default(get_actions=[
-                MockDomainAction('Remove dconf: /path/to/key2'),
-                MockDomainAction(
-                    'Update dconf: /path/to/key1 = old_value -> new_value'),
-                MockDomainAction('Add dconf: /path/to/key3 = new_value3'),
-            ]),
-            expected_prints=[
-                '# Remove dconf: /path/to/key2',
-                '# Update dconf: /path/to/key1 = old_value -> new_value',
-                '# Add dconf: /path/to/key3 = new_value3',
-            ],
-        ),
-        'mixed domains': RunDataset(
-            fixture_system_manager=MockSystemManager[None].default(get_actions=[
-                MockDomainAction(
-                    'Update gsettings: theme = old_value -> new_value'),
-                MockDomainAction('Add dconf: /path/to/key = dconf_value'),
-            ]),
-            expected_prints=[
-                '# Update gsettings: theme = old_value -> new_value',
-                '# Add dconf: /path/to/key = dconf_value',
-            ],
+        'an action fails': RunDataset(
+            fixture_result=RunActionsResult(OLD_CONFIG),
         ),
     })
-    def test_run(
-        self,
-        dataset: RunDataset,
-    ) -> None:
-        """Test that run executes the correct commands and produces expected output."""
+    def test_run_returns(self, dataset: RunDataset) -> None:
+        """Test that the actions run and the resulting config is serialized."""
 
         # Arrange
+        manager = MockSystemManager[None].default(
+            result=dataset.fixture_result,
+            old_config=OLD_CONFIG,
+            new_config=NEW_CONFIG,
+        )
+        system_config_renderer = MagicMock()
+        yaml_serializer = MagicMock()
         preview_command = PreviewCommand(
-            manager=dataset.fixture_system_manager,
-            system_config_renderer=MagicMock(),
-            yaml_serializer=MagicMock(),
+            manager=manager,
+            system_config_renderer=system_config_renderer,
+            yaml_serializer=yaml_serializer,
         )
 
         # Act
-        with patch('builtins.print') as mock_print:
-            preview_command.run()
+        actual = preview_command.run()
 
         # Assert
-        mock_print.assert_has_calls(
-            [call(p) for p in dataset.expected_prints],
-            any_order=False,
+        self.assertIsNone(actual)
+        self.assertEqual(manager.run_actions_calls, 1)
+        system_config_renderer.render_config.assert_called_once_with(
+            dataset.fixture_result.system_config,
         )
+        yaml_serializer.get_serialized_data.assert_called_once_with(
+            system_config_renderer.render_config.return_value,
+        )
+
+    @dataclass
+    class RaiseDataset:
+        fixture_serialization_exception: Exception
+        expected_exception: type[Exception]
+
+    @datasets({
+        'serialization fails': RaiseDataset(
+            fixture_serialization_exception=ValueError('cannot serialize'),
+            expected_exception=ValueError,
+        ),
+    })
+    def test_run_raises(self, dataset: RaiseDataset) -> None:
+        """Test that a config that can't be serialized is surfaced."""
+
+        # Arrange
+        result = RunActionsResult[None](NEW_CONFIG)
+        manager = MockSystemManager[None].default(result=result)
+        system_config_renderer = MagicMock()
+        yaml_serializer = MagicMock()
+        yaml_serializer.get_serialized_data.side_effect = \
+            dataset.fixture_serialization_exception
+        preview_command = PreviewCommand(
+            manager=manager,
+            system_config_renderer=system_config_renderer,
+            yaml_serializer=yaml_serializer,
+        )
+
+        # Act & Assert
+        with self.assertRaises(dataset.expected_exception):
+            preview_command.run()

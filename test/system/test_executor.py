@@ -29,7 +29,13 @@ class TestLiveSystemExecutor(TestCase):
             expected_cmdline='gsettings reset org.schema key',
         ),
         'argument with spaces is quoted': CommandDataset(
-            input_command=('gsettings', 'set', 'org.schema', 'key', 'two words'),
+            input_command=(
+                'gsettings',
+                'set',
+                'org.schema',
+                'key',
+                'two words',
+            ),
             expected_cmdline='gsettings set org.schema key "two words"',
         ),
         'single argument': CommandDataset(
@@ -163,7 +169,13 @@ class TestPreviewSystemExecutor(TestCase):
 
     @datasets({
         'command is printed as a command line': PreviewDataset(
-            input_command=('gsettings', 'set', 'org.schema', 'key', 'two words'),
+            input_command=(
+                'gsettings',
+                'set',
+                'org.schema',
+                'key',
+                'two words',
+            ),
             input_script=None,
             expected_output='gsettings set org.schema key "two words"',
         ),

@@ -71,7 +71,10 @@ class TestGetFlattenedDict(TestCase):
     })
     def test_get_flattened_dict(self, dataset: Dataset) -> None:
         # Act
-        result = get_flattened_dict(dataset.input_data, dataset.input_path_depth)
+        result = get_flattened_dict(
+            dataset.input_data,
+            dataset.input_path_depth,
+        )
 
         # Assert
         self.assertEqual(result, dataset.expected)

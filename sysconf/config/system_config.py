@@ -2,9 +2,9 @@
 
 from typing import Generic, Iterable, Self, Sequence, TypeVar
 
+from sysconf.config.actions import Action
 from sysconf.config.domain_registry import builtin_domains
 from sysconf.config.domains import ConfigEntryId, Domain, DomainAction, DomainConfigEntry, NoDomainAction
-from sysconf.config.actions import Action
 from sysconf.config.settings import ToolSettings
 from sysconf.domains.user_domains import UserDomain
 from sysconf.system.error_handler import ErrorHandler, FailureResolution
@@ -278,7 +278,7 @@ class SystemConfigTransitioner:
 
     @classmethod
     def create_from_system_configs(
-        cls, 
+        cls,
         old_system_config: SystemConfig,
         new_system_config: SystemConfig,
     ) -> Self:

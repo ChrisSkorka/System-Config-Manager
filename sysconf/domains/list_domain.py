@@ -67,14 +67,14 @@ class ListDomain(Domain):
         self,
         entries: Iterable[DomainConfigEntry],
     ) -> YamlSerializable:
-        
+
         data_builder = DataStructure(None)
 
         if self.path_depth == 0:
             data_builder[()] = []
         else:
             data_builder[()] = {}
-        
+
         for entry in entries:
             assert isinstance(entry, ListConfigEntry)
 

@@ -344,7 +344,10 @@ class TestUserMapDomain(TestCase):
         """Test that parsing then rendering reproduces the original data."""
 
         # Arrange
-        data: YamlSerializable = {'user.name': 'alice', 'user.email': 'a@b.com'}
+        data: YamlSerializable = {
+            'user.name': 'alice',
+            'user.email': 'a@b.com',
+        }
 
         # Act
         entries = SETTINGS_DOMAIN.get_config_entries(data)

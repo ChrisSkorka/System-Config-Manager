@@ -5,9 +5,10 @@ from dataclasses import dataclass
 import io
 from unittest.mock import _Call, call  # type: ignore
 from unittest.mock import patch
+
+from sysconf.commands.apply_command import ApplyCommand
 from sysconf.system.executor import LiveSystemExecutor
 from sysconf.system.file import FileReader
-from test.commands.test_apply_command import ApplyCommand
 from test.datasets import datasets
 from test.helper import unindent
 from test.system.mock_subprocess import create_mock_run
@@ -76,6 +77,29 @@ class TestIntegrationApplyCommand (TestCase):
             }),
             input_parsed_arguments=Namespace(
                 last_config=fpath('/configs/config-old.yaml'),
+                config_file=fpath('/configs/config-new.yaml'),
+            ),
+            expected_stdout=unindent("""
+                # Add gsettings: key = value
+                $ gsettings set org.schema key \\"value\\"
+
+            """) + '\n',
+            expected_subprocess_calls=[
+                call(('gsettings', 'set', 'org.schema', 'key', '"value"')),
+            ],
+        ),
+        'no last config yet': RunSuccessDataset(
+            fixture_file_reader=MockFileReader({
+                '/configs/config-new.yaml': unindent("""
+                    version: 1
+                    config:
+                      - gsettings:
+                          org.schema:
+                            key: value
+                """),
+            }),
+            input_parsed_arguments=Namespace(
+                last_config=None,
                 config_file=fpath('/configs/config-new.yaml'),
             ),
             expected_stdout=unindent("""

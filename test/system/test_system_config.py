@@ -970,7 +970,9 @@ class TestSystemConfigTransitioner(TestCase):
 
     @datasets({
         'used new domain is included': DomainResolutionDataset(
-            input_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-domain'))],
+            input_entries=[
+                MockDomainConfigEntry(('a',), MockUserDomain('test-domain')),
+            ],
             input_old_domains={},
             input_new_domains={'test-domain': MockUserDomain('test-domain')},
             input_builtin_domains={},
@@ -978,15 +980,22 @@ class TestSystemConfigTransitioner(TestCase):
             expected_new_instance_keys=[],
         ),
         'unused new domain is excluded': DomainResolutionDataset(
-            input_entries=[MockDomainConfigEntry(('a',), MockUserDomain('used'))],
+            input_entries=[
+                MockDomainConfigEntry(('a',), MockUserDomain('used')),
+            ],
             input_old_domains={},
-            input_new_domains={'used': MockUserDomain('used'), 'unused': MockUserDomain('unused')},
+            input_new_domains={
+                'used': MockUserDomain('used'),
+                'unused': MockUserDomain('unused'),
+            },
             input_builtin_domains={},
             expected_domains={'used': MockUserDomain('used')},
             expected_new_instance_keys=[],
         ),
         'used old domain not in new not builtin is included': DomainResolutionDataset(
-            input_entries=[MockDomainConfigEntry(('a',), MockUserDomain('old-domain'))],
+            input_entries=[
+                MockDomainConfigEntry(('a',), MockUserDomain('old-domain')),
+            ],
             input_old_domains={'old-domain': MockUserDomain('old-domain')},
             input_new_domains={},
             input_builtin_domains={},
@@ -994,7 +1003,9 @@ class TestSystemConfigTransitioner(TestCase):
             expected_new_instance_keys=[],
         ),
         'used old domain in new uses new instance': DomainResolutionDataset(
-            input_entries=[MockDomainConfigEntry(('a',), MockUserDomain('shared'))],
+            input_entries=[
+                MockDomainConfigEntry(('a',), MockUserDomain('shared')),
+            ],
             input_old_domains={'shared': MockUserDomain('shared')},
             input_new_domains={'shared': MockUserDomain('shared')},
             input_builtin_domains={},
@@ -1002,10 +1013,17 @@ class TestSystemConfigTransitioner(TestCase):
             expected_new_instance_keys=['shared'],
         ),
         'used old domain in builtin is excluded': DomainResolutionDataset(
-            input_entries=[MockDomainConfigEntry(('a',), MockUserDomain('builtin-domain'))],
-            input_old_domains={'builtin-domain': MockUserDomain('builtin-domain')},
+            input_entries=[
+                MockDomainConfigEntry(
+                    ('a',), MockUserDomain('builtin-domain')),
+            ],
+            input_old_domains={
+                'builtin-domain': MockUserDomain('builtin-domain'),
+            },
             input_new_domains={},
-            input_builtin_domains={'builtin-domain': MockUserDomain('builtin-domain')},
+            input_builtin_domains={
+                'builtin-domain': MockUserDomain('builtin-domain'),
+            },
             expected_domains={},
             expected_new_instance_keys=[],
         ),
@@ -1014,9 +1032,12 @@ class TestSystemConfigTransitioner(TestCase):
         # Arrange
         no_actions: list[Action] = []
         transitioner = SystemConfigTransitioner(
-            before_actions_transitioner=SequenceTransitioner[Action].create_from_old_items(no_actions),
-            after_actions_transitioner=SequenceTransitioner[Action].create_from_old_items(no_actions),
-            config_entries_transitioner=SequenceTransitioner[DomainConfigEntry].create_from_old_items(dataset.input_entries),
+            before_actions_transitioner=SequenceTransitioner[Action]
+            .create_from_old_items(no_actions),
+            after_actions_transitioner=SequenceTransitioner[Action]
+            .create_from_old_items(no_actions),
+            config_entries_transitioner=SequenceTransitioner[DomainConfigEntry]
+            .create_from_old_items(dataset.input_entries),
             old_domains=dataset.input_old_domains,
             new_domains=dataset.input_new_domains,
             builtin_domains=dataset.input_builtin_domains,

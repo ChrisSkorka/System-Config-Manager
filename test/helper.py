@@ -4,7 +4,7 @@
 def unindent(text: str) -> str:
     """
     Convenience function to unindent multi-line strings in tests.
-    
+
     Useful for when defining indent-sensitive multi line strings but wanting
     to keep the indentation level in the source code aligned with the rest of
     the code.

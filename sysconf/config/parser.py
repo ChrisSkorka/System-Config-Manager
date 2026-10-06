@@ -357,7 +357,7 @@ class SystemConfigRenderer:
         ]
 
         return cast(
-            YamlSerializable,
+            dict[str, YamlSerializable],
             {
                 'version': VERSION_1,
                 'system-config-manager': settings,

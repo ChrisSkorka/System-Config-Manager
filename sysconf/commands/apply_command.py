@@ -13,10 +13,9 @@ from sysconf.system.error_handler import PromptUserErrorHandler
 from sysconf.system.executor import CommandException
 from sysconf.utils.choice_prompt import ChoicePromptOptionEnum
 from sysconf.utils.config_loader import ConfigReader
-from sysconf.utils.context import Context
-from sysconf.utils.validation import validate
 from sysconf.utils.config_location import ConfigLocationWriter
 from sysconf.utils.config_writer import ConfigWriter
+from sysconf.utils.context import Context
 
 if TYPE_CHECKING:
     from sysconf.commands.edit_command import EditCommand
@@ -105,6 +104,17 @@ class ApplyCommand (Command):
         file_reader = context.get_file_reader()
         file_writer = context.get_file_writer()
 
+        system_config_renderer = SystemConfigRenderer()
+        config_writer = ConfigWriter(
+            system_config_renderer=system_config_renderer,
+            yaml_serializer=YamlSerializer(),
+            file_writer=file_writer,
+        )
+        config_location_writer = ConfigLocationWriter(
+            defaults=defaults,
+            file_reader=file_reader,
+            file_writer=file_writer,
+        )
         config_reader = ConfigReader(file_reader)
 
         old_config = config_reader.load_or_default(old_path)
@@ -124,25 +134,6 @@ class ApplyCommand (Command):
             error_handler=error_handler,
         )
 
-        current_path = defaults.get_old_config_path()
-        validate(
-            current_path.is_file() or not current_path.exists(),
-            f'Current config path is not a file: {current_path}',
-        )
-
-        system_config_renderer = SystemConfigRenderer()
-        yaml_serializer = YamlSerializer()
-        config_writer = ConfigWriter(
-            system_config_renderer=system_config_renderer,
-            yaml_serializer=yaml_serializer,
-            file_writer=file_writer,
-        )
-        config_location_writer = ConfigLocationWriter(
-            defaults,
-            file_reader,
-            file_writer,
-        )
-
         def edit_command_factory() -> 'EditCommand':
             from sysconf.commands.edit_command import EditCommand
 
@@ -155,7 +146,7 @@ class ApplyCommand (Command):
 
         return cls(
             manager=system_manager,
-            current_path=current_path,
+            old_path=old_path,
             new_path=new_path,
             config_writer=config_writer,
             config_location_writer=config_location_writer,
@@ -166,7 +157,7 @@ class ApplyCommand (Command):
     def __init__(
         self,
         manager: SystemManager[ApplyFailureResolution],
-        current_path: Path,
+        old_path: Path,
         new_path: Path,
         config_writer: ConfigWriter,
         config_location_writer: ConfigLocationWriter,
@@ -176,7 +167,7 @@ class ApplyCommand (Command):
         super().__init__()
 
         self.manager = manager
-        self.current_path = current_path
+        self.old_path = old_path
         self.new_path = new_path
         self.config_writer = config_writer
         self.config_location_writer = config_location_writer
@@ -188,30 +179,22 @@ class ApplyCommand (Command):
             return False
 
         return self.manager == value.manager \
-            and self.current_path == value.current_path \
+            and self.old_path == value.old_path \
             and self.new_path == value.new_path \
             and self.config_writer == value.config_writer \
             and self.config_location_writer == value.config_location_writer \
             and self.should_override_config_path == value.should_override_config_path
-        # excluded:
+        # exclude:
         # and self.edit_command_factory == value.edit_command_factory
 
     def run(self) -> Command | None:
         """
         Execute the command.
 
-        This will record where the configuration came from, compare the two
-        configurations and execute the required actions, and update the current
-        configuration file with the changes that were successfully applied.
-
-        The config location is recorded before any action runs so that a config
-        that fails part way through still leaves the location recorded for the
-        next invocation.
-
-        Incase an action fails, the user will be prompted if they want to
-        continue with the remaining actions, abort, or edit the config.
-        If the user chooses to continue, that action will not be commited to the
-        current configuration file.
+        1. record config path
+        2. run system commands to update the system
+        3. record the updated configuration
+        4. on failure, prompt the user for how to proceed
         """
 
         # Record where the configuration we are about to apply came from
@@ -229,29 +212,37 @@ class ApplyCommand (Command):
 
         # Write the new current configuration
         try:
-            self.config_writer.write(result.system_config, self.current_path)
+            self.config_writer.write(result.system_config, self.old_path)
         except Exception as e:
-            current_config_data = self.config_writer.system_config_renderer.render_config(
+            current_path = self.old_path
+            config_data = self.config_writer.system_config_renderer.render_config(
                 result.system_config,
             )
-            yaml_string = self.config_writer.yaml_serializer.get_serialized_data(
-                current_config_data,
+            config_yaml = self.config_writer.yaml_serializer.get_serialized_data(
+                config_data,
             )
 
-            print('Current System Configuration:')
-            print(yaml_string)
-            print()  # Empty line
-
-            print('The changes were successfully applied to the system, '
-                  + 'but an error occurred while writing the updated current configuration file:',
-                  )
+            print('Failed to write current system configuration to file!')
             print(str(e))
+            print()  # Empty line
             print(
-                f'Please copy the above configuration and save it to {self.current_path}.',
+                'The changes were successfully applied to the system, '
+                + 'but an error occurred while writing the updated configuration file.',
+            )
+            print()  # Empty line
+            print('Current System Configuration:')
+            print('```')
+            print(config_yaml)
+            print('```')
+            print()  # Empty line
+            print(
+                f'Please copy the above configuration and save it to {current_path}.',
             )
 
         match result.failure_resolution:
             case ApplyFailureResolution.EDIT:
                 return self.edit_command_factory()
-            case ApplyFailureResolution.ABORT | None:
+            case ApplyFailureResolution.ABORT:
+                return None
+            case _:
                 return None

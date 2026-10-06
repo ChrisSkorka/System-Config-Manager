@@ -122,7 +122,10 @@ class TestConfigLocationReader(TestCase):
         with self.assertRaises(ValidationError) as context:
             reader.get_config_path()
 
-        self.assertIn(dataset.expected_message_contains, str(context.exception))
+        self.assertIn(
+            dataset.expected_message_contains,
+            str(context.exception),
+        )
 
 
 class TestConfigLocationWriter(TestCase):

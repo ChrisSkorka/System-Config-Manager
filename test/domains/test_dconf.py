@@ -18,15 +18,12 @@ from test.system.mock_system_executor import MockSystemExecutor
 from test.test_case import TestCase
 
 
-DCONF_DOMAIN = create_dconf_domain()
-
-
 def dconf_entry(
     path: str,
     value: YamlSerializable,
 ) -> MapConfigEntry[YamlSerializable]:
     """Build a single-key dconf MapConfigEntry (path_depth=1)."""
-    return MapConfigEntry(DCONF_DOMAIN, (path,), value)
+    return MapConfigEntry(create_dconf_domain(), (path,), value)
 
 
 class TestEncodeValue(TestCase):
@@ -161,12 +158,16 @@ class TestDConfAddAction(TestCase):
         action.run(executor)
 
         # Assert
-        self.assertEqual(action.get_description(), dataset.expected_description)
+        self.assertEqual(
+            action.get_description(),
+            dataset.expected_description,
+        )
         self.assertIsNone(action.get_old_entry())
         self.assertEqual(action.get_new_entry(), dataset.input_new_entry)
 
         assert isinstance(executor.command_mock, MagicMock)
-        executor.command_mock.assert_called_once_with(*dataset.expected_command)
+        executor.command_mock \
+            .assert_called_once_with(*dataset.expected_command)
 
 
 class TestDConfUpdateAction(TestCase):
@@ -217,12 +218,16 @@ class TestDConfUpdateAction(TestCase):
         action.run(executor)
 
         # Assert
-        self.assertEqual(action.get_description(), dataset.expected_description)
+        self.assertEqual(
+            action.get_description(),
+            dataset.expected_description,
+        )
         self.assertEqual(action.get_old_entry(), dataset.input_old_entry)
         self.assertEqual(action.get_new_entry(), dataset.input_new_entry)
 
         assert isinstance(executor.command_mock, MagicMock)
-        executor.command_mock.assert_called_once_with(*dataset.expected_command)
+        executor.command_mock \
+            .assert_called_once_with(*dataset.expected_command)
 
 
 class TestDConfRemoveAction(TestCase):
@@ -266,9 +271,13 @@ class TestDConfRemoveAction(TestCase):
         action.run(executor)
 
         # Assert
-        self.assertEqual(action.get_description(), dataset.expected_description)
+        self.assertEqual(
+            action.get_description(),
+            dataset.expected_description,
+        )
         self.assertEqual(action.get_old_entry(), dataset.input_old_entry)
         self.assertIsNone(action.get_new_entry())
 
         assert isinstance(executor.command_mock, MagicMock)
-        executor.command_mock.assert_called_once_with(*dataset.expected_command)
+        executor.command_mock \
+            .assert_called_once_with(*dataset.expected_command)

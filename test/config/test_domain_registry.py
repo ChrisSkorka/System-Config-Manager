@@ -1,4 +1,4 @@
 # pyright: strict
 
 
-# No functins or classes to test yet
+# No functions or classes to test yet

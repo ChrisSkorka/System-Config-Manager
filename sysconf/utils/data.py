@@ -42,7 +42,7 @@ def get_flattened_dict(
     ```
     """
 
-    flattaned_map: dict[tuple[str, ...], YamlSerializable] = {(): data}
+    flattened_map: dict[tuple[str, ...], YamlSerializable] = {(): data}
 
     # flatten first `path_depth` levels
     for _ in range(path_depth):
@@ -50,18 +50,18 @@ def get_flattened_dict(
         # check this level can be flattened
         assert all(
             isinstance(v, dict) or v is None
-            for v in flattaned_map.values()
-        ), f'Non-dict value at intermediate level encountered: {flattaned_map}'
+            for v in flattened_map.values()
+        ), f'Non-dict value at intermediate level encountered: {flattened_map}'
 
         # flatten one level
-        flattaned_map = {
+        flattened_map = {
             keys + (key,): value
-            for keys, next_map in flattaned_map.items()
+            for keys, next_map in flattened_map.items()
             if isinstance(next_map, dict)
             for key, value in next_map.items()
         }
 
-    return flattaned_map
+    return flattened_map
 
 
 class DataStructure:

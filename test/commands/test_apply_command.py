@@ -9,22 +9,17 @@ from unittest.mock import MagicMock, call, patch
 
 from sysconf.commands.apply_command import ApplyCommand, ApplyFailureResolution
 from sysconf.commands.command import Command
-from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
 from sysconf.commands.edit_command import EditCommand
 from sysconf.config.actions import ShellAction
 from sysconf.config.parser import SystemConfigRenderer
-from sysconf.config.system_config import SystemConfig, SystemManager
 from sysconf.config.serialization import YamlSerializer
+from sysconf.config.system_config import RunActionsResult, SystemConfig
 from sysconf.system.error_handler import PromptUserErrorHandler
 from sysconf.system.executor import CommandException
-from sysconf.system.file import FileReader, FileWriter
-from sysconf.utils.config_loader import ConfigReader
+from sysconf.system.file import FileWriter
 from sysconf.utils.config_location import ConfigLocationWriter
 from sysconf.utils.config_writer import ConfigWriter
 from test.datasets import datasets
-from test.domains.mock_domain_action import MockDomainAction
-from test.system.mock_error_handler import MockSuccessErrorHandler
-from test.system.mock_system_executor import MockSystemExecutor
 from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
 from test.utils.mock_config_writer import MockConfigWriter
@@ -34,9 +29,29 @@ from test.utils.mock_file import MockFileReader, MockFileWriter
 from test.utils.mock_path import MockPath, dpath, fpath
 
 
+OLD_PATH = fpath('/config/.history/current.yaml')
+NEW_PATH = fpath('/manual/new.yaml')
+
+OLD_CONFIG_YAML = dedent('''\
+    version: 1
+    before:
+      - echo old
+    config: []
+    ''')
+NEW_CONFIG_YAML = dedent('''\
+    version: 1
+    before:
+      - echo new
+    config: []
+    ''')
+EMPTY_CONFIG = SystemConfig.create_from_entries((), (), (), ())
+OLD_CONFIG = SystemConfig.create_from_entries(
+    (ShellAction('echo old'),), (), (), ())
+NEW_CONFIG = SystemConfig.create_from_entries(
+    (ShellAction('echo new'),), (), (), ())
+
 RENDERER = SystemConfigRenderer()
 SERIALIZER = YamlSerializer()
-FILE_READER = FileReader()
 FILE_WRITER = FileWriter()
 CONFIG_WRITER = ConfigWriter(
     system_config_renderer=RENDERER,
@@ -49,35 +64,49 @@ CONFIG_LOCATION_WRITER = ConfigLocationWriter(
     FILE_WRITER,
 )
 
-OLD_CONFIG_YAML = dedent('''
-    version: "1"
-    config: []
-''').lstrip()
-NEW_CONFIG_YAML = dedent('''
-    version: "1"
-    config:
-      - apt:
-          - git
-''').lstrip()
-EMPTY_CONFIG = SystemConfig.create_from_entries((), (), (), ())
-CONFIG_READER = ConfigReader(
-    MockFileReader({
-        '/old.yaml': OLD_CONFIG_YAML,
-        '/new.yaml': NEW_CONFIG_YAML,
-    }),
-)
-OLD_CONFIG = CONFIG_READER.load(Path('/old.yaml'))
-NEW_CONFIG = CONFIG_READER.load(Path('/new.yaml'))
-
 EDIT_COMMAND = EditCommand.create_from_context(
     context=MockContext.create(),
-    old_path=fpath('/config/.history/current.yaml'),
-    new_path=fpath('/manual/new.yaml'),
+    old_path=OLD_PATH,
+    new_path=NEW_PATH,
 )
 
 
 def edit_command_factory() -> EditCommand:
     return EDIT_COMMAND
+
+
+def make_manager(
+    old_config: SystemConfig = OLD_CONFIG,
+    new_config: SystemConfig = NEW_CONFIG,
+) -> MockSystemManager[ApplyFailureResolution]:
+    """Build a manager whose actions all succeed."""
+
+    return MockSystemManager[ApplyFailureResolution].default(
+        old_config=old_config,
+        new_config=new_config,
+    )
+
+
+def make_apply_command(
+    old_path: Path = OLD_PATH,
+    new_path: Path = NEW_PATH,
+    old_config: SystemConfig = OLD_CONFIG,
+    config_writer: ConfigWriter = CONFIG_WRITER,
+    should_override_config_path: bool = False,
+) -> ApplyCommand:
+    """Build an apply command from shared collaborators, for equality checks."""
+
+    manager = make_manager(old_config=old_config)
+
+    return ApplyCommand(
+        manager=manager,
+        old_path=old_path,
+        new_path=new_path,
+        config_writer=config_writer,
+        config_location_writer=CONFIG_LOCATION_WRITER,
+        should_override_config_path=should_override_config_path,
+        edit_command_factory=edit_command_factory,
+    )
 
 
 class TestApplyCommand(TestCase):
@@ -98,7 +127,7 @@ class TestApplyCommand(TestCase):
         result = ApplyCommand.get_name()
 
         # Assert
-        self.assertIsInstance(result, str)
+        self.assertEqual(result, 'apply')
 
     def test_get_subparser(self) -> None:
         """Test that get_subparser creates a subparser correctly."""
@@ -111,10 +140,11 @@ class TestApplyCommand(TestCase):
         actual = ApplyCommand.get_subparser(subparsers)
 
         # Assert
-        self.assertIsInstance(actual, ArgumentParser)
-
-        help_text = actual.format_help()
-        self.assertIn('execute', help_text)
+        self.assertEqual(actual.prog, 'sysconf apply')
+        self.assertIn(
+            'Apply the configuration to the system',
+            parser.format_help(),
+        )
 
     def test_add_arguments(self) -> None:
         """Test that add_arguments adds the expected arguments to the parser."""
@@ -135,57 +165,97 @@ class TestApplyCommand(TestCase):
 
     @dataclass
     class CreateFromArgumentsDataset:
-        fixture_comparative_parser: ComparativeConfigCommandParser
+        fixture_defaults: MockDefaults
+        fixture_file_reader: MockFileReader
         input_parsed_arguments: Namespace
         expected_old_path: Path
         expected_new_path: Path
         expected_should_override_config_path: bool
 
     @datasets({
-        'both paths provided': CreateFromArgumentsDataset(
-            fixture_comparative_parser=ComparativeConfigCommandParser(
-                old_path=fpath('/manual/old.yaml'),
-                new_path=fpath('/manual/new.yaml'),
-                is_config_file_explicit=True,
-                file_reader=FILE_READER,
+        'config file given': CreateFromArgumentsDataset(
+            fixture_defaults=MockDefaults(
+                old_config_path=OLD_PATH,
             ),
+            fixture_file_reader=MockFileReader({
+                '/config/.history/current.yaml': OLD_CONFIG_YAML,
+                '/manual/new.yaml': NEW_CONFIG_YAML,
+            }),
             input_parsed_arguments=Namespace(
-                config_file=fpath('/manual/new.yaml'),
-                last_config=fpath('/manual/old.yaml'),
+                config_file=NEW_PATH,
+                last_config=None,
             ),
-            expected_old_path=fpath('/manual/old.yaml'),
-            expected_new_path=fpath('/manual/new.yaml'),
+            expected_old_path=OLD_PATH,
+            expected_new_path=NEW_PATH,
             expected_should_override_config_path=True,
         ),
-        'no old config': CreateFromArgumentsDataset(
-            fixture_comparative_parser=ComparativeConfigCommandParser(
-                old_path=MockPath('/default/old.yaml'),
-                new_path=fpath('/default/new.yaml'),
-                is_config_file_explicit=False,
-                file_reader=FILE_READER,
+        'config file from the config location': CreateFromArgumentsDataset(
+            fixture_defaults=MockDefaults(
+                old_config_path=OLD_PATH,
+                new_config_path=fpath('/config/config/config.yaml'),
+                config_location_path=dpath('/config/config'),
             ),
+            fixture_file_reader=MockFileReader({
+                '/config/.history/current.yaml': OLD_CONFIG_YAML,
+                '/config/config/config.yaml': NEW_CONFIG_YAML,
+            }),
             input_parsed_arguments=Namespace(
                 config_file=None,
                 last_config=None,
             ),
-            expected_old_path=MockPath('/default/old.yaml'),
-            expected_new_path=fpath('/default/new.yaml'),
+            expected_old_path=OLD_PATH,
+            expected_new_path=fpath('/config/config/config.yaml'),
             expected_should_override_config_path=False,
         ),
+        'old config does not exist yet': CreateFromArgumentsDataset(
+            fixture_defaults=MockDefaults(
+                old_config_path=MockPath('/config/.history/current.yaml'),
+            ),
+            fixture_file_reader=MockFileReader({
+                '/manual/new.yaml': NEW_CONFIG_YAML,
+            }),
+            input_parsed_arguments=Namespace(
+                config_file=NEW_PATH,
+                last_config=None,
+            ),
+            expected_old_path=MockPath('/config/.history/current.yaml'),
+            expected_new_path=NEW_PATH,
+            expected_should_override_config_path=True,
+        ),
+        'old config given': CreateFromArgumentsDataset(
+            fixture_defaults=MockDefaults(
+                old_config_path=MockPath('/config/.history/current.yaml'),
+            ),
+            fixture_file_reader=MockFileReader({
+                '/manual/old.yaml': OLD_CONFIG_YAML,
+                '/manual/new.yaml': NEW_CONFIG_YAML,
+            }),
+            input_parsed_arguments=Namespace(
+                config_file=NEW_PATH,
+                last_config=fpath('/manual/old.yaml'),
+            ),
+            expected_old_path=fpath('/manual/old.yaml'),
+            expected_new_path=NEW_PATH,
+            expected_should_override_config_path=True,
+        ),
     })
-    @patch('sysconf.commands.apply_command.ApplyCommand.create_from_context')
-    @patch('sysconf.commands.comparative_config_command_parser.ComparativeConfigCommandParser.create_from_arguments')
     def test_create_from_arguments(
         self,
         dataset: CreateFromArgumentsDataset,
-        mock_create_from_arguments: MagicMock,
-        mock_create_from_context: MagicMock,
     ) -> None:
-        """Test that the parsed paths are passed on to create_from_context."""
+        """Test that the parsed paths are used to create the command."""
 
         # Arrange
-        mock_create_from_arguments.return_value = dataset.fixture_comparative_parser
-        context = MockContext.create()
+        context = MockContext.create(
+            defaults=dataset.fixture_defaults,
+            file_reader=dataset.fixture_file_reader,
+        )
+        expected = ApplyCommand.create_from_context(
+            context=context,
+            old_path=dataset.expected_old_path,
+            new_path=dataset.expected_new_path,
+            should_override_config_path=dataset.expected_should_override_config_path,
+        )
 
         # Act
         actual = ApplyCommand.create_from_arguments(
@@ -194,21 +264,21 @@ class TestApplyCommand(TestCase):
         )
 
         # Assert
-        self.assertIs(actual, mock_create_from_context.return_value)
-        mock_create_from_arguments.assert_called_once_with(
-            context=context,
-            parsed_arguments=dataset.input_parsed_arguments,
+        self.assertEqual(expected.manager, actual.manager)
+        self.assertEqual(
+            expected.config_location_writer,
+            actual.config_location_writer,
         )
-        mock_create_from_context.assert_called_once_with(
-            context=context,
-            old_path=dataset.expected_old_path,
-            new_path=dataset.expected_new_path,
-            should_override_config_path=dataset.expected_should_override_config_path,
+        self.assertEqual(dataset.expected_old_path, actual.old_path)
+        self.assertEqual(dataset.expected_new_path, actual.new_path)
+        self.assertEqual(
+            dataset.expected_should_override_config_path,
+            actual.should_override_config_path,
         )
 
     @dataclass
     class CreateFromContextDataset:
-        fixture_files: dict[str, str]
+        fixture_file_reader: MockFileReader
         input_old_path: Path
         input_new_path: Path
         input_should_override_config_path: bool
@@ -217,59 +287,50 @@ class TestApplyCommand(TestCase):
 
     @datasets({
         'old config exists': CreateFromContextDataset(
-            fixture_files={
-                '/manual/old.yaml': OLD_CONFIG_YAML,
+            fixture_file_reader=MockFileReader({
+                '/config/.history/current.yaml': OLD_CONFIG_YAML,
                 '/manual/new.yaml': NEW_CONFIG_YAML,
-            },
-            input_old_path=fpath('/manual/old.yaml'),
-            input_new_path=fpath('/manual/new.yaml'),
+            }),
+            input_old_path=OLD_PATH,
+            input_new_path=NEW_PATH,
             input_should_override_config_path=True,
             expected_old_config=OLD_CONFIG,
             expected_new_config=NEW_CONFIG,
         ),
-        'no old config': CreateFromContextDataset(
-            fixture_files={
+        'old config does not exist yet': CreateFromContextDataset(
+            fixture_file_reader=MockFileReader({
                 '/manual/new.yaml': NEW_CONFIG_YAML,
-            },
-            input_old_path=MockPath('/manual/old.yaml'),
-            input_new_path=fpath('/manual/new.yaml'),
+            }),
+            input_old_path=MockPath('/config/.history/current.yaml'),
+            input_new_path=NEW_PATH,
             input_should_override_config_path=False,
             expected_old_config=EMPTY_CONFIG,
             expected_new_config=NEW_CONFIG,
         ),
     })
     def test_create_from_context(self, dataset: CreateFromContextDataset) -> None:
-        """Test that the configs are loaded and the context's collaborators are used."""
+        """
+        Test that the configs are loaded, a failed action offers abort or edit,
+        and an edit is offered for the same paths.
+        """
 
         # Arrange
-        defaults = MockDefaults(
-            old_config_path=MockPath('/config/.history/current.yaml'),
-        )
-        file_reader = MockFileReader(dataset.fixture_files)
-        file_writer = MockFileWriter()
-        system_executor = MockSystemExecutor()
         context = MockContext.create(
-            defaults=defaults,
-            file_reader=file_reader,
-            file_writer=file_writer,
-            system_executor=system_executor,
+            file_reader=dataset.fixture_file_reader,
         )
-        error_handler = MockSuccessErrorHandler()
-        expected_manager = SystemManager(
+        expected_manager = make_manager(
             old_config=dataset.expected_old_config,
             new_config=dataset.expected_new_config,
-            executor=system_executor,
-            error_handler=error_handler,
+        )
+        expected_config_location_writer = ConfigLocationWriter(
+            defaults=context.get_defaults(),
+            file_reader=context.get_file_reader(),
+            file_writer=context.get_file_writer(),
         )
         expected_edit_command = EditCommand.create_from_context(
             context=context,
             old_path=dataset.input_old_path,
             new_path=dataset.input_new_path,
-        )
-        expected_config_location_writer = ConfigLocationWriter(
-            defaults,
-            file_reader,
-            file_writer,
         )
 
         # Act
@@ -282,7 +343,22 @@ class TestApplyCommand(TestCase):
 
         # Assert
         self.assertEqual(expected_manager, actual.manager)
-        self.assertIs(system_executor, actual.manager.executor)
+        self.assertEqual(dataset.input_old_path, actual.old_path)
+        self.assertEqual(dataset.input_new_path, actual.new_path)
+        self.assertEqual(
+            dataset.input_should_override_config_path,
+            actual.should_override_config_path,
+        )
+        self.assertEqual(
+            expected_config_location_writer,
+            actual.config_location_writer,
+        )
+        self.assertIs(
+            context.get_file_writer(),
+            actual.config_writer.file_writer,
+        )
+        self.assertIs(context.get_system_executor(), actual.manager.executor)
+
         error_handler = actual.manager.error_handler
         assert isinstance(error_handler, PromptUserErrorHandler)
         self.assertEqual(error_handler.exceptions, (CommandException,))
@@ -290,115 +366,62 @@ class TestApplyCommand(TestCase):
             error_handler.failure_resolutions,
             (ApplyFailureResolution.ABORT, ApplyFailureResolution.EDIT),
         )
-        self.assertEqual(defaults.get_old_config_path(), actual.current_path)
-        self.assertEqual(dataset.input_new_path, actual.new_path)
-        self.assertIs(file_writer, actual.config_writer.file_writer)
-        self.assertEqual(
-            expected_config_location_writer,
-            actual.config_location_writer,
-        )
-        self.assertEqual(
-            dataset.input_should_override_config_path,
-            actual.should_override_config_path,
-        )
+
         actual_edit_command = actual.edit_command_factory()
         self.assertEqual(expected_edit_command, actual_edit_command)
 
     @dataclass
     class RunDataset:
-        fixture_system_manager: MockSystemManager[ApplyFailureResolution]
-        expected_prints: list[str]
-        expected_next_command: Command | None = None
+        fixture_result: RunActionsResult[ApplyFailureResolution]
+        expected_written: list[tuple[SystemConfig, Path]]
+        expected_next_command: Command | None
 
     @datasets({
-        'no changes required': RunDataset(
-            fixture_system_manager=MockSystemManager[ApplyFailureResolution]
-            .default(get_actions=[]),
-            expected_prints=['# No changes required.'],
+        'all actions succeed': RunDataset(
+            fixture_result=RunActionsResult(NEW_CONFIG),
+            expected_written=[(NEW_CONFIG, OLD_PATH)],
+            expected_next_command=None,
         ),
-        'gsettings add and update': RunDataset(
-            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(get_actions=[
-                MockDomainAction(
-                    'Update gsettings: theme = old_value -> new_value'),
-                MockDomainAction('Add gsettings: font-size = 12'),
-            ]),
-            expected_prints=[
-                '# Update gsettings: theme = old_value -> new_value',
-                '# Add gsettings: font-size = 12',
-            ],
-        ),
-        'gsettings remove': RunDataset(
-            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(get_actions=[
-                MockDomainAction('Remove gsettings: font-size'),
-            ]),
-            expected_prints=[
-                '# Remove gsettings: font-size',
-            ],
-        ),
-        'dconf add and remove': RunDataset(
-            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(get_actions=[
-                MockDomainAction('Remove dconf: /path/to/key2'),
-                MockDomainAction(
-                    'Update dconf: /path/to/key1 = old_value -> new_value'),
-                MockDomainAction('Add dconf: /path/to/key3 = new_value3'),
-            ]),
-            expected_prints=[
-                '# Remove dconf: /path/to/key2',
-                '# Update dconf: /path/to/key1 = old_value -> new_value',
-                '# Add dconf: /path/to/key3 = new_value3',
-            ],
-        ),
-        'mixed domains': RunDataset(
-            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(get_actions=[
-                MockDomainAction(
-                    'Update gsettings: theme = old_value -> new_value'),
-                MockDomainAction('Add dconf: /path/to/key = dconf_value'),
-            ]),
-            expected_prints=[
-                '# Update gsettings: theme = old_value -> new_value',
-                '# Add dconf: /path/to/key = dconf_value',
-            ],
-        ),
-        'action failed and abort chosen': RunDataset(
-            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(
-                get_actions=[
-                    MockDomainAction('Add gsettings: font-size = 12'),
-                ],
-                failure_resolution=ApplyFailureResolution.ABORT,
+        'action failed and aborted': RunDataset(
+            fixture_result=RunActionsResult(
+                OLD_CONFIG,
+                ApplyFailureResolution.ABORT,
             ),
-            expected_prints=['# Add gsettings: font-size = 12'],
+            expected_written=[(OLD_CONFIG, OLD_PATH)],
             expected_next_command=None,
         ),
         'action failed and edit chosen': RunDataset(
-            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(
-                get_actions=[
-                    MockDomainAction('Add gsettings: font-size = 12'),
-                ],
-                failure_resolution=ApplyFailureResolution.EDIT,
+            fixture_result=RunActionsResult(
+                EMPTY_CONFIG,
+                ApplyFailureResolution.EDIT,
             ),
-            expected_prints=['# Add gsettings: font-size = 12'],
+            expected_written=[(EMPTY_CONFIG, OLD_PATH)],
             expected_next_command=EDIT_COMMAND,
         ),
+        'action failed without a resolution': RunDataset(
+            fixture_result=RunActionsResult(OLD_CONFIG),
+            expected_written=[(OLD_CONFIG, OLD_PATH)],
+            expected_next_command=None,
+        ),
     })
-    def test_run(
-        self,
-        dataset: RunDataset,
-    ) -> None:
+    def test_run_returns(self, dataset: RunDataset) -> None:
         """
-        Test that run executes the correct commands, produces expected output
-        and returns the next command for the chosen failure resolution.
+        Test that the resulting config is written to the old path and the
+        chosen failure resolution decides the next command.
         """
 
         # Arrange
+        manager = MockSystemManager[ApplyFailureResolution].default(
+            result=dataset.fixture_result,
+            old_config=OLD_CONFIG,
+            new_config=NEW_CONFIG,
+        )
+        config_writer = MockConfigWriter.create()
         apply_command = ApplyCommand(
-            manager=dataset.fixture_system_manager,
-            current_path=MockPath(
-                '/tmp/current.yaml',
-                is_file=False,
-                exists=False,
-            ),
-            new_path=fpath('/manual/new.yaml'),
-            config_writer=MockConfigWriter.create(),
+            manager=manager,
+            old_path=OLD_PATH,
+            new_path=NEW_PATH,
+            config_writer=config_writer,
             config_location_writer=CONFIG_LOCATION_WRITER,
             should_override_config_path=False,
             edit_command_factory=edit_command_factory,
@@ -410,94 +433,69 @@ class TestApplyCommand(TestCase):
 
         # Assert
         self.assertIs(dataset.expected_next_command, actual)
-        mock_print.assert_has_calls(
-            [call(p) for p in dataset.expected_prints],
-            any_order=False,
-        )
-
-    @dataclass
-    class WriteDataset:
-        fixture_system_manager: MockSystemManager[ApplyFailureResolution]
-        input_current_path: MockPath
-
-    @datasets({
-        'no changes still writes the current config': WriteDataset(
-            fixture_system_manager=MockSystemManager[ApplyFailureResolution]
-            .default(get_actions=[]),
-            input_current_path=MockPath(
-                '/config/.history/current.yaml', is_file=False, exists=False),
-        ),
-        'changes are written after the actions run': WriteDataset(
-            fixture_system_manager=MockSystemManager[ApplyFailureResolution].default(get_actions=[
-                MockDomainAction('Add gsettings: font-size = 12'),
-            ]),
-            input_current_path=MockPath(
-                '/config/.history/current.yaml', is_file=True, exists=True),
-        ),
-    })
-    def test_run_writes_the_current_config(self, dataset: WriteDataset) -> None:
-        """Test that the resulting config is written to the current path."""
-
-        # Arrange
-        config_writer = MockConfigWriter.create()
-
-        apply_command = ApplyCommand(
-            manager=dataset.fixture_system_manager,
-            current_path=dataset.input_current_path,
-            new_path=fpath('/manual/new.yaml'),
-            config_writer=config_writer,
-            config_location_writer=CONFIG_LOCATION_WRITER,
-            should_override_config_path=False,
-            edit_command_factory=edit_command_factory,
-        )
-
-        # Act
-        with patch('builtins.print'):
-            apply_command.run()
-
-        # Assert
-        expected_written = [(
-            dataset.fixture_system_manager.new_config,
-            dataset.input_current_path,
-        )]
-        self.assertEqual(config_writer.written, expected_written)
+        self.assertEqual(manager.run_actions_calls, 1)
+        self.assertEqual(config_writer.written, dataset.expected_written)
+        mock_print.assert_not_called()
 
     @dataclass
     class WriteFailureDataset:
         fixture_exception: Exception
-        fixture_serialized_config: str
-        input_current_path: MockPath
+        input_old_path: MockPath
         expected_print_calls: list[Any]
 
     @datasets({
         'permission denied': WriteFailureDataset(
             fixture_exception=PermissionError('Permission denied'),
-            fixture_serialized_config='version: 1\nconfig: []\n',
-            input_current_path=MockPath(
-                '/config/.history/current.yaml', is_file=False, exists=False),
+            input_old_path=MockPath('/config/.history/current.yaml'),
             expected_print_calls=[
-                call('Current System Configuration:'),
-                call('version: 1\nconfig: []\n'),
+                call('Failed to write current system configuration to file!'),
+                call('Permission denied'),
                 call(),
                 call('The changes were successfully applied to the system, '
-                     + 'but an error occurred while writing the updated current configuration file:'),
-                call('Permission denied'),
+                     + 'but an error occurred while writing the updated configuration file.'),
+                call(),
+                call('Current System Configuration:'),
+                call('```'),
+                call(dedent('''\
+                    version: '1'
+                    system-config-manager:
+                      editor: null
+                    before:
+                    - echo new
+                    after: []
+                    config: []
+                    domains: {}
+                    ''')),
+                call('```'),
+                call(),
                 call('Please copy the above configuration and save it to '
                      + '/config/.history/current.yaml.'),
             ],
         ),
         'directory missing': WriteFailureDataset(
             fixture_exception=OSError('No such file or directory'),
-            fixture_serialized_config='version: 1\n',
-            input_current_path=MockPath(
-                '/missing/current.yaml', is_file=False, exists=False),
+            input_old_path=MockPath('/missing/current.yaml'),
             expected_print_calls=[
-                call('Current System Configuration:'),
-                call('version: 1\n'),
+                call('Failed to write current system configuration to file!'),
+                call('No such file or directory'),
                 call(),
                 call('The changes were successfully applied to the system, '
-                     + 'but an error occurred while writing the updated current configuration file:'),
-                call('No such file or directory'),
+                     + 'but an error occurred while writing the updated configuration file.'),
+                call(),
+                call('Current System Configuration:'),
+                call('```'),
+                call(dedent('''\
+                    version: '1'
+                    system-config-manager:
+                      editor: null
+                    before:
+                    - echo new
+                    after: []
+                    config: []
+                    domains: {}
+                    ''')),
+                call('```'),
+                call(),
                 call('Please copy the above configuration and save it to '
                      + '/missing/current.yaml.'),
             ],
@@ -510,22 +508,20 @@ class TestApplyCommand(TestCase):
         """Test that a failed write prints the config for the user to save."""
 
         # Arrange
-        mock_serializer = MagicMock()
-        mock_serializer.get_serialized_data.return_value = \
-            dataset.fixture_serialized_config
-        mock_file_writer = MagicMock()
-        mock_file_writer.write_file_contents.side_effect = dataset.fixture_exception
+        file_writer = MagicMock()
+        file_writer.write_file_contents.side_effect = dataset.fixture_exception
+        system_config_renderer = SystemConfigRenderer()
+        yaml_serializer = YamlSerializer()
         config_writer = ConfigWriter(
-            system_config_renderer=MagicMock(),
-            yaml_serializer=mock_serializer,
-            file_writer=mock_file_writer,
+            system_config_renderer=system_config_renderer,
+            yaml_serializer=yaml_serializer,
+            file_writer=file_writer,
         )
-
+        manager = make_manager()
         apply_command = ApplyCommand(
-            manager=MockSystemManager[ApplyFailureResolution]
-            .default(get_actions=[]),
-            current_path=dataset.input_current_path,
-            new_path=fpath('/manual/new.yaml'),
+            manager=manager,
+            old_path=dataset.input_old_path,
+            new_path=NEW_PATH,
             config_writer=config_writer,
             config_location_writer=CONFIG_LOCATION_WRITER,
             should_override_config_path=False,
@@ -534,12 +530,13 @@ class TestApplyCommand(TestCase):
 
         # Act
         with patch('builtins.print') as mock_print:
-            apply_command.run()
+            actual = apply_command.run()
 
         # Assert
-        mock_print.assert_has_calls(
+        self.assertIsNone(actual)
+        self.assertEqual(
+            mock_print.call_args_list,
             dataset.expected_print_calls,
-            any_order=False,
         )
 
     @dataclass
@@ -551,7 +548,7 @@ class TestApplyCommand(TestCase):
         expected_written_files: dict[str, str]
 
     @datasets({
-        'path given and nothing recorded': RecordConfigLocationDataset(
+        'override and nothing recorded': RecordConfigLocationDataset(
             fixture_defaults=MockDefaults(
                 config_location_path=MockPath('/config/config'),
             ),
@@ -559,21 +556,29 @@ class TestApplyCommand(TestCase):
             input_should_override_config_path=True,
             expected_prints=[
                 'Saved "/manual/new.yaml" as your config location',
-                '# No changes required.',
             ],
             expected_written_files={
                 '/config/config': '/manual/new.yaml\n',
             },
         ),
-        'no path given': RecordConfigLocationDataset(
+        'override and same location recorded': RecordConfigLocationDataset(
+            fixture_defaults=MockDefaults(
+                config_location_path=fpath('/config/config'),
+            ),
+            fixture_file_reader=MockFileReader({
+                '/config/config': '/manual/new.yaml\n',
+            }),
+            input_should_override_config_path=True,
+            expected_prints=[],
+            expected_written_files={},
+        ),
+        'no override': RecordConfigLocationDataset(
             fixture_defaults=MockDefaults(
                 config_location_path=MockPath('/config/config'),
             ),
             fixture_file_reader=MockFileReader({}),
             input_should_override_config_path=False,
-            expected_prints=[
-                '# No changes required.',
-            ],
+            expected_prints=[],
             expected_written_files={},
         ),
         'recorded location is a directory': RecordConfigLocationDataset(
@@ -582,9 +587,7 @@ class TestApplyCommand(TestCase):
             ),
             fixture_file_reader=MockFileReader({}),
             input_should_override_config_path=True,
-            expected_prints=[
-                '# No changes required.',
-            ],
+            expected_prints=[],
             expected_written_files={},
         ),
     })
@@ -596,17 +599,19 @@ class TestApplyCommand(TestCase):
 
         # Arrange
         location_file_writer = MockFileWriter()
+        manager = make_manager()
+        config_writer = MockConfigWriter.create()
+        config_location_writer = ConfigLocationWriter(
+            dataset.fixture_defaults,
+            dataset.fixture_file_reader,
+            location_file_writer,
+        )
         apply_command = ApplyCommand(
-            manager=MockSystemManager[ApplyFailureResolution]
-            .default(get_actions=[]),
-            current_path=MockPath('/config/.history/current.yaml'),
-            new_path=fpath('/manual/new.yaml'),
-            config_writer=MockConfigWriter.create(),
-            config_location_writer=ConfigLocationWriter(
-                dataset.fixture_defaults,
-                dataset.fixture_file_reader,
-                location_file_writer,
-            ),
+            manager=manager,
+            old_path=OLD_PATH,
+            new_path=NEW_PATH,
+            config_writer=config_writer,
+            config_location_writer=config_location_writer,
             should_override_config_path=dataset.input_should_override_config_path,
             edit_command_factory=edit_command_factory,
         )
@@ -617,8 +622,8 @@ class TestApplyCommand(TestCase):
 
         # Assert
         self.assertEqual(
-            [c.args[0] for c in mock_print.call_args_list],
-            dataset.expected_prints,
+            mock_print.call_args_list,
+            [call(text) for text in dataset.expected_prints],
         )
         self.assertEqual(
             location_file_writer.written_files,
@@ -628,166 +633,82 @@ class TestApplyCommand(TestCase):
     @dataclass
     class EqualityDataset:
         input_command: ApplyCommand
-        input_other: Any
+        input_other: object
         expected_equal: bool
 
     @datasets({
-        'same collaborators and path': EqualityDataset(
-            input_command=ApplyCommand(
-                manager=MockSystemManager[ApplyFailureResolution].default(),
-                current_path=fpath('/config/current.yaml'),
-                new_path=fpath('/manual/new.yaml'),
-                config_writer=CONFIG_WRITER,
-                config_location_writer=CONFIG_LOCATION_WRITER,
-                should_override_config_path=False,
-                edit_command_factory=edit_command_factory,
-            ),
-            input_other=ApplyCommand(
-                manager=MockSystemManager[ApplyFailureResolution].default(),
-                current_path=fpath('/config/current.yaml'),
-                new_path=fpath('/manual/new.yaml'),
-                config_writer=CONFIG_WRITER,
-                config_location_writer=CONFIG_LOCATION_WRITER,
-                should_override_config_path=False,
-                edit_command_factory=edit_command_factory,
-            ),
+        'same collaborators and paths': EqualityDataset(
+            input_command=make_apply_command(),
+            input_other=make_apply_command(),
             expected_equal=True,
         ),
-        'different current path': EqualityDataset(
-            input_command=ApplyCommand(
-                manager=MockSystemManager[ApplyFailureResolution].default(),
-                current_path=fpath('/config/current.yaml'),
-                new_path=fpath('/manual/new.yaml'),
-                config_writer=CONFIG_WRITER,
-                config_location_writer=CONFIG_LOCATION_WRITER,
-                should_override_config_path=False,
-                edit_command_factory=edit_command_factory,
-            ),
-            input_other=ApplyCommand(
-                manager=MockSystemManager[ApplyFailureResolution].default(),
-                current_path=fpath('/other/current.yaml'),
-                new_path=fpath('/manual/new.yaml'),
-                config_writer=CONFIG_WRITER,
-                config_location_writer=CONFIG_LOCATION_WRITER,
-                should_override_config_path=False,
-                edit_command_factory=edit_command_factory,
+        'different old path': EqualityDataset(
+            input_command=make_apply_command(),
+            input_other=make_apply_command(
+                old_path=Path('/other/current.yaml'),
             ),
             expected_equal=False,
         ),
         'different new path': EqualityDataset(
-            input_command=ApplyCommand(
-                manager=MockSystemManager[ApplyFailureResolution].default(),
-                current_path=fpath('/config/current.yaml'),
-                new_path=fpath('/manual/new.yaml'),
-                config_writer=CONFIG_WRITER,
-                config_location_writer=CONFIG_LOCATION_WRITER,
-                should_override_config_path=False,
-                edit_command_factory=edit_command_factory,
-            ),
-            input_other=ApplyCommand(
-                manager=MockSystemManager[ApplyFailureResolution].default(),
-                current_path=fpath('/config/current.yaml'),
-                new_path=fpath('/manual/other.yaml'),
-                config_writer=CONFIG_WRITER,
-                config_location_writer=CONFIG_LOCATION_WRITER,
-                should_override_config_path=False,
-                edit_command_factory=edit_command_factory,
-            ),
+            input_command=make_apply_command(),
+            input_other=make_apply_command(new_path=Path('/other/new.yaml')),
             expected_equal=False,
         ),
         'different manager configs': EqualityDataset(
-            input_command=ApplyCommand(
-                manager=MockSystemManager[ApplyFailureResolution].default(),
-                current_path=fpath('/config/current.yaml'),
-                new_path=fpath('/manual/new.yaml'),
-                config_writer=CONFIG_WRITER,
-                config_location_writer=CONFIG_LOCATION_WRITER,
-                should_override_config_path=False,
-                edit_command_factory=edit_command_factory,
-            ),
-            input_other=ApplyCommand(
-                manager=MockSystemManager[ApplyFailureResolution].default(
-                    new_config=SystemConfig.create_from_entries(
-                        before_actions=(ShellAction('echo hi'),),
-                        after_actions=(),
-                        config_entries=(),
-                        user_domains=(),
-                    ),
-                ),
-                current_path=fpath('/config/current.yaml'),
-                new_path=fpath('/manual/new.yaml'),
-                config_writer=CONFIG_WRITER,
-                config_location_writer=CONFIG_LOCATION_WRITER,
-                should_override_config_path=False,
-                edit_command_factory=edit_command_factory,
-            ),
+            input_command=make_apply_command(),
+            input_other=make_apply_command(old_config=EMPTY_CONFIG),
             expected_equal=False,
         ),
-        'different renderer instance': EqualityDataset(
-            input_command=ApplyCommand(
-                manager=MockSystemManager[ApplyFailureResolution].default(),
-                current_path=fpath('/config/current.yaml'),
-                new_path=fpath('/manual/new.yaml'),
-                config_writer=CONFIG_WRITER,
-                config_location_writer=CONFIG_LOCATION_WRITER,
-                should_override_config_path=False,
-                edit_command_factory=edit_command_factory,
-            ),
-            input_other=ApplyCommand(
-                manager=MockSystemManager[ApplyFailureResolution].default(),
-                current_path=fpath('/config/current.yaml'),
-                new_path=fpath('/manual/new.yaml'),
+        'different config writer': EqualityDataset(
+            input_command=make_apply_command(),
+            input_other=make_apply_command(
                 config_writer=ConfigWriter(
                     system_config_renderer=SystemConfigRenderer(),
                     yaml_serializer=SERIALIZER,
                     file_writer=FILE_WRITER,
                 ),
-                config_location_writer=CONFIG_LOCATION_WRITER,
-                should_override_config_path=False,
-                edit_command_factory=edit_command_factory,
             ),
             expected_equal=False,
         ),
-        'different config path argument': EqualityDataset(
-            input_command=ApplyCommand(
-                manager=MockSystemManager[ApplyFailureResolution].default(),
-                current_path=fpath('/config/current.yaml'),
-                new_path=fpath('/manual/new.yaml'),
-                config_writer=CONFIG_WRITER,
-                config_location_writer=CONFIG_LOCATION_WRITER,
-                should_override_config_path=False,
-                edit_command_factory=edit_command_factory,
-            ),
-            input_other=ApplyCommand(
-                manager=MockSystemManager[ApplyFailureResolution].default(),
-                current_path=fpath('/config/current.yaml'),
-                new_path=fpath('/manual/new.yaml'),
-                config_writer=CONFIG_WRITER,
-                config_location_writer=CONFIG_LOCATION_WRITER,
-                should_override_config_path=True,
-                edit_command_factory=edit_command_factory,
-            ),
+        'different config path override': EqualityDataset(
+            input_command=make_apply_command(),
+            input_other=make_apply_command(should_override_config_path=True),
             expected_equal=False,
         ),
-        'not equal to a string': EqualityDataset(
-            input_command=ApplyCommand(
-                manager=MockSystemManager[ApplyFailureResolution].default(),
-                current_path=fpath('/config/current.yaml'),
-                new_path=fpath('/manual/new.yaml'),
-                config_writer=CONFIG_WRITER,
-                config_location_writer=CONFIG_LOCATION_WRITER,
-                should_override_config_path=False,
-                edit_command_factory=edit_command_factory,
-            ),
+        'not an apply command': EqualityDataset(
+            input_command=make_apply_command(),
             input_other='apply',
             expected_equal=False,
         ),
     })
     def test_equality(self, dataset: EqualityDataset) -> None:
-        """Test that commands compare by manager, path and collaborators."""
+        """Test that commands compare by manager, paths and collaborators."""
 
         # Act & Assert
         if dataset.expected_equal:
             self.assertEqual(dataset.input_command, dataset.input_other)
         else:
             self.assertNotEqual(dataset.input_command, dataset.input_other)
+
+    def test_equality_ignores_the_edit_command_factory(self) -> None:
+        """Test that the edit command factory is not compared."""
+
+        # Arrange
+        manager = make_manager()
+
+        def other_edit_command_factory() -> EditCommand:
+            return EDIT_COMMAND
+
+        command = make_apply_command()
+        other = ApplyCommand(
+            manager=manager,
+            old_path=OLD_PATH,
+            new_path=NEW_PATH,
+            config_writer=CONFIG_WRITER,
+            config_location_writer=CONFIG_LOCATION_WRITER,
+            should_override_config_path=False,
+            edit_command_factory=other_edit_command_factory,
+        )
+
+        # Act & Assert
+        self.assertEqual(command, other)

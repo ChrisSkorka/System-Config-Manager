@@ -18,7 +18,7 @@ from sysconf.config.actions import ShellAction
 from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
 from sysconf.config.settings import ToolSettings
-from sysconf.config.system_config import SystemConfig
+from sysconf.config.system_config import RunActionsResult, SystemConfig
 from sysconf.system.editor import EditResult, EditorLauncher, EditorResolver
 from sysconf.system.file import FileReader
 from sysconf.utils.config_loader import ConfigReader
@@ -152,7 +152,9 @@ def unexpected_apply_command_factory() -> ApplyCommand:
 def make_apply_command() -> ApplyCommand:
     """Build an apply command for the edited config."""
 
+    result = RunActionsResult[ApplyFailureResolution](NEW_CONFIG)
     manager = MockSystemManager[ApplyFailureResolution].default(
+        result=result,
         old_config=OLD_CONFIG,
         new_config=NEW_CONFIG,
     )
@@ -161,14 +163,14 @@ def make_apply_command() -> ApplyCommand:
     file_reader = MockFileReader({})
     file_writer = MockFileWriter()
     config_location_writer = ConfigLocationWriter(
-        defaults,
-        file_reader,
-        file_writer,
+        defaults=defaults,
+        file_reader=file_reader,
+        file_writer=file_writer,
     )
 
     return ApplyCommand(
         manager=manager,
-        current_path=OLD_PATH,
+        old_path=OLD_PATH,
         new_path=NEW_PATH,
         config_writer=config_writer,
         config_location_writer=config_location_writer,
@@ -366,8 +368,8 @@ class TestEditCommand(TestCase):
             actual_apply_command.manager,
         )
         self.assertEqual(
-            expected_apply_command.current_path,
-            actual_apply_command.current_path,
+            expected_apply_command.old_path,
+            actual_apply_command.old_path,
         )
         self.assertEqual(
             expected_apply_command.new_path,
@@ -538,10 +540,13 @@ class TestEditCommand(TestCase):
             old_config=dataset.fixture_old_config,
             new_config=dataset.fixture_new_config,
         )
+        which = MockWhich(PATHS_BY_NAME)
+        editor_resolver = EditorResolver('linux', which)
         edit_results = (EditResult.CLOSED,)
         editor_launcher = MockEditorLauncher(edit_results)
 
-        preview_manager = MockSystemManager[None].default()
+        preview_result = RunActionsResult[None](NEW_CONFIG)
+        preview_manager = MockSystemManager[None].default(result=preview_result)
         system_config_renderer = SystemConfigRenderer()
         yaml_serializer = YamlSerializer()
         preview_command = PreviewCommand(
@@ -550,10 +555,8 @@ class TestEditCommand(TestCase):
             yaml_serializer=yaml_serializer,
         )
         apply_command = make_apply_command()
-        preview_commands: list[PreviewCommand] = []
 
         def preview_command_factory() -> PreviewCommand:
-            preview_commands.append(preview_command)
             return preview_command
 
         def apply_command_factory() -> ApplyCommand:
@@ -563,7 +566,7 @@ class TestEditCommand(TestCase):
             config_reader=config_reader,
             old_path=OLD_PATH,
             new_path=NEW_PATH,
-            editor_resolver=EDITOR_RESOLVER,
+            editor_resolver=editor_resolver,
             editor_launcher=editor_launcher,
             preview_command_factory=preview_command_factory,
             apply_command_factory=apply_command_factory,
@@ -591,7 +594,10 @@ class TestEditCommand(TestCase):
             mock_input.call_count,
             len(dataset.fixture_user_inputs),
         )
-        self.assertEqual(len(preview_commands), dataset.expected_preview_runs)
+        self.assertEqual(
+            preview_manager.run_actions_calls,
+            dataset.expected_preview_runs,
+        )
         for expected_print in dataset.expected_prints:
             self.assertIn(call(expected_print), mock_print.call_args_list)
 

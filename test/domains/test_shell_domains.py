@@ -171,7 +171,9 @@ class TestShellScriptTemplate(TestCase):
             expected_script='sudo apt install -y git',
         ),
         'repeated variable': InterpolateDataset(
-            input_template=ShellScriptTemplate('rm -f $key; ln -sf $value $key'),
+            input_template=ShellScriptTemplate(
+                'rm -f $key; ln -sf $value $key',
+            ),
             input_variables={'$key': '~/.bashrc', '$value': './bashrc'},
             expected_script='rm -f ~/.bashrc; ln -sf ./bashrc ~/.bashrc',
         ),
@@ -181,12 +183,17 @@ class TestShellScriptTemplate(TestCase):
             expected_script='echo a b a',
         ),
         'old and new value': InterpolateDataset(
-            input_template=ShellScriptTemplate('echo "$old_value -> $new_value"'),
+            input_template=ShellScriptTemplate(
+                'echo "$old_value -> $new_value"',
+            ),
             input_variables={'$old_value': 'v1', '$new_value': 'v2'},
             expected_script='echo "v1 -> v2"',
         ),
         'multiline script': InterpolateDataset(
-            input_template=ShellScriptTemplate('rm -f $key;\nln -sf $value $key;'),
+            input_template=ShellScriptTemplate(
+                'rm -f $key;\n'
+                'ln -sf $value $key;',
+            ),
             input_variables={'$key': '/tmp/a', '$value': '/tmp/b'},
             expected_script='rm -f /tmp/a;\nln -sf /tmp/b /tmp/a;',
         ),
@@ -266,7 +273,10 @@ class TestShellAddAction(TestCase):
         action.run(executor)
 
         # Assert
-        self.assertEqual(action.get_description(), dataset.expected_description)
+        self.assertEqual(
+            action.get_description(),
+            dataset.expected_description,
+        )
         self.assertIsNone(action.get_old_entry())
         self.assertEqual(action.get_new_entry(), action.new_entry)
 
@@ -394,7 +404,10 @@ class TestShellUpdateAction(TestCase):
         action.run(executor)
 
         # Assert
-        self.assertEqual(action.get_description(), dataset.expected_description)
+        self.assertEqual(
+            action.get_description(),
+            dataset.expected_description,
+        )
         self.assertEqual(action.get_old_entry(), action.old_entry)
         self.assertEqual(action.get_new_entry(), action.new_entry)
 
@@ -508,7 +521,10 @@ class TestShellRemoveAction(TestCase):
         action.run(executor)
 
         # Assert
-        self.assertEqual(action.get_description(), dataset.expected_description)
+        self.assertEqual(
+            action.get_description(),
+            dataset.expected_description,
+        )
         self.assertEqual(action.get_old_entry(), action.old_entry)
         self.assertIsNone(action.get_new_entry())
 
@@ -605,7 +621,10 @@ class TestCreateListShellDomain(TestCase):
         'add with a keyed path': FactoryDataset(
             fixture_domain=USER_GROUPS_DOMAIN,
             input_old_entry=None,
-            input_new_entry=list_entry(USER_GROUPS_DOMAIN, ('alice',), 'docker'),
+            input_new_entry=list_entry(
+                USER_GROUPS_DOMAIN,
+                ('alice',), 'docker',
+            ),
             expected_action=ShellAddAction(
                 'user-groups',
                 list_entry(USER_GROUPS_DOMAIN, ('alice',), 'docker'),
@@ -649,7 +668,11 @@ class TestCreateMapShellDomain(TestCase):
         'add': FactoryDataset(
             fixture_domain=GIT_CONFIG_DOMAIN,
             input_old_entry=None,
-            input_new_entry=map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
+            input_new_entry=map_entry(
+                GIT_CONFIG_DOMAIN,
+                ('user.email',),
+                'a@b.com',
+            ),
             expected_action=ShellAddAction(
                 'git-config-global',
                 map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
@@ -659,8 +682,16 @@ class TestCreateMapShellDomain(TestCase):
         ),
         'update': FactoryDataset(
             fixture_domain=GIT_CONFIG_DOMAIN,
-            input_old_entry=map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
-            input_new_entry=map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'c@d.com'),
+            input_old_entry=map_entry(
+                GIT_CONFIG_DOMAIN,
+                ('user.email',),
+                'a@b.com',
+            ),
+            input_new_entry=map_entry(
+                GIT_CONFIG_DOMAIN,
+                ('user.email',),
+                'c@d.com',
+            ),
             expected_action=ShellUpdateAction(
                 'git-config-global',
                 map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
@@ -671,7 +702,11 @@ class TestCreateMapShellDomain(TestCase):
         ),
         'remove': FactoryDataset(
             fixture_domain=GIT_CONFIG_DOMAIN,
-            input_old_entry=map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
+            input_old_entry=map_entry(
+                GIT_CONFIG_DOMAIN,
+                ('user.email',),
+                'a@b.com',
+            ),
             input_new_entry=None,
             expected_action=ShellRemoveAction(
                 'git-config-global',

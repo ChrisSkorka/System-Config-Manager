@@ -1,8 +1,8 @@
 # pyright: strict
 
-from typing import Iterable, Sequence, TypeVar
+from typing import TypeVar
 from unittest.mock import MagicMock
-from sysconf.config.domains import DomainAction, NoDomainAction
+
 from sysconf.config.system_config import RunActionsResult, SystemConfig, SystemManager
 from sysconf.system.error_handler import ErrorHandler, FailureResolution
 from test.system.mock_system_executor import MockSystemExecutor
@@ -12,52 +12,53 @@ FR = TypeVar('FR', bound=FailureResolution | None)
 
 
 class MockSystemManager (SystemManager[FR]):
+    """
+    Returns the configured result from run_actions instead of planning and
+    running any actions.
+    """
+
+    @classmethod
+    def default(
+        cls,
+        result: RunActionsResult[FR] | None = None,
+        old_config: SystemConfig | None = None,
+        new_config: SystemConfig | None = None,
+    ) -> 'MockSystemManager[FR]':
+        """Create a manager, defaulting both configs to empty configs."""
+
+        empty_config = SystemConfig.create_from_entries((), (), (), ())
+        old_config = old_config or empty_config
+        new_config = new_config or empty_config
+        executor = MockSystemExecutor()
+        error_handler: ErrorHandler[FR] = MagicMock(spec=ErrorHandler)
+        result = result or RunActionsResult[FR](new_config)
+
+        return cls(
+            old_config=old_config,
+            new_config=new_config,
+            executor=executor,
+            error_handler=error_handler,
+            result=result,
+        )
 
     def __init__(
         self,
         old_config: SystemConfig,
         new_config: SystemConfig,
-        get_actions: Sequence[DomainAction] | None = None,
-        failure_resolution: FR | None = None,
+        executor: MockSystemExecutor,
+        error_handler: ErrorHandler[FR],
+        result: RunActionsResult[FR],
     ) -> None:
-        mock_error_handler: ErrorHandler[FR] = MagicMock(spec=ErrorHandler)
-
         super().__init__(
             old_config=old_config,
             new_config=new_config,
-            executor=MockSystemExecutor(),
-            error_handler=mock_error_handler,
+            executor=executor,
+            error_handler=error_handler,
         )
 
-        self._actions: list[DomainAction] = list(get_actions or [])
-        self._failure_resolution = failure_resolution
-
-    def get_domain_actions(self) -> Iterable[DomainAction]:
-        return self._actions
+        self.result = result
+        self.run_actions_calls = 0
 
     def run_actions(self) -> RunActionsResult[FR]:
-        actions = list(self.get_domain_actions())
-        has_non_noop = any(not isinstance(a, NoDomainAction) for a in actions)
-        if not has_non_noop:
-            print('# No changes required.')
-            return RunActionsResult(self.new_config)
-        for action in actions:
-            if not isinstance(action, NoDomainAction):
-                print(f'# {action.get_description()}')
-                action.run(self.executor)
-        return RunActionsResult(self.new_config, self._failure_resolution)
-
-    @classmethod
-    def default(
-        cls,
-        old_config: SystemConfig | None = None,
-        new_config: SystemConfig | None = None,
-        get_actions: Sequence[DomainAction] | None = None,
-        failure_resolution: FR | None = None,
-    ) -> 'MockSystemManager[FR]':
-
-        old_config = old_config or SystemConfig.create_from_entries(before_actions=(), after_actions=(), config_entries=(), user_domains=())
-        new_config = new_config or SystemConfig.create_from_entries(before_actions=(), after_actions=(), config_entries=(), user_domains=())
-        get_actions = get_actions or []
-
-        return cls(old_config=old_config, new_config=new_config, get_actions=get_actions, failure_resolution=failure_resolution)
+        self.run_actions_calls += 1
+        return self.result
