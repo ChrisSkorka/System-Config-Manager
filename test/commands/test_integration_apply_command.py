@@ -10,10 +10,10 @@ from unittest.mock import patch
 from sysconf.commands.apply_command import ApplyCommand
 from sysconf.system.executor import LiveSystemExecutor
 from sysconf.system.file import FileReader
+from sysconf.utils.context import Context
 from test.datasets import datasets
 from test.system.mock_subprocess import create_mock_run
 from test.test_case import TestCase
-from test.utils.mock_context import MockContext
 from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_file import MockFileReader, MockFileWriter
 from test.utils.mock_path import MockPath, dpath, fpath
@@ -410,7 +410,7 @@ class TestIntegrationApplyCommand (TestCase):
         )
         file_writer = MockFileWriter()
         system_executor = LiveSystemExecutor()
-        context = MockContext.create(
+        context = Context(
             defaults=defaults,
             file_reader=dataset.fixture_file_reader,
             file_writer=file_writer,
@@ -494,7 +494,7 @@ class TestIntegrationApplyCommand (TestCase):
             **dataset.fixture_location_files,
         })
         system_executor = LiveSystemExecutor()
-        context = MockContext.create(
+        context = Context(
             defaults=dataset.fixture_defaults,
             file_reader=file_reader,
             file_writer=file_writer,

@@ -11,11 +11,11 @@ from unittest.mock import patch
 from sysconf.cli import main
 from sysconf.system.executor import CommandException, SystemExecutor
 from sysconf.system.file import FileReader, FileWriter
+from sysconf.utils.context import Context
 from sysconf.utils.defaults import Defaults
 from test.datasets import datasets
 from test.system.mock_editor import MockWhich
 from test.test_case import TestCase
-from test.utils.mock_context import MockContext
 
 
 class DirectoryDefaults (Defaults):
@@ -412,7 +412,7 @@ class TestIntegrationEditCommand (TestCase):
                 failing_scripts=dataset.fixture_failing_scripts,
                 file_writer=file_writer,
             )
-            context = MockContext.create(
+            context = Context(
                 defaults=defaults,
                 file_reader=file_reader,
                 file_writer=file_writer,

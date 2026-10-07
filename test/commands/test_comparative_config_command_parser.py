@@ -6,11 +6,13 @@ from pathlib import Path
 
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
 from sysconf.system.file import FileReader
+from sysconf.utils.context import Context
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
+from test.system.mock_system_executor import MockSystemExecutor
 from test.test_case import TestCase
-from test.utils.mock_context import MockContext
 from test.utils.mock_defaults import MockDefaults
+from test.utils.mock_file import MockFileReader, MockFileWriter
 from test.utils.mock_path import MockPath, dpath, fpath
 
 
@@ -150,8 +152,15 @@ class TestComparativeConfigCommandParser(TestCase):
         """Test successful creation from arguments with various input combinations."""
 
         # Arrange
-        context = MockContext.create(defaults=dataset.fixture_defaults)
-        file_reader = context.get_file_reader()
+        file_reader = MockFileReader({})
+        file_writer = MockFileWriter()
+        system_executor = MockSystemExecutor()
+        context = Context(
+            defaults=dataset.fixture_defaults,
+            file_reader=file_reader,
+            file_writer=file_writer,
+            system_executor=system_executor,
+        )
         expected = ComparativeConfigCommandParser(
             old_path=dataset.expected_old_path,
             new_path=dataset.expected_new_path,
@@ -275,7 +284,15 @@ class TestComparativeConfigCommandParser(TestCase):
         """Test that various config loading errors are properly propagated."""
 
         # Arrange
-        context = MockContext.create(defaults=dataset.fixture_defaults)
+        file_reader = MockFileReader({})
+        file_writer = MockFileWriter()
+        system_executor = MockSystemExecutor()
+        context = Context(
+            defaults=dataset.fixture_defaults,
+            file_reader=file_reader,
+            file_writer=file_writer,
+            system_executor=system_executor,
+        )
 
         # Act & Expect
         with self.assertRaises(ValidationError) as error_context:

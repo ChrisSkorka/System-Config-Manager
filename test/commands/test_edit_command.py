@@ -23,6 +23,7 @@ from sysconf.system.editor import EditResult, EditorLauncher, EditorResolver
 from sysconf.system.file import FileReader
 from sysconf.utils.config_loader import ConfigReader
 from sysconf.utils.config_location import ConfigLocationWriter
+from sysconf.utils.context import Context
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
 from test.system.mock_editor import MockEditorLauncher, MockWhich
@@ -30,7 +31,6 @@ from test.system.mock_system_executor import MockRaisingSystemExecutor, MockSyst
 from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
 from test.utils.mock_config_writer import MockConfigWriter
-from test.utils.mock_context import MockContext
 from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_file import MockFileReader, MockFileWriter
 from test.utils.mock_path import MockPath, dpath, fpath
@@ -331,9 +331,11 @@ class TestEditCommand(TestCase):
         # Arrange
         file_reader = MockFileReader(dataset.fixture_files)
         system_executor = MockSystemExecutor()
-        context = MockContext.create(
+        file_writer = MockFileWriter()
+        context = Context(
             defaults=dataset.fixture_defaults,
             file_reader=file_reader,
+            file_writer=file_writer,
             system_executor=system_executor,
         )
         config_reader = ConfigReader(file_reader)

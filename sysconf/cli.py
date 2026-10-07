@@ -21,6 +21,9 @@ if True:  # prevent formatter from re-ordering these imports
     from sysconf.commands.edit_command import EditCommand
     from sysconf.commands.preview_command import PreviewCommand
     from sysconf.commands.show_command import ShowCommand
+    from sysconf.system.executor import LiveSystemExecutor
+    from sysconf.system.file import FileReader, FileWriter
+    from sysconf.utils.defaults import Defaults
     from sysconf.utils.validation import ValidationError
 
 """
@@ -60,7 +63,16 @@ def main() -> None:
         parser.print_help()
         return
 
-    context = Context()
+    defaults = Defaults()
+    file_reader = FileReader()
+    file_writer = FileWriter()
+    system_executor = LiveSystemExecutor()
+    context = Context(
+        defaults=defaults,
+        file_reader=file_reader,
+        file_writer=file_writer,
+        system_executor=system_executor,
+    )
 
     try:
         command: Command | None = commands[commands_name].create_from_arguments(

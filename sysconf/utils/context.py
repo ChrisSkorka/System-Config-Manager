@@ -1,20 +1,33 @@
 # pyright: strict
 
-from sysconf.system.executor import LiveSystemExecutor, SystemExecutor
+from sysconf.system.executor import SystemExecutor
 from sysconf.system.file import FileReader, FileWriter
 from sysconf.utils.defaults import Defaults
 
 
 class Context:
+    """Provide the collaborators commands use to interact with the system."""
+
+    def __init__(
+        self,
+        defaults: Defaults,
+        file_reader: FileReader,
+        file_writer: FileWriter,
+        system_executor: SystemExecutor,
+    ) -> None:
+        self.defaults = defaults
+        self.file_reader = file_reader
+        self.file_writer = file_writer
+        self.system_executor = system_executor
 
     def get_defaults(self) -> Defaults:
-        return Defaults()
+        return self.defaults
 
     def get_file_reader(self) -> FileReader:
-        return FileReader()
+        return self.file_reader
 
     def get_file_writer(self) -> FileWriter:
-        return FileWriter()
+        return self.file_writer
 
     def get_system_executor(self) -> SystemExecutor:
-        return LiveSystemExecutor()
+        return self.system_executor

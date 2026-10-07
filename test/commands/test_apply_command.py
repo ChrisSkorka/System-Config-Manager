@@ -19,18 +19,20 @@ from sysconf.system.executor import CommandException
 from sysconf.system.file import FileWriter
 from sysconf.utils.config_location import ConfigLocationWriter
 from sysconf.utils.config_writer import ConfigWriter
+from sysconf.utils.context import Context
 from test.datasets import datasets
+from test.system.mock_system_executor import MockSystemExecutor
 from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
 from test.utils.mock_config_writer import MockConfigWriter
-from test.utils.mock_context import MockContext
+from test.utils.mock_context import mock_context
 from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_file import MockFileReader, MockFileWriter
 from test.utils.mock_path import MockPath, dpath, fpath
 
 
 def edit_command_factory() -> EditCommand:
-    context = MockContext.create()
+    context = mock_context()
     old_path = fpath('/config/.history/current.yaml')
     new_path = fpath('/manual/new.yaml')
 
@@ -249,9 +251,13 @@ class TestApplyCommand(TestCase):
         """Test that the parsed paths are used to create the command."""
 
         # Arrange
-        context = MockContext.create(
+        file_writer = MockFileWriter()
+        system_executor = MockSystemExecutor()
+        context = Context(
             defaults=dataset.fixture_defaults,
             file_reader=dataset.fixture_file_reader,
+            file_writer=file_writer,
+            system_executor=system_executor,
         )
         expected = ApplyCommand.create_from_context(
             context=context,
@@ -339,8 +345,14 @@ class TestApplyCommand(TestCase):
         """
 
         # Arrange
-        context = MockContext.create(
+        defaults = MockDefaults()
+        file_writer = MockFileWriter()
+        system_executor = MockSystemExecutor()
+        context = Context(
+            defaults=defaults,
             file_reader=dataset.fixture_file_reader,
+            file_writer=file_writer,
+            system_executor=system_executor,
         )
         expected_manager = MockSystemManager[ApplyFailureResolution].default(
             old_config=dataset.expected_old_config,
@@ -440,7 +452,7 @@ class TestApplyCommand(TestCase):
                 fpath('/config/.history/current.yaml'),
             )],
             expected_next_command=EditCommand.create_from_context(
-                context=MockContext.create(),
+                context=mock_context(),
                 old_path=fpath('/config/.history/current.yaml'),
                 new_path=fpath('/manual/new.yaml'),
             ),

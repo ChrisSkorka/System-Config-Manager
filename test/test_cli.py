@@ -13,10 +13,10 @@ from sysconf.commands.command import Command
 from sysconf.commands.edit_command import EditCommand
 from sysconf.commands.preview_command import PreviewCommand
 from sysconf.commands.show_command import ShowCommand
-from sysconf.utils.context import Context
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
 from test.test_case import TestCase
+from test.utils.mock_context import mock_context
 
 
 class TestMain(TestCase):
@@ -119,7 +119,7 @@ class TestMain(TestCase):
         """Test that the sub command is parsed, constructed and run."""
 
         # Arrange
-        context = Context()
+        context = mock_context()
         mock_command = MagicMock()
         mock_command.run.return_value = None
 

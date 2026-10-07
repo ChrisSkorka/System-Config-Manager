@@ -11,13 +11,13 @@ from sysconf.config.actions import ShellAction
 from sysconf.config.system_config import RunActionsResult, SystemConfig, SystemManager
 from sysconf.system.error_handler import FailingErrorHandler
 from sysconf.system.executor import PreviewSystemExecutor
+from sysconf.utils.context import Context
 from test.datasets import datasets
 from test.system.mock_system_executor import MockSystemExecutor
 from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
-from test.utils.mock_context import MockContext
 from test.utils.mock_defaults import MockDefaults
-from test.utils.mock_file import MockFileReader
+from test.utils.mock_file import MockFileReader, MockFileWriter
 from test.utils.mock_path import MockPath, fpath
 
 
@@ -154,9 +154,13 @@ class TestPreviewCommand(TestCase):
         """Test that the parsed paths are used to create the command."""
 
         # Arrange
-        context = MockContext.create(
+        file_writer = MockFileWriter()
+        system_executor = MockSystemExecutor()
+        context = Context(
             defaults=dataset.fixture_defaults,
             file_reader=dataset.fixture_file_reader,
+            file_writer=file_writer,
+            system_executor=system_executor,
         )
         expected = PreviewCommand.create_from_context(
             context=context,
@@ -227,8 +231,14 @@ class TestPreviewCommand(TestCase):
         """Test that both configs are loaded into a manager that only previews."""
 
         # Arrange
-        context = MockContext.create(
+        defaults = MockDefaults()
+        file_writer = MockFileWriter()
+        system_executor = MockSystemExecutor()
+        context = Context(
+            defaults=defaults,
             file_reader=dataset.fixture_file_reader,
+            file_writer=file_writer,
+            system_executor=system_executor,
         )
         executor = MockSystemExecutor()
         error_handler = FailingErrorHandler()

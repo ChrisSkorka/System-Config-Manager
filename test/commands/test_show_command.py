@@ -7,12 +7,13 @@ from textwrap import dedent
 from unittest.mock import call, patch
 
 from sysconf.commands.show_command import ShowCommand
+from sysconf.utils.context import Context
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
+from test.system.mock_system_executor import MockSystemExecutor
 from test.test_case import TestCase
-from test.utils.mock_context import MockContext
 from test.utils.mock_defaults import MockDefaults
-from test.utils.mock_file import MockFileReader
+from test.utils.mock_file import MockFileReader, MockFileWriter
 from test.utils.mock_path import MockPath, dpath, fpath
 
 
@@ -109,7 +110,15 @@ class TestShowCommand(TestCase):
         """Test creation from arguments, falling back to the default path."""
 
         # Arrange
-        context = MockContext.create(defaults=dataset.fixture_defaults)
+        file_reader = MockFileReader({})
+        file_writer = MockFileWriter()
+        system_executor = MockSystemExecutor()
+        context = Context(
+            defaults=dataset.fixture_defaults,
+            file_reader=file_reader,
+            file_writer=file_writer,
+            system_executor=system_executor,
+        )
 
         # Act
         actual = ShowCommand.create_from_arguments(
@@ -154,7 +163,15 @@ class TestShowCommand(TestCase):
         """Test that a missing or invalid config path is rejected."""
 
         # Arrange
-        context = MockContext.create(defaults=dataset.fixture_defaults)
+        file_reader = MockFileReader({})
+        file_writer = MockFileWriter()
+        system_executor = MockSystemExecutor()
+        context = Context(
+            defaults=dataset.fixture_defaults,
+            file_reader=file_reader,
+            file_writer=file_writer,
+            system_executor=system_executor,
+        )
 
         # Act & Assert
         with self.assertRaises(ValidationError) as error_context:
