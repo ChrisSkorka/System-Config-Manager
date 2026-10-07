@@ -1,21 +1,20 @@
 
 # pyright: strict
 
+from pathlib import PurePath
+
 from sysconf.utils.defaults import Defaults
-from test.utils.mock_path import MockPath
 
 
 class MockDefaults(Defaults):
 
     def __init__(
         self,
-        config_dir: MockPath = MockPath('/config/'),
-        old_config_path: MockPath = MockPath('/default/old.yaml'),
-        new_config_path: MockPath = MockPath('/default/new.yaml'),
-        config_location_path: MockPath = MockPath('/config/config'),
+        config_dir: PurePath = PurePath('/config/'),
+        old_config_path: PurePath = PurePath('/default/old.yaml'),
+        new_config_path: PurePath = PurePath('/default/new.yaml'),
+        config_location_path: PurePath = PurePath('/config/config'),
     ) -> None:
-        super().__init__()
-
         self._config_dir = config_dir
         self._old_config_path = old_config_path
         self._new_config_path = new_config_path
@@ -32,14 +31,14 @@ class MockDefaults(Defaults):
             and self._config_location_path == value._config_location_path
         )
 
-    def get_config_dir(self) -> MockPath:
+    def get_config_dir(self) -> PurePath:
         return self._config_dir
 
-    def get_old_config_path(self) -> MockPath:
+    def get_old_config_path(self) -> PurePath:
         return self._old_config_path
 
-    def get_new_config_path(self) -> MockPath:
+    def get_new_config_path(self) -> PurePath:
         return self._new_config_path
 
-    def get_config_location_path(self) -> MockPath:
+    def get_config_location_path(self) -> PurePath:
         return self._config_location_path

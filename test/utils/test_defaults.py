@@ -1,13 +1,13 @@
 # pyright: strict
 
-import os
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import PurePath
 from typing import Callable
-from unittest.mock import patch
 
+from sysconf.system.path_service import PathService
 from sysconf.utils.defaults import Defaults
 from test.datasets import datasets
+from test.system.mock_path_service import MockPathService
 from test.test_case import TestCase
 
 
@@ -16,57 +16,65 @@ class TestDefaults(TestCase):
 
     @dataclass
     class DefaultPathDataset:
-        input_get_path: Callable[[Defaults], Path]
-        expected_path: Path
+        input_get_path: Callable[[Defaults], PurePath]
+        expected_path: PurePath
 
     @datasets({
         'config dir': DefaultPathDataset(
             input_get_path=lambda defaults: defaults.get_config_dir(),
-            expected_path=Path('/home/test-user/.config/system-config-manager'),
+            expected_path=PurePath(
+                '/home/test-user/.config/system-config-manager',
+            ),
         ),
         'old config path': DefaultPathDataset(
             input_get_path=lambda defaults: defaults.get_old_config_path(),
-            expected_path=Path('/home/test-user/.config/system-config-manager/.history/current.yaml'),
+            expected_path=PurePath(
+                '/home/test-user/.config/system-config-manager/.history/current.yaml',
+            ),
         ),
         'config location path': DefaultPathDataset(
             input_get_path=lambda defaults: defaults.get_config_location_path(),
-            expected_path=Path('/home/test-user/.config/system-config-manager/config'),
+            expected_path=PurePath(
+                '/home/test-user/.config/system-config-manager/config',
+            ),
         ),
         'new config path': DefaultPathDataset(
             input_get_path=lambda defaults: defaults.get_new_config_path(),
-            expected_path=Path('/home/test-user/.config/system-config-manager/config/config.yaml'),
+            expected_path=PurePath(
+                '/home/test-user/.config/system-config-manager/config/config.yaml',
+            ),
         ),
     })
     def test_default_paths(self, dataset: DefaultPathDataset) -> None:
         """Test that each default expands to the expected absolute path."""
 
         # Arrange
-        defaults = Defaults()
+        path_service = MockPathService(home_dir='/home/test-user')
+        defaults = Defaults(path_service)
 
         # Act
-        with patch.dict(os.environ, {'HOME': '/home/test-user'}):
-            actual = dataset.input_get_path(defaults)
+        actual = dataset.input_get_path(defaults)
 
         # Assert
         self.assertEqual(actual, dataset.expected_path)
 
     @dataclass
     class DerivedPathDataset:
-        input_get_path: Callable[[Defaults], Path]
-        expected_relative_path: Path
+        input_get_path: Callable[[Defaults], PurePath]
+        expected_relative_path: PurePath
 
     @datasets({
         'old config path': DerivedPathDataset(
             input_get_path=lambda defaults: defaults.get_old_config_path(),
-            expected_relative_path=Path('.history') / 'current.yaml',
+            expected_relative_path=PurePath('.history') / 'current.yaml',
         ),
         'config location path': DerivedPathDataset(
             input_get_path=lambda defaults: defaults.get_config_location_path(),
-            expected_relative_path=Path('config'),
+            expected_relative_path=PurePath('config'),
         ),
         'new config path': DerivedPathDataset(
             input_get_path=lambda defaults: defaults.get_new_config_path(),
-            expected_relative_path=Path('config') / 'config.yaml',
+            expected_relative_path=PurePath('config') / 'config.yaml',
         ),
     })
     def test_config_paths_are_derived_from_the_config_dir(
@@ -81,7 +89,8 @@ class TestDefaults(TestCase):
         """
 
         # Arrange
-        defaults = Defaults()
+        path_service = PathService()
+        defaults = Defaults(path_service)
 
         # Act
         actual = dataset.input_get_path(defaults)

@@ -1,7 +1,7 @@
 # pyright: strict
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import PurePath
 from textwrap import dedent
 
 from sysconf.config.actions import ShellAction
@@ -10,9 +10,9 @@ from sysconf.system.file import FileReader
 from sysconf.utils.config_loader import ConfigReader
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
+from test.system.mock_path_service import MockPathService
 from test.test_case import TestCase
 from test.utils.mock_file import MockFileReader
-from test.utils.mock_path import MockPath, fpath
 
 
 class TestLoadConfigFromFile(TestCase):
@@ -20,7 +20,7 @@ class TestLoadConfigFromFile(TestCase):
     @dataclass
     class LoadConfigDataset:
         input_file_reader: FileReader
-        input_path: Path
+        input_path: PurePath
 
     @datasets({
         'minimal valid config': LoadConfigDataset(
@@ -31,7 +31,7 @@ class TestLoadConfigFromFile(TestCase):
                     domains: {}
                     ''').strip(),
             }),
-            input_path=Path('/tmp/config.yaml'),
+            input_path=PurePath('/tmp/config.yaml'),
         ),
         'all components empty': LoadConfigDataset(
             input_file_reader=MockFileReader({
@@ -43,7 +43,7 @@ class TestLoadConfigFromFile(TestCase):
                     domains: {}
                     ''').strip(),
             }),
-            input_path=Path('/tmp/config.yaml'),
+            input_path=PurePath('/tmp/config.yaml'),
         ),
         'config with builtin domain entries': LoadConfigDataset(
             input_file_reader=MockFileReader({
@@ -58,7 +58,7 @@ class TestLoadConfigFromFile(TestCase):
                     domains: {}
                     ''').strip(),
             }),
-            input_path=Path('/tmp/config.yaml'),
+            input_path=PurePath('/tmp/config.yaml'),
         ),
         'config with before and after actions': LoadConfigDataset(
             input_file_reader=MockFileReader({
@@ -72,7 +72,7 @@ class TestLoadConfigFromFile(TestCase):
                     domains: {}
                     ''').strip(),
             }),
-            input_path=Path('/tmp/config.yaml'),
+            input_path=PurePath('/tmp/config.yaml'),
         ),
         'config with user domains': LoadConfigDataset(
             input_file_reader=MockFileReader({
@@ -88,7 +88,7 @@ class TestLoadConfigFromFile(TestCase):
                         remove: echo $value
                     ''').strip(),
             }),
-            input_path=Path('/tmp/config.yaml'),
+            input_path=PurePath('/tmp/config.yaml'),
         ),
         'config with map domain': LoadConfigDataset(
             input_file_reader=MockFileReader({
@@ -105,7 +105,7 @@ class TestLoadConfigFromFile(TestCase):
                         remove: echo remove
                     ''').strip(),
             }),
-            input_path=Path('/tmp/config.yaml'),
+            input_path=PurePath('/tmp/config.yaml'),
         ),
         'config with multiple domain entries': LoadConfigDataset(
             input_file_reader=MockFileReader({
@@ -127,7 +127,7 @@ class TestLoadConfigFromFile(TestCase):
                         remove: echo remove
                     ''').strip(),
             }),
-            input_path=Path('/tmp/config.yaml'),
+            input_path=PurePath('/tmp/config.yaml'),
         ),
         'config with $pwd': LoadConfigDataset(
             input_file_reader=MockFileReader({
@@ -141,7 +141,7 @@ class TestLoadConfigFromFile(TestCase):
                     domains: {}
                     ''').strip(),
             }),
-            input_path=Path('/tmp/config.yaml'),
+            input_path=PurePath('/tmp/config.yaml'),
         ),
         'relative paths': LoadConfigDataset(
             input_file_reader=MockFileReader({
@@ -153,7 +153,7 @@ class TestLoadConfigFromFile(TestCase):
                     domains: {}
                     ''').strip(),
             }),
-            input_path=Path('config.yaml'),
+            input_path=PurePath('config.yaml'),
         ),
         'home directory expansion': LoadConfigDataset(
             input_file_reader=MockFileReader({
@@ -165,7 +165,7 @@ class TestLoadConfigFromFile(TestCase):
                     domains: {}
                     ''').strip(),
             }),
-            input_path=Path('~/.config/config.yaml'),
+            input_path=PurePath('~/.config/config.yaml'),
         ),
         'file reader path verification': LoadConfigDataset(
             input_file_reader=MockFileReader({
@@ -177,13 +177,14 @@ class TestLoadConfigFromFile(TestCase):
                     domains: {}
                     ''').strip(),
             }),
-            input_path=Path('/tmp/test.yaml'),
+            input_path=PurePath('/tmp/test.yaml'),
         ),
     })
     def test_load_config_returns_system_config(self, dataset: LoadConfigDataset) -> None:
         """Test that load_config_from_file returns a SystemConfig object."""
         # Arrange
-        config_reader = ConfigReader(dataset.input_file_reader)
+        path_service = MockPathService()
+        config_reader = ConfigReader(dataset.input_file_reader, path_service)
 
         # Act
         result = config_reader.load(dataset.input_path)
@@ -194,7 +195,7 @@ class TestLoadConfigFromFile(TestCase):
     @dataclass
     class ErrorCaseDataset:
         input_file_reader: FileReader
-        input_path: Path
+        input_path: PurePath
         expected_exception: type[Exception]
 
     @datasets({
@@ -205,7 +206,7 @@ class TestLoadConfigFromFile(TestCase):
                       invalid: yaml: content:
                     ''').strip(),
             }),
-            input_path=Path('/tmp/invalid.yaml'),
+            input_path=PurePath('/tmp/invalid.yaml'),
             expected_exception=ValidationError,
         ),
         'unknown domain': ErrorCaseDataset(
@@ -217,7 +218,7 @@ class TestLoadConfigFromFile(TestCase):
                           - git
                     ''').strip(),
             }),
-            input_path=Path('/tmp/unknown_domain.yaml'),
+            input_path=PurePath('/tmp/unknown_domain.yaml'),
             expected_exception=ValidationError,
         ),
         'missing version': ErrorCaseDataset(
@@ -228,7 +229,7 @@ class TestLoadConfigFromFile(TestCase):
                     domains: {}
                     ''').strip(),
             }),
-            input_path=Path('/tmp/no_version.yaml'),
+            input_path=PurePath('/tmp/no_version.yaml'),
             expected_exception=ValidationError,
         ),
         'invalid version': ErrorCaseDataset(
@@ -240,19 +241,20 @@ class TestLoadConfigFromFile(TestCase):
                     domains: {}
                     ''').strip(),
             }),
-            input_path=Path('/tmp/bad_version.yaml'),
+            input_path=PurePath('/tmp/bad_version.yaml'),
             expected_exception=ValidationError,
         ),
         'missing file': ErrorCaseDataset(
             input_file_reader=MockFileReader({}),
-            input_path=Path('/tmp/missing.yaml'),
+            input_path=PurePath('/tmp/missing.yaml'),
             expected_exception=KeyError,
         ),
     })
     def test_load_config_raises_on_error(self, dataset: ErrorCaseDataset) -> None:
         """Test that load_config_from_file raises appropriate exceptions."""
         # Arrange
-        config_reader = ConfigReader(dataset.input_file_reader)
+        path_service = MockPathService()
+        config_reader = ConfigReader(dataset.input_file_reader, path_service)
 
         # Act & Assert
         with self.assertRaises(dataset.expected_exception):
@@ -265,7 +267,7 @@ class TestConfigReader(TestCase):
     @dataclass
     class LoadDataset:
         fixture_files: dict[str, str]
-        input_path: Path
+        input_path: PurePath
         expected: SystemConfig
 
     @datasets({
@@ -278,7 +280,7 @@ class TestConfigReader(TestCase):
                     config: []
                     '''),
             },
-            input_path=fpath('/config/config.yaml'),
+            input_path=PurePath('/config/config.yaml'),
             expected=SystemConfig.create_from_entries(
                 (ShellAction('echo before'),),
                 (),
@@ -292,7 +294,9 @@ class TestConfigReader(TestCase):
 
         # Arrange
         file_reader = MockFileReader(dataset.fixture_files)
-        config_reader = ConfigReader(file_reader)
+        fixture_paths = dataset.fixture_files.keys()
+        path_service = MockPathService(files=fixture_paths)
+        config_reader = ConfigReader(file_reader, path_service)
 
         # Act
         actual = config_reader.load(dataset.input_path)
@@ -303,7 +307,7 @@ class TestConfigReader(TestCase):
     @dataclass
     class LoadErrorDataset:
         fixture_files: dict[str, str]
-        input_path: Path
+        input_path: PurePath
         expected_exception_message: str
 
     @datasets({
@@ -316,7 +320,7 @@ class TestConfigReader(TestCase):
                           - git
                     '''),
             },
-            input_path=fpath('/config/config.yaml'),
+            input_path=PurePath('/config/config.yaml'),
             expected_exception_message='Undefined domain: not-a-domain',
         ),
     })
@@ -325,7 +329,9 @@ class TestConfigReader(TestCase):
 
         # Arrange
         file_reader = MockFileReader(dataset.fixture_files)
-        config_reader = ConfigReader(file_reader)
+        fixture_paths = dataset.fixture_files.keys()
+        path_service = MockPathService(files=fixture_paths)
+        config_reader = ConfigReader(file_reader, path_service)
 
         # Act & Assert
         with self.assertRaises(ValidationError) as context:
@@ -339,7 +345,7 @@ class TestConfigReader(TestCase):
     @dataclass
     class LoadOrDefaultDataset:
         fixture_files: dict[str, str]
-        input_path: Path
+        input_path: PurePath
         expected: SystemConfig
 
     @datasets({
@@ -352,7 +358,7 @@ class TestConfigReader(TestCase):
                     config: []
                     '''),
             },
-            input_path=fpath('/config/current.yaml'),
+            input_path=PurePath('/config/current.yaml'),
             expected=SystemConfig.create_from_entries(
                 (ShellAction('echo before'),),
                 (),
@@ -362,7 +368,7 @@ class TestConfigReader(TestCase):
         ),
         'file does not exist': LoadOrDefaultDataset(
             fixture_files={},
-            input_path=MockPath('/config/current.yaml'),
+            input_path=PurePath('/config/current.yaml'),
             expected=SystemConfig.create_from_entries((), (), (), ()),
         ),
     })
@@ -371,7 +377,9 @@ class TestConfigReader(TestCase):
 
         # Arrange
         file_reader = MockFileReader(dataset.fixture_files)
-        config_reader = ConfigReader(file_reader)
+        fixture_paths = dataset.fixture_files.keys()
+        path_service = MockPathService(files=fixture_paths)
+        config_reader = ConfigReader(file_reader, path_service)
 
         # Act
         actual = config_reader.load_or_default(dataset.input_path)

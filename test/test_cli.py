@@ -3,7 +3,7 @@
 from argparse import Namespace
 from dataclasses import dataclass
 from io import StringIO
-from pathlib import Path
+from pathlib import PurePath
 from typing import Type
 from unittest.mock import MagicMock, patch
 
@@ -34,7 +34,7 @@ class TestMain(TestCase):
             input_argv=['sysconf', 'show', '/configs/system.yaml'],
             expected_parsed_arguments=Namespace(
                 command='show',
-                config_path=Path('/configs/system.yaml'),
+                config_path=PurePath('/configs/system.yaml'),
             ),
         ),
         'show without a path uses the default': MainDataset(
@@ -50,7 +50,7 @@ class TestMain(TestCase):
             input_argv=['sysconf', 'preview', '/configs/new.yaml'],
             expected_parsed_arguments=Namespace(
                 command='preview',
-                config_file=Path('/configs/new.yaml'),
+                config_file=PurePath('/configs/new.yaml'),
                 last_config=None,
             ),
         ),
@@ -62,8 +62,8 @@ class TestMain(TestCase):
             ],
             expected_parsed_arguments=Namespace(
                 command='preview',
-                config_file=Path('/configs/new.yaml'),
-                last_config=Path('/configs/old.yaml'),
+                config_file=PurePath('/configs/new.yaml'),
+                last_config=PurePath('/configs/old.yaml'),
             ),
         ),
         'preview without arguments': MainDataset(
@@ -80,7 +80,7 @@ class TestMain(TestCase):
             input_argv=['sysconf', 'apply', '/configs/new.yaml'],
             expected_parsed_arguments=Namespace(
                 command='apply',
-                config_file=Path('/configs/new.yaml'),
+                config_file=PurePath('/configs/new.yaml'),
                 last_config=None,
             ),
         ),
@@ -92,8 +92,8 @@ class TestMain(TestCase):
             ],
             expected_parsed_arguments=Namespace(
                 command='apply',
-                config_file=Path('/configs/new.yaml'),
-                last_config=Path('/configs/old.yaml'),
+                config_file=PurePath('/configs/new.yaml'),
+                last_config=PurePath('/configs/old.yaml'),
             ),
         ),
         'edit with a config file': MainDataset(
@@ -101,7 +101,7 @@ class TestMain(TestCase):
             input_argv=['sysconf', 'edit', '/configs/new.yaml'],
             expected_parsed_arguments=Namespace(
                 command='edit',
-                config_file=Path('/configs/new.yaml'),
+                config_file=PurePath('/configs/new.yaml'),
                 last_config=None,
             ),
         ),

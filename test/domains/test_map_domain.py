@@ -106,12 +106,24 @@ class TestMapConfigEntry(TestCase):
 
     @datasets({
         'identical entries': EqualityDataset(
-            input_entry=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
-            input_other=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
+            input_entry=MapConfigEntry(
+                make_map_domain('settings', 1),
+                ('key',),
+                'value',
+            ),
+            input_other=MapConfigEntry(
+                make_map_domain('settings', 1),
+                ('key',),
+                'value',
+            ),
             expected_equal=True,
         ),
         'same domain key from a different domain': EqualityDataset(
-            input_entry=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
+            input_entry=MapConfigEntry(
+                make_map_domain('settings', 1),
+                ('key',),
+                'value',
+            ),
             input_other=MapConfigEntry(
                 make_map_domain('settings', 2),
                 ('key',),
@@ -120,12 +132,24 @@ class TestMapConfigEntry(TestCase):
             expected_equal=False,
         ),
         'different value': EqualityDataset(
-            input_entry=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
-            input_other=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'other'),
+            input_entry=MapConfigEntry(
+                make_map_domain('settings', 1),
+                ('key',),
+                'value',
+            ),
+            input_other=MapConfigEntry(
+                make_map_domain('settings', 1),
+                ('key',),
+                'other',
+            ),
             expected_equal=False,
         ),
         'different path': EqualityDataset(
-            input_entry=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
+            input_entry=MapConfigEntry(
+                make_map_domain('settings', 1),
+                ('key',),
+                'value',
+            ),
             input_other=MapConfigEntry(
                 make_map_domain('settings', 1),
                 ('other',),
@@ -134,12 +158,24 @@ class TestMapConfigEntry(TestCase):
             expected_equal=False,
         ),
         'different domain key': EqualityDataset(
-            input_entry=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
-            input_other=MapConfigEntry(make_map_domain('other', 1), ('key',), 'value'),
+            input_entry=MapConfigEntry(
+                make_map_domain('settings', 1),
+                ('key',),
+                'value',
+            ),
+            input_other=MapConfigEntry(
+                make_map_domain('other', 1),
+                ('key',),
+                'value',
+            ),
             expected_equal=False,
         ),
         'not equal to list entry': EqualityDataset(
-            input_entry=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
+            input_entry=MapConfigEntry(
+                make_map_domain('settings', 1),
+                ('key',),
+                'value',
+            ),
             input_other=ListConfigEntry(
                 ListDomain(
                     key='settings',

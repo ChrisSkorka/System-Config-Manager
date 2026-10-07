@@ -1,6 +1,6 @@
 # pyright: strict
 
-from pathlib import Path
+from pathlib import PurePath
 
 from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
@@ -37,7 +37,7 @@ class MockConfigWriter (ConfigWriter):
             file_writer=file_writer,
         )
 
-        self.written: list[tuple[SystemConfig, Path]] = []
+        self.written: list[tuple[SystemConfig, PurePath]] = []
 
-    def write(self, config: SystemConfig, path: Path) -> None:
+    def write(self, config: SystemConfig, path: PurePath) -> None:
         self.written.append((config, path))

@@ -1,11 +1,12 @@
 # pyright: strict
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import PurePath
 from textwrap import dedent
 from typing import Any
 
 from test.datasets import datasets
+from test.system.mock_path_service import MockPathService
 from test.test_case import TestCase
 from test.utils.mock_file import MockFileReader
 from sysconf.config.serialization import YamlDeserializer, YamlSerializer
@@ -294,69 +295,69 @@ class TestYamlDeserializer(TestCase):
     @dataclass
     class FileDataset:
         input_file_reader: MockFileReader
-        fixture_test_path: Path
+        fixture_test_path: PurePath
         expected_result: Any
 
     @datasets({
         'simple_yaml_file': FileDataset(
             input_file_reader=MockFileReader({
-                str(Path('/test/config.yaml')): dedent('''\
+                '/test/config.yaml': dedent('''\
                     key: value
                     number: 42
                     '''),
             }),
-            fixture_test_path=Path('/test/config.yaml'),
+            fixture_test_path=PurePath('/test/config.yaml'),
             expected_result={'key': 'value', 'number': 42},
         ),
         'yaml_with_pwd_interpolation': FileDataset(
             input_file_reader=MockFileReader({
-                str(Path('/test/config.yaml')): dedent('''\
+                '/test/config.yaml': dedent('''\
                     path: $pwd/config
                     other: static
                     '''),
             }),
-            fixture_test_path=Path('/test/config.yaml'),
+            fixture_test_path=PurePath('/test/config.yaml'),
             expected_result={
-                'path': f'{Path("/test").expanduser().resolve()}/config',
+                'path': '/test/config',
                 'other': 'static',
             },
         ),
         'yaml_list_file': FileDataset(
             input_file_reader=MockFileReader({
-                str(Path('/test/config.yaml')): dedent('''\
+                '/test/config.yaml': dedent('''\
                     - item1
                     - item2
                     - item3
                     '''),
             }),
-            fixture_test_path=Path('/test/config.yaml'),
+            fixture_test_path=PurePath('/test/config.yaml'),
             expected_result=['item1', 'item2', 'item3'],
         ),
         'yaml_nested_with_pwd': FileDataset(
             input_file_reader=MockFileReader({
-                str(Path('/test/config.yaml')): dedent('''\
+                '/test/config.yaml': dedent('''\
                     root:
                       config: $pwd/file
                       value: 123
                     '''),
             }),
-            fixture_test_path=Path('/test/config.yaml'),
+            fixture_test_path=PurePath('/test/config.yaml'),
             expected_result={
                 'root': {
-                    'config': f'{Path("/test").expanduser().resolve()}/file',
+                    'config': '/test/file',
                     'value': 123,
                 },
             },
         ),
         'pwd_interpolates_to_file_directory': FileDataset(
             input_file_reader=MockFileReader({
-                str(Path('/home/user/configs/app.yaml')):
+                '/home/user/configs/app.yaml':
                     'config_dir: $pwd\nconfig_file: $pwd/settings.yaml',
             }),
-            fixture_test_path=Path('/home/user/configs/app.yaml'),
+            fixture_test_path=PurePath('/home/user/configs/app.yaml'),
             expected_result={
-                'config_dir': str(Path('/home/user/configs').expanduser().resolve()),
-                'config_file': f'{Path("/home/user/configs").expanduser().resolve()}/settings.yaml',
+                'config_dir': '/home/user/configs',
+                'config_file': '/home/user/configs/settings.yaml',
             },
         ),
     })
@@ -365,10 +366,12 @@ class TestYamlDeserializer(TestCase):
 
         # Arrange
         deserializer = YamlDeserializer()
+        path_service = MockPathService()
 
         # Act
         result = deserializer.get_data_from_file(
             dataset.input_file_reader,
+            path_service,
             dataset.fixture_test_path,
         )
 

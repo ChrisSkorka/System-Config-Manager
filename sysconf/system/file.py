@@ -1,6 +1,8 @@
 # pyright: strict
 
-from pathlib import Path
+from pathlib import PurePath
+
+from sysconf.system.path_service import PathService
 
 
 class FileReader:
@@ -11,7 +13,7 @@ class FileReader:
     def __eq__(self, value: object) -> bool:
         return isinstance(value, FileReader)
 
-    def get_file_contents(self, path: Path) -> str:
+    def get_file_contents(self, path: PurePath) -> str:
         """
         Read the contents of a file and return it as a string.
 
@@ -19,7 +21,7 @@ class FileReader:
         - assumes file is a UTF-8 encoded text file
 
         Args:
-            path (Path): The path to the file to open, read, and close.
+            path (PurePath): The path to the file to open, read, and close.
         Returns:
             str: The contents of the file.
         """
@@ -33,10 +35,16 @@ class FileWriter:
     A simple file writer
     """
 
-    def __eq__(self, value: object) -> bool:
-        return isinstance(value, FileWriter)
+    def __init__(self, path_service: PathService) -> None:
+        self.path_service = path_service
 
-    def write_file_contents(self, path: Path, contents: str) -> None:
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, FileWriter):
+            return False
+
+        return self.path_service == value.path_service
+
+    def write_file_contents(self, path: PurePath, contents: str) -> None:
         """
         Write the given contents to a file.
 
@@ -44,14 +52,16 @@ class FileWriter:
         - assumes file is a UTF-8 encoded text file
 
         Args:
-            path (Path): The path to the file to open, write, and close.
+            path (PurePath): The path to the file to open, write, and close.
             contents (str): The contents to write to the file.
         """
 
-        assert path.is_file() or not path.exists(), \
+        is_file = self.path_service.is_file(path)
+        is_existing = self.path_service.exists(path)
+        assert is_file or not is_existing, \
             f'File path is not a file: {path}'
 
-        path.parent.mkdir(parents=True, exist_ok=True)
+        self.path_service.make_dirs(path.parent)
 
         with open(file=path, mode='w', encoding='utf-8') as file:
             file.write(contents)

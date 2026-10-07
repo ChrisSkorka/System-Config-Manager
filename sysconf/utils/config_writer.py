@@ -1,6 +1,6 @@
 # pyright: strict
 
-from pathlib import Path
+from pathlib import PurePath
 
 from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
@@ -33,7 +33,7 @@ class ConfigWriter:
             and self.file_writer == value.file_writer
         )
 
-    def write(self, config: SystemConfig, path: Path) -> None:
+    def write(self, config: SystemConfig, path: PurePath) -> None:
         """
         Write the system configuration to file.
 

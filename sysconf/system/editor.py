@@ -3,7 +3,7 @@
 import shlex
 
 from enum import Enum, auto
-from pathlib import Path
+from pathlib import PurePath
 from typing import Callable
 
 from sysconf.system.executor import CommandException, SystemExecutor
@@ -123,7 +123,7 @@ class EditorLauncher:
 
         return self.executor == value.executor
 
-    def edit(self, editor_command: tuple[str, ...], path: Path) -> EditResult:
+    def edit(self, editor_command: tuple[str, ...], path: PurePath) -> EditResult:
         """
         Open the file in the editor and wait for the editor to exit.
 
@@ -134,7 +134,7 @@ class EditorLauncher:
         Args:
             editor_command (tuple[str, ...]): The editor command line, without
                 the file to edit.
-            path (Path): The file to edit.
+            path (PurePath): The file to edit.
         Returns:
             EditResult: CANCELLED if the editor exited with an error, otherwise
                 CLOSED.

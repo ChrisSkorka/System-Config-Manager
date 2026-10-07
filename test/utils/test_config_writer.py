@@ -1,7 +1,7 @@
 # pyright: strict
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import PurePath
 from textwrap import dedent
 from unittest.mock import MagicMock
 
@@ -21,13 +21,13 @@ class TestConfigWriter(TestCase):
     @dataclass
     class WriteDataset:
         input_config: SystemConfig
-        input_path: Path
+        input_path: PurePath
         expected_written_files: dict[str, str]
 
     @datasets({
         'no settings': WriteDataset(
             input_config=SystemConfig.create_from_entries((), (), (), ()),
-            input_path=Path('/config/.history/current.yaml'),
+            input_path=PurePath('/config/.history/current.yaml'),
             expected_written_files={
                 '/config/.history/current.yaml': dedent('''\
                     version: '1'
@@ -45,7 +45,7 @@ class TestConfigWriter(TestCase):
                 (), (), (), (),
                 settings=ToolSettings(editor='nano'),
             ),
-            input_path=Path('/other/config.yaml'),
+            input_path=PurePath('/other/config.yaml'),
             expected_written_files={
                 '/other/config.yaml': dedent('''\
                     version: '1'
@@ -110,7 +110,7 @@ class TestConfigWriter(TestCase):
             file_writer=file_writer,
         )
         config = SystemConfig.create_from_entries((), (), (), ())
-        path = Path('/config/.history/current.yaml')
+        path = PurePath('/config/.history/current.yaml')
 
         # Act & Assert
         with self.assertRaises(dataset.expected_exception):

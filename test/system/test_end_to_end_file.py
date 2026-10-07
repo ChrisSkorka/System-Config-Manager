@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from textwrap import dedent
 
 from sysconf.system.file import FileReader, FileWriter
+from sysconf.system.path_service import PathService
 from test.datasets import datasets
 from test.test_case import TestCase
 
@@ -79,7 +80,8 @@ class TestEndToEndFileWriter(EndToEndFileTestCase):
 
         # Arrange
         path = self.base_path / dataset.input_relative_path
-        writer = FileWriter()
+        path_service = PathService()
+        writer = FileWriter(path_service)
 
         # Act
         writer.write_file_contents(path, dataset.input_contents)
@@ -96,7 +98,8 @@ class TestEndToEndFileWriter(EndToEndFileTestCase):
 
         # Arrange
         path = self.base_path / 'current.yaml'
-        writer = FileWriter()
+        path_service = PathService()
+        writer = FileWriter(path_service)
         writer.write_file_contents(path, 'version: 1\nconfig: []')
 
         # Act
@@ -111,7 +114,8 @@ class TestEndToEndFileWriter(EndToEndFileTestCase):
         # Arrange
         path = self.base_path / 'a-directory'
         path.mkdir()
-        writer = FileWriter()
+        path_service = PathService()
+        writer = FileWriter(path_service)
 
         # Act & Assert
         with self.assertRaises(AssertionError) as context:

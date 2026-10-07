@@ -1,6 +1,6 @@
 # pyright: strict
 
-from pathlib import Path
+from pathlib import PurePath
 
 from sysconf.system.editor import EditResult, EditorLauncher
 from test.system.mock_system_executor import MockSystemExecutor
@@ -29,9 +29,9 @@ class MockEditorLauncher (EditorLauncher):
         super().__init__(MockSystemExecutor())
 
         self.results = results
-        self.calls: list[tuple[tuple[str, ...], Path]] = []
+        self.calls: list[tuple[tuple[str, ...], PurePath]] = []
 
-    def edit(self, editor_command: tuple[str, ...], path: Path) -> EditResult:
+    def edit(self, editor_command: tuple[str, ...], path: PurePath) -> EditResult:
         result = self.results[len(self.calls)]
         self.calls.append((editor_command, path))
         return result

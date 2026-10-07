@@ -359,8 +359,16 @@ class TestShellUpdateAction(TestCase):
         'map domain value change': UpdateDataset(
             input_action=ShellUpdateAction(
                 'git-config-global',
-                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'old@b.com'),
-                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'new@b.com'),
+                MapConfigEntry(
+                    GIT_CONFIG_DOMAIN,
+                    ('user.email',),
+                    'old@b.com',
+                ),
+                MapConfigEntry(
+                    GIT_CONFIG_DOMAIN,
+                    ('user.email',),
+                    'new@b.com',
+                ),
                 ShellScriptTemplate('git config --global "$key" "$value"'),
             ),
             expected_description='Update git-config-global: user.email = old@b.com -> new@b.com',

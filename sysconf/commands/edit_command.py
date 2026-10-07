@@ -5,7 +5,7 @@ import sys
 
 from argparse import ArgumentParser, Namespace  # , RawDescriptionHelpFormatter
 from enum import Enum, auto
-from pathlib import Path
+from pathlib import PurePath
 from typing import TYPE_CHECKING, Callable, Self
 
 from sysconf.commands.command import Command, SubParsersAction
@@ -103,8 +103,8 @@ class EditCommand (Command):
     def create_from_context(
         cls,
         context: Context,
-        old_path: Path,
-        new_path: Path,
+        old_path: PurePath,
+        new_path: PurePath,
         should_override_config_path: bool = False,
     ) -> Self:
         """
@@ -113,7 +113,8 @@ class EditCommand (Command):
 
         executor = context.get_system_executor()
         file_reader = context.get_file_reader()
-        config_reader = ConfigReader(file_reader)
+        path_service = context.get_path_service()
+        config_reader = ConfigReader(file_reader, path_service)
 
         editor_resolver = EditorResolver(sys.platform, shutil.which)
         editor_launcher = EditorLauncher(executor)
@@ -154,8 +155,8 @@ class EditCommand (Command):
     def __init__(
         self,
         config_reader: ConfigReader,
-        old_path: Path,
-        new_path: Path,
+        old_path: PurePath,
+        new_path: PurePath,
         editor_resolver: EditorResolver,
         editor_launcher: EditorLauncher,
         preview_command_factory: 'Callable[[], PreviewCommand]',

@@ -1,6 +1,8 @@
 # pyright: strict
 
-from pathlib import Path
+from pathlib import PurePath
+
+from sysconf.system.path_service import PathService
 
 
 class Defaults:
@@ -11,7 +13,16 @@ class Defaults:
     things like environment variables.
     """
 
-    def get_config_dir(self) -> Path:
+    def __init__(self, path_service: PathService) -> None:
+        self.path_service = path_service
+
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, Defaults):
+            return False
+
+        return self.path_service == value.path_service
+
+    def get_config_dir(self) -> PurePath:
         """
         Get the configuration directory.
 
@@ -19,17 +30,19 @@ class Defaults:
         as the history of applied configurations and any data this tool needs.
         """
 
-        return Path('~/.config/system-config-manager/').expanduser()
+        config_dir = PurePath('~/.config/system-config-manager/')
 
-    def get_old_config_path(self) -> Path:
+        return self.path_service.expand_user(config_dir)
+
+    def get_old_config_path(self) -> PurePath:
         """
         Get the default path to the old (last applied) configuration file if it
         exists.
         """
 
-        return self.get_config_dir() / Path('.history/current.yaml')
+        return self.get_config_dir() / PurePath('.history/current.yaml')
 
-    def get_config_location_path(self) -> Path:
+    def get_config_location_path(self) -> PurePath:
         """
         Get the path that records where the user's source of truth config lives.
 
@@ -37,13 +50,13 @@ class Defaults:
         configuration file, or a directory holding the configuration itself.
         """
 
-        return self.get_config_dir() / Path('config')
+        return self.get_config_dir() / PurePath('config')
 
-    def get_new_config_path(self) -> Path:
+    def get_new_config_path(self) -> PurePath:
         """
         Get the default path to the new (to be applied) configuration file.
 
         This is the path used when the config location is a directory.
         """
 
-        return self.get_config_location_path() / Path('config.yaml')
+        return self.get_config_location_path() / PurePath('config.yaml')

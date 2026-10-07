@@ -23,6 +23,7 @@ if True:  # prevent formatter from re-ordering these imports
     from sysconf.commands.show_command import ShowCommand
     from sysconf.system.executor import LiveSystemExecutor
     from sysconf.system.file import FileReader, FileWriter
+    from sysconf.system.path_service import PathService
     from sysconf.utils.defaults import Defaults
     from sysconf.utils.validation import ValidationError
 
@@ -63,14 +64,16 @@ def main() -> None:
         parser.print_help()
         return
 
-    defaults = Defaults()
+    path_service = PathService()
+    defaults = Defaults(path_service)
     file_reader = FileReader()
-    file_writer = FileWriter()
+    file_writer = FileWriter(path_service)
     system_executor = LiveSystemExecutor()
     context = Context(
         defaults=defaults,
         file_reader=file_reader,
         file_writer=file_writer,
+        path_service=path_service,
         system_executor=system_executor,
     )
 

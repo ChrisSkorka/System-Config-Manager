@@ -73,9 +73,21 @@ class TestListDomain(TestCase):
                 'bob': ['docker'],
             },
             expected_entries=(
-                ListConfigEntry(make_list_domain('user-groups', 1), ('alice',), 'docker'),
-                ListConfigEntry(make_list_domain('user-groups', 1), ('alice',), 'sudo'),
-                ListConfigEntry(make_list_domain('user-groups', 1), ('bob',), 'docker'),
+                ListConfigEntry(
+                    make_list_domain('user-groups', 1),
+                    ('alice',),
+                    'docker',
+                ),
+                ListConfigEntry(
+                    make_list_domain('user-groups', 1),
+                    ('alice',),
+                    'sudo',
+                ),
+                ListConfigEntry(
+                    make_list_domain('user-groups', 1),
+                    ('bob',),
+                    'docker',
+                ),
             ),
         ),
         'one level of keys with none value': GetEntriesDataset(
@@ -85,7 +97,11 @@ class TestListDomain(TestCase):
                 'bob': ['docker'],
             },
             expected_entries=(
-                ListConfigEntry(make_list_domain('user-groups', 1), ('bob',), 'docker'),
+                ListConfigEntry(
+                    make_list_domain('user-groups', 1),
+                    ('bob',),
+                    'docker',
+                ),
             ),
         ),
         'two levels of keys': GetEntriesDataset(
@@ -154,9 +170,21 @@ class TestListDomain(TestCase):
         'one key, several entries': RenderDataset(
             fixture_domain=make_list_domain('user-groups', 1),
             input_entries=(
-                ListConfigEntry(make_list_domain('user-groups', 1), ('alice',), 'docker'),
-                ListConfigEntry(make_list_domain('user-groups', 1), ('alice',), 'sudo'),
-                ListConfigEntry(make_list_domain('user-groups', 1), ('bob',), 'docker'),
+                ListConfigEntry(
+                    make_list_domain('user-groups', 1),
+                    ('alice',),
+                    'docker',
+                ),
+                ListConfigEntry(
+                    make_list_domain('user-groups', 1),
+                    ('alice',),
+                    'sudo',
+                ),
+                ListConfigEntry(
+                    make_list_domain('user-groups', 1),
+                    ('bob',),
+                    'docker',
+                ),
             ),
             expected_data={
                 'alice': ['docker', 'sudo'],
@@ -240,12 +268,20 @@ class TestListDomain(TestCase):
         'add when only new entry': GetActionDataset(
             fixture_domain=make_list_domain('apt', 0),
             input_old_entry=None,
-            input_new_entry=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
+            input_new_entry=ListConfigEntry(
+                make_list_domain('apt', 0),
+                (),
+                'git',
+            ),
             expected_action=MockDomainAction('add git'),
         ),
         'remove when only old entry': GetActionDataset(
             fixture_domain=make_list_domain('apt', 0),
-            input_old_entry=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
+            input_old_entry=ListConfigEntry(
+                make_list_domain('apt', 0),
+                (),
+                'git',
+            ),
             input_new_entry=None,
             expected_action=MockDomainAction('remove git'),
         ),
@@ -299,10 +335,12 @@ class TestListDomain(TestCase):
                     key='map',
                     path_depth=1,
                     get_value=str,
-                    add_action_factory=lambda new_entry: MockDomainAction('add'),
+                    add_action_factory=lambda new_entry:
+                        MockDomainAction('add'),
                     update_action_factory=lambda old_entry, new_entry:
                         MockDomainAction('update'),
-                    remove_action_factory=lambda old_entry: MockDomainAction('remove'),
+                    remove_action_factory=lambda old_entry:
+                        MockDomainAction('remove'),
                 ),
                 ('key',),
                 'value',
@@ -315,10 +353,12 @@ class TestListDomain(TestCase):
                     key='map',
                     path_depth=1,
                     get_value=str,
-                    add_action_factory=lambda new_entry: MockDomainAction('add'),
+                    add_action_factory=lambda new_entry:
+                        MockDomainAction('add'),
                     update_action_factory=lambda old_entry, new_entry:
                         MockDomainAction('update'),
-                    remove_action_factory=lambda old_entry: MockDomainAction('remove'),
+                    remove_action_factory=lambda old_entry:
+                        MockDomainAction('remove'),
                 ),
                 ('key',),
                 'value',
@@ -382,7 +422,11 @@ class TestListConfigEntry(TestCase):
         ),
         'different domain key': EqualityDataset(
             input_entry=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
-            input_other=ListConfigEntry(make_list_domain('snap', 0), (), 'git'),
+            input_other=ListConfigEntry(
+                make_list_domain('snap', 0),
+                (),
+                'git',
+            ),
             expected_equal=False,
         ),
         'not equal to map entry': EqualityDataset(
@@ -392,10 +436,12 @@ class TestListConfigEntry(TestCase):
                     key='map',
                     path_depth=1,
                     get_value=str,
-                    add_action_factory=lambda new_entry: MockDomainAction('add'),
+                    add_action_factory=lambda new_entry:
+                        MockDomainAction('add'),
                     update_action_factory=lambda old_entry, new_entry:
                         MockDomainAction('update'),
-                    remove_action_factory=lambda old_entry: MockDomainAction('remove'),
+                    remove_action_factory=lambda old_entry:
+                        MockDomainAction('remove'),
                 ),
                 ('key',),
                 'git',

@@ -1,7 +1,7 @@
 # pyright: strict
 
 from argparse import ArgumentParser, Namespace
-from pathlib import Path
+from pathlib import PurePath
 from typing import Self
 
 from sysconf.commands.command import Command, SubParsersAction
@@ -78,8 +78,8 @@ class PreviewCommand (Command):
     def create_from_context(
         cls,
         context: Context,
-        old_path: Path,
-        new_path: Path,
+        old_path: PurePath,
+        new_path: PurePath,
     ) -> Self:
         """
         Create a new instance of the command from the given context and
@@ -87,8 +87,9 @@ class PreviewCommand (Command):
         """
 
         file_reader = context.get_file_reader()
+        path_service = context.get_path_service()
 
-        config_reader = ConfigReader(file_reader)
+        config_reader = ConfigReader(file_reader, path_service)
 
         old_config = config_reader.load_or_default(old_path)
         new_config = config_reader.load(new_path)

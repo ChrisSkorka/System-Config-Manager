@@ -3,7 +3,7 @@
 import subprocess
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import PurePath
 
 from sysconf.system.editor import EditResult, EditorLauncher, EditorResolver
 from sysconf.system.executor import CommandException
@@ -224,7 +224,7 @@ class TestEditorLauncher(TestCase):
         # Act
         actual = launcher.edit(
             ('/usr/bin/code', '--wait'),
-            Path('/configs/config.yaml'),
+            PurePath('/configs/config.yaml'),
         )
 
         # Assert

@@ -3,7 +3,7 @@
 import subprocess
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 from tempfile import TemporaryDirectory
 from textwrap import dedent
 from unittest.mock import patch
@@ -11,6 +11,7 @@ from unittest.mock import patch
 from sysconf.cli import main
 from sysconf.system.executor import CommandException, SystemExecutor
 from sysconf.system.file import FileReader, FileWriter
+from sysconf.system.path_service import PathService
 from sysconf.utils.context import Context
 from sysconf.utils.defaults import Defaults
 from test.datasets import datasets
@@ -21,12 +22,12 @@ from test.test_case import TestCase
 class DirectoryDefaults (Defaults):
     """Keep this tool's config directory in the given directory."""
 
-    def __init__(self, config_dir: Path) -> None:
-        super().__init__()
+    def __init__(self, path_service: PathService, config_dir: PurePath) -> None:
+        super().__init__(path_service)
 
         self.config_dir = config_dir
 
-    def get_config_dir(self) -> Path:
+    def get_config_dir(self) -> PurePath:
         return self.config_dir
 
 
@@ -51,7 +52,7 @@ class ScriptedSystemExecutor (SystemExecutor):
         self.scripts: list[str] = []
 
     def command(self, *command: str) -> None:
-        path = Path(command[-1])
+        path = PurePath(command[-1])
         contents = self.edited_configs[self.edits]
         self.edits += 1
 
@@ -68,13 +69,14 @@ class ScriptedSystemExecutor (SystemExecutor):
             raise CommandException(script, process)
 
 
-def read_optional(path: Path) -> str | None:
+def read_optional(path: PurePath) -> str | None:
     """Read the file, None when it does not exist."""
 
-    if not path.exists():
+    real_path = Path(path)
+    if not real_path.exists():
         return None
 
-    return path.read_text(encoding='utf-8')
+    return real_path.read_text(encoding='utf-8')
 
 
 class TestIntegrationEditCommand (TestCase):
@@ -394,12 +396,14 @@ class TestIntegrationEditCommand (TestCase):
             # Arrange
             base_path = Path(directory).resolve()
             config_path = base_path / 'manual' / 'config.yaml'
-            defaults = DirectoryDefaults(base_path / 'system-config-manager')
+            config_dir = base_path / 'system-config-manager'
+            path_service = PathService()
+            defaults = DirectoryDefaults(path_service, config_dir)
             current_path = defaults.get_old_config_path()
             location_path = defaults.get_config_location_path()
 
             file_reader = FileReader()
-            file_writer = FileWriter()
+            file_writer = FileWriter(path_service)
             file_writer.write_file_contents(config_path, '')
             if dataset.fixture_current_config is not None:
                 file_writer.write_file_contents(
@@ -416,6 +420,7 @@ class TestIntegrationEditCommand (TestCase):
                 defaults=defaults,
                 file_reader=file_reader,
                 file_writer=file_writer,
+                path_service=path_service,
                 system_executor=system_executor,
             )
             paths_by_name = {

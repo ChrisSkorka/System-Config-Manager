@@ -1,7 +1,7 @@
 # pyright: strict
 
 from argparse import ArgumentParser, Namespace
-from pathlib import Path
+from pathlib import PurePath
 from typing import TYPE_CHECKING, Callable, Self
 
 from sysconf.commands.command import Command, SubParsersAction
@@ -91,8 +91,8 @@ class ApplyCommand (Command):
     def create_from_context(
         cls,
         context: Context,
-        old_path: Path,
-        new_path: Path,
+        old_path: PurePath,
+        new_path: PurePath,
         should_override_config_path: bool,
     ) -> Self:
         """
@@ -102,6 +102,7 @@ class ApplyCommand (Command):
         defaults = context.get_defaults()
         executor = context.get_system_executor()
         file_reader = context.get_file_reader()
+        path_service = context.get_path_service()
         file_writer = context.get_file_writer()
 
         system_config_renderer = SystemConfigRenderer()
@@ -114,8 +115,9 @@ class ApplyCommand (Command):
             defaults=defaults,
             file_reader=file_reader,
             file_writer=file_writer,
+            path_service=path_service,
         )
-        config_reader = ConfigReader(file_reader)
+        config_reader = ConfigReader(file_reader, path_service)
 
         old_config = config_reader.load_or_default(old_path)
         new_config = config_reader.load(new_path)
@@ -157,8 +159,8 @@ class ApplyCommand (Command):
     def __init__(
         self,
         manager: SystemManager[ApplyFailureResolution],
-        old_path: Path,
-        new_path: Path,
+        old_path: PurePath,
+        new_path: PurePath,
         config_writer: ConfigWriter,
         config_location_writer: ConfigLocationWriter,
         should_override_config_path: bool,

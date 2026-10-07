@@ -1,12 +1,11 @@
 # pyright: strict
 
 from argparse import ArgumentParser, Namespace
-from pathlib import Path
+from pathlib import PurePath
 from typing import Self
 
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.system.file import FileReader
-from sysconf.system.path import get_validated_file_path
 from sysconf.utils.context import Context
 
 
@@ -30,7 +29,7 @@ class ShowCommand (Command):
 
         parser.add_argument(
             'config_path',
-            type=Path,
+            type=PurePath,
             nargs='?',
             default=None,
             help='Path to the configuration file. (default: ~/.config/config.yaml)',
@@ -47,13 +46,14 @@ class ShowCommand (Command):
 
         defaults = context.get_defaults()
         file_reader = context.get_file_reader()
+        path_service = context.get_path_service()
 
         config_path = (
             parsed_arguments.config_path
             or defaults.get_old_config_path()
         )
 
-        config_path = get_validated_file_path(
+        config_path = path_service.get_validated_file_path(
             config_path,
             '.yaml',
         )
@@ -62,7 +62,7 @@ class ShowCommand (Command):
 
     def __init__(
         self,
-        config_path: Path,
+        config_path: PurePath,
         file_reader: FileReader,
     ) -> None:
         super().__init__()

@@ -2,7 +2,7 @@
 
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import PurePath
 from textwrap import dedent
 from unittest.mock import MagicMock
 
@@ -13,12 +13,12 @@ from sysconf.system.error_handler import FailingErrorHandler
 from sysconf.system.executor import PreviewSystemExecutor
 from sysconf.utils.context import Context
 from test.datasets import datasets
+from test.system.mock_path_service import MockPathService
 from test.system.mock_system_executor import MockSystemExecutor
 from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
 from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_file import MockFileReader, MockFileWriter
-from test.utils.mock_path import MockPath, fpath
 
 
 class TestPreviewCommand(TestCase):
@@ -65,21 +65,25 @@ class TestPreviewCommand(TestCase):
 
         # Test that we can parse arguments (this validates the arguments were added)
         args = parser.parse_args(['test.yaml', '--last-config', 'old.yaml'])
-        self.assertEqual(args.config_file, Path('test.yaml'))
-        self.assertEqual(args.last_config, Path('old.yaml'))
+        self.assertEqual(args.config_file, PurePath('test.yaml'))
+        self.assertEqual(args.last_config, PurePath('old.yaml'))
 
     @dataclass
     class CreateFromArgumentsDataset:
+        fixture_path_service: MockPathService
         fixture_defaults: MockDefaults
         fixture_file_reader: MockFileReader
         input_parsed_arguments: Namespace
-        expected_old_path: Path
-        expected_new_path: Path
+        expected_old_path: PurePath
+        expected_new_path: PurePath
 
     @datasets({
         'old config exists': CreateFromArgumentsDataset(
+            fixture_path_service=MockPathService(
+                files={'/config/.history/current.yaml', '/manual/new.yaml'},
+            ),
             fixture_defaults=MockDefaults(
-                old_config_path=fpath('/config/.history/current.yaml'),
+                old_config_path=PurePath('/config/.history/current.yaml'),
             ),
             fixture_file_reader=MockFileReader({
                 '/config/.history/current.yaml': dedent('''\
@@ -96,15 +100,16 @@ class TestPreviewCommand(TestCase):
                     '''),
             }),
             input_parsed_arguments=Namespace(
-                config_file=fpath('/manual/new.yaml'),
+                config_file=PurePath('/manual/new.yaml'),
                 last_config=None,
             ),
-            expected_old_path=fpath('/config/.history/current.yaml'),
-            expected_new_path=fpath('/manual/new.yaml'),
+            expected_old_path=PurePath('/config/.history/current.yaml'),
+            expected_new_path=PurePath('/manual/new.yaml'),
         ),
         'old config does not exist yet': CreateFromArgumentsDataset(
+            fixture_path_service=MockPathService(files={'/manual/new.yaml'}),
             fixture_defaults=MockDefaults(
-                old_config_path=MockPath('/config/.history/current.yaml'),
+                old_config_path=PurePath('/config/.history/current.yaml'),
             ),
             fixture_file_reader=MockFileReader({
                 '/manual/new.yaml': dedent('''\
@@ -115,15 +120,18 @@ class TestPreviewCommand(TestCase):
                     '''),
             }),
             input_parsed_arguments=Namespace(
-                config_file=fpath('/manual/new.yaml'),
+                config_file=PurePath('/manual/new.yaml'),
                 last_config=None,
             ),
-            expected_old_path=MockPath('/config/.history/current.yaml'),
-            expected_new_path=fpath('/manual/new.yaml'),
+            expected_old_path=PurePath('/config/.history/current.yaml'),
+            expected_new_path=PurePath('/manual/new.yaml'),
         ),
         'old config given': CreateFromArgumentsDataset(
+            fixture_path_service=MockPathService(
+                files={'/manual/new.yaml', '/manual/old.yaml'},
+            ),
             fixture_defaults=MockDefaults(
-                old_config_path=MockPath('/config/.history/current.yaml'),
+                old_config_path=PurePath('/config/.history/current.yaml'),
             ),
             fixture_file_reader=MockFileReader({
                 '/manual/old.yaml': dedent('''\
@@ -140,11 +148,11 @@ class TestPreviewCommand(TestCase):
                     '''),
             }),
             input_parsed_arguments=Namespace(
-                config_file=fpath('/manual/new.yaml'),
-                last_config=fpath('/manual/old.yaml'),
+                config_file=PurePath('/manual/new.yaml'),
+                last_config=PurePath('/manual/old.yaml'),
             ),
-            expected_old_path=fpath('/manual/old.yaml'),
-            expected_new_path=fpath('/manual/new.yaml'),
+            expected_old_path=PurePath('/manual/old.yaml'),
+            expected_new_path=PurePath('/manual/new.yaml'),
         ),
     })
     def test_create_from_arguments(
@@ -160,6 +168,7 @@ class TestPreviewCommand(TestCase):
             defaults=dataset.fixture_defaults,
             file_reader=dataset.fixture_file_reader,
             file_writer=file_writer,
+            path_service=dataset.fixture_path_service,
             system_executor=system_executor,
         )
         expected = PreviewCommand.create_from_context(
@@ -179,14 +188,18 @@ class TestPreviewCommand(TestCase):
 
     @dataclass
     class CreateFromContextDataset:
+        fixture_path_service: MockPathService
         fixture_file_reader: MockFileReader
-        input_old_path: Path
-        input_new_path: Path
+        input_old_path: PurePath
+        input_new_path: PurePath
         expected_old_config: SystemConfig
         expected_new_config: SystemConfig
 
     @datasets({
         'old config exists': CreateFromContextDataset(
+            fixture_path_service=MockPathService(
+                files={'/manual/new.yaml', '/manual/old.yaml'},
+            ),
             fixture_file_reader=MockFileReader({
                 '/manual/old.yaml': dedent('''\
                     version: 1
@@ -201,8 +214,8 @@ class TestPreviewCommand(TestCase):
                     config: []
                     '''),
             }),
-            input_old_path=fpath('/manual/old.yaml'),
-            input_new_path=fpath('/manual/new.yaml'),
+            input_old_path=PurePath('/manual/old.yaml'),
+            input_new_path=PurePath('/manual/new.yaml'),
             expected_old_config=SystemConfig.create_from_entries(
                 (ShellAction('echo old'),), (), (), (),
             ),
@@ -211,6 +224,7 @@ class TestPreviewCommand(TestCase):
             ),
         ),
         'old config does not exist yet': CreateFromContextDataset(
+            fixture_path_service=MockPathService(files={'/manual/new.yaml'}),
             fixture_file_reader=MockFileReader({
                 '/manual/new.yaml': dedent('''\
                     version: 1
@@ -219,9 +233,14 @@ class TestPreviewCommand(TestCase):
                     config: []
                     '''),
             }),
-            input_old_path=MockPath('/manual/old.yaml'),
-            input_new_path=fpath('/manual/new.yaml'),
-            expected_old_config=SystemConfig.create_from_entries((), (), (), ()),
+            input_old_path=PurePath('/manual/old.yaml'),
+            input_new_path=PurePath('/manual/new.yaml'),
+            expected_old_config=SystemConfig.create_from_entries(
+                (),
+                (),
+                (),
+                (),
+            ),
             expected_new_config=SystemConfig.create_from_entries(
                 (ShellAction('echo new'),), (), (), (),
             ),
@@ -238,6 +257,7 @@ class TestPreviewCommand(TestCase):
             defaults=defaults,
             file_reader=dataset.fixture_file_reader,
             file_writer=file_writer,
+            path_service=dataset.fixture_path_service,
             system_executor=system_executor,
         )
         executor = MockSystemExecutor()

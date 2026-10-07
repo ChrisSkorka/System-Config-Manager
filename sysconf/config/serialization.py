@@ -2,10 +2,11 @@
 
 import yaml
 
-from pathlib import Path
+from pathlib import PurePath
 from typing import Union
 
 from sysconf.system.file import FileReader
+from sysconf.system.path_service import PathService
 from sysconf.utils.validation import ValidationError
 
 
@@ -28,7 +29,12 @@ class YamlDeserializer:
     - Performs static interpolations ($pwd)
     """
 
-    def get_data_from_file(self, file_reader: FileReader, path: Path) -> YamlSerializable:
+    def get_data_from_file(
+        self,
+        file_reader: FileReader,
+        path_service: PathService,
+        path: PurePath,
+    ) -> YamlSerializable:
         """
         Read YAML data from a file and return it as a YamlSerializable object.
 
@@ -37,7 +43,8 @@ class YamlDeserializer:
 
         Args:
             file_reader (FileReader): The file reader to use.
-            path (Path): The path to the YAML file.
+            path_service (PathService): Resolves the file's directory.
+            path (PurePath): The path to the YAML file.
 
         Returns:
             YamlSerializable: The deserialized YAML data.
@@ -46,7 +53,9 @@ class YamlDeserializer:
         content: str = file_reader.get_file_contents(path)
         data = self.get_deserialized_data(content)
 
-        directory_path = str(path.parent.expanduser().resolve())
+        expanded_directory = path_service.expand_user(path.parent)
+        resolved_directory = path_service.resolve(expanded_directory)
+        directory_path = str(resolved_directory)
 
         interpolated_data = self.get_interpolated_data(
             data,

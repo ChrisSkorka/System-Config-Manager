@@ -1,6 +1,8 @@
 # pyright: strict
 
-from pathlib import Path
+import posixpath
+
+from pathlib import PurePath
 from typing import Self
 from unittest.mock import MagicMock
 from sysconf.system.file import FileReader, FileWriter
@@ -22,7 +24,7 @@ class MockFileReader (FileReader):
         }
 
         # side effect function
-        def get_file_contents(path: Path) -> str:
+        def get_file_contents(path: PurePath) -> str:
             return files[self._get_normalized_path(path)]
 
         self.files = files
@@ -34,8 +36,10 @@ class MockFileReader (FileReader):
 
         return self.files == value.files
 
-    def _get_normalized_path(self, path: str | Path) -> str:
-        return Path(path).expanduser().resolve().as_posix()
+    def _get_normalized_path(self, path: str | PurePath) -> str:
+        posix_path = PurePath(path).as_posix()
+
+        return posixpath.normpath(posix_path)
 
     def __call__(self) -> Self:
         """
@@ -55,7 +59,7 @@ class MockFileWriter (FileWriter):
         self.written_files: dict[str, str] = {}
 
         # side effect function
-        def write_file_contents(path: Path, contents: str) -> None:
+        def write_file_contents(path: PurePath, contents: str) -> None:
             self.written_files[path.as_posix()] = contents
 
         self.write_file_contents = MagicMock(side_effect=write_file_contents)

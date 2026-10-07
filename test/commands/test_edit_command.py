@@ -6,7 +6,7 @@ import sys
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from pathlib import Path
+from pathlib import PurePath
 from textwrap import dedent
 from unittest.mock import call, patch
 
@@ -28,12 +28,12 @@ from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
 from test.system.mock_editor import MockEditorLauncher, MockWhich
 from test.system.mock_system_executor import MockRaisingSystemExecutor, MockSystemExecutor
+from test.system.mock_path_service import MockPathService
 from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
 from test.utils.mock_config_writer import MockConfigWriter
 from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_file import MockFileReader, MockFileWriter
-from test.utils.mock_path import MockPath, dpath, fpath
 
 
 class NextCommand (Enum):
@@ -57,9 +57,11 @@ class MockConfigReader (ConfigReader):
         new_config: SystemConfig | ValidationError,
     ) -> 'MockConfigReader':
         file_reader = FileReader()
+        path_service = MockPathService()
 
         return cls(
             file_reader=file_reader,
+            path_service=path_service,
             old_config=old_config,
             new_config=new_config,
         )
@@ -67,16 +69,17 @@ class MockConfigReader (ConfigReader):
     def __init__(
         self,
         file_reader: FileReader,
+        path_service: MockPathService,
         old_config: SystemConfig,
         new_config: SystemConfig | ValidationError,
     ) -> None:
-        super().__init__(file_reader)
+        super().__init__(file_reader, path_service)
 
         self.old_config = old_config
         self.new_config = new_config
-        self.loaded_paths: list[Path] = []
+        self.loaded_paths: list[PurePath] = []
 
-    def load(self, path: Path) -> SystemConfig:
+    def load(self, path: PurePath) -> SystemConfig:
         self.loaded_paths.append(path)
 
         if isinstance(self.new_config, ValidationError):
@@ -84,7 +87,7 @@ class MockConfigReader (ConfigReader):
 
         return self.new_config
 
-    def load_or_default(self, path: Path) -> SystemConfig:
+    def load_or_default(self, path: PurePath) -> SystemConfig:
         self.loaded_paths.append(path)
         return self.old_config
 
@@ -128,13 +131,15 @@ def make_apply_command() -> ApplyCommand:
     defaults = MockDefaults()
     file_reader = MockFileReader({})
     file_writer = MockFileWriter()
+    path_service = MockPathService()
     config_location_writer = ConfigLocationWriter(
         defaults=defaults,
         file_reader=file_reader,
         file_writer=file_writer,
+        path_service=path_service,
     )
-    old_path = fpath('/config/.history/current.yaml')
-    new_path = fpath('/manual/config.yaml')
+    old_path = PurePath('/config/.history/current.yaml')
+    new_path = PurePath('/manual/config.yaml')
 
     return ApplyCommand(
         manager=manager,
@@ -148,9 +153,10 @@ def make_apply_command() -> ApplyCommand:
 
 
 def make_edit_command(
-    old_path: Path = fpath('/config/.history/current.yaml'),
-    new_path: Path = fpath('/manual/config.yaml'),
+    old_path: PurePath = PurePath('/config/.history/current.yaml'),
+    new_path: PurePath = PurePath('/manual/config.yaml'),
     file_reader: FileReader = FileReader(),
+    path_service: MockPathService = MockPathService(),
     editor_resolver: EditorResolver = EditorResolver('linux', MockWhich({
         'code': '/usr/bin/code',
         'nano': '/usr/bin/nano',
@@ -159,7 +165,7 @@ def make_edit_command(
 ) -> EditCommand:
     """Build an edit command from default collaborators, for equality checks."""
 
-    config_reader = ConfigReader(file_reader)
+    config_reader = ConfigReader(file_reader, path_service)
 
     return EditCommand(
         config_reader=config_reader,
@@ -213,22 +219,26 @@ class TestEditCommand(TestCase):
         self.assertIs(result_parser, parser)
 
         args = parser.parse_args(['test.yaml', '--last-config', 'old.yaml'])
-        self.assertEqual(args.config_file, Path('test.yaml'))
-        self.assertEqual(args.last_config, Path('old.yaml'))
+        self.assertEqual(args.config_file, PurePath('test.yaml'))
+        self.assertEqual(args.last_config, PurePath('old.yaml'))
 
     @dataclass
     class CreateFromArgumentsDataset:
+        fixture_path_service: MockPathService
         fixture_defaults: MockDefaults
         fixture_files: dict[str, str]
         input_parsed_arguments: Namespace
-        expected_old_path: Path
-        expected_new_path: Path
+        expected_old_path: PurePath
+        expected_new_path: PurePath
         expected_should_override_config_path: bool
 
     @datasets({
         'config file given': CreateFromArgumentsDataset(
+            fixture_path_service=MockPathService(
+                files={'/config/.history/current.yaml', '/manual/config.yaml'},
+            ),
             fixture_defaults=MockDefaults(
-                old_config_path=fpath('/config/.history/current.yaml'),
+                old_config_path=PurePath('/config/.history/current.yaml'),
             ),
             fixture_files={
                 '/config/.history/current.yaml': dedent('''\
@@ -249,18 +259,25 @@ class TestEditCommand(TestCase):
                     '''),
             },
             input_parsed_arguments=Namespace(
-                config_file=fpath('/manual/config.yaml'),
+                config_file=PurePath('/manual/config.yaml'),
                 last_config=None,
             ),
-            expected_old_path=fpath('/config/.history/current.yaml'),
-            expected_new_path=fpath('/manual/config.yaml'),
+            expected_old_path=PurePath('/config/.history/current.yaml'),
+            expected_new_path=PurePath('/manual/config.yaml'),
             expected_should_override_config_path=True,
         ),
         'config file from the config location': CreateFromArgumentsDataset(
+            fixture_path_service=MockPathService(
+                files={
+                    '/config/.history/current.yaml',
+                    '/config/config/config.yaml',
+                },
+                dirs={'/config/config'},
+            ),
             fixture_defaults=MockDefaults(
-                old_config_path=fpath('/config/.history/current.yaml'),
-                new_config_path=fpath('/config/config/config.yaml'),
-                config_location_path=dpath('/config/config'),
+                old_config_path=PurePath('/config/.history/current.yaml'),
+                new_config_path=PurePath('/config/config/config.yaml'),
+                config_location_path=PurePath('/config/config'),
             ),
             fixture_files={
                 '/config/.history/current.yaml': dedent('''\
@@ -284,13 +301,16 @@ class TestEditCommand(TestCase):
                 config_file=None,
                 last_config=None,
             ),
-            expected_old_path=fpath('/config/.history/current.yaml'),
-            expected_new_path=fpath('/config/config/config.yaml'),
+            expected_old_path=PurePath('/config/.history/current.yaml'),
+            expected_new_path=PurePath('/config/config/config.yaml'),
             expected_should_override_config_path=False,
         ),
         'old config given': CreateFromArgumentsDataset(
+            fixture_path_service=MockPathService(
+                files={'/manual/config.yaml', '/manual/old.yaml'},
+            ),
             fixture_defaults=MockDefaults(
-                old_config_path=MockPath('/config/.history/current.yaml'),
+                old_config_path=PurePath('/config/.history/current.yaml'),
             ),
             fixture_files={
                 '/manual/old.yaml': dedent('''\
@@ -311,11 +331,11 @@ class TestEditCommand(TestCase):
                     '''),
             },
             input_parsed_arguments=Namespace(
-                config_file=fpath('/manual/config.yaml'),
-                last_config=fpath('/manual/old.yaml'),
+                config_file=PurePath('/manual/config.yaml'),
+                last_config=PurePath('/manual/old.yaml'),
             ),
-            expected_old_path=fpath('/manual/old.yaml'),
-            expected_new_path=fpath('/manual/config.yaml'),
+            expected_old_path=PurePath('/manual/old.yaml'),
+            expected_new_path=PurePath('/manual/config.yaml'),
             expected_should_override_config_path=True,
         ),
     })
@@ -336,9 +356,10 @@ class TestEditCommand(TestCase):
             defaults=dataset.fixture_defaults,
             file_reader=file_reader,
             file_writer=file_writer,
+            path_service=dataset.fixture_path_service,
             system_executor=system_executor,
         )
-        config_reader = ConfigReader(file_reader)
+        config_reader = ConfigReader(file_reader, dataset.fixture_path_service)
         editor_resolver = EditorResolver(sys.platform, shutil.which)
         editor_launcher = EditorLauncher(system_executor)
         expected = EditCommand(
@@ -578,7 +599,12 @@ class TestEditCommand(TestCase):
             expected_next_command=NextCommand.APPLY,
         ),
         'no old config': RunDataset(
-            fixture_old_config=SystemConfig.create_from_entries((), (), (), ()),
+            fixture_old_config=SystemConfig.create_from_entries(
+                (),
+                (),
+                (),
+                (),
+            ),
             fixture_new_config=SystemConfig.create_from_entries(
                 (ShellAction('echo new'),), (), (), (),
                 ToolSettings(editor='code --wait'),
@@ -588,7 +614,9 @@ class TestEditCommand(TestCase):
             expected_editor_command=('/usr/bin/nano',),
         ),
         'invalid config edited again': RunDataset(
-            fixture_new_config=ValidationError('Undefined domain: not-a-domain'),
+            fixture_new_config=ValidationError(
+                'Undefined domain: not-a-domain',
+            ),
             fixture_user_inputs=('e',),
             expected_next_command=NextCommand.SELF,
             expected_prints=[
@@ -599,7 +627,9 @@ class TestEditCommand(TestCase):
             ],
         ),
         'invalid choice for an invalid config then edit': RunDataset(
-            fixture_new_config=ValidationError('Undefined domain: not-a-domain'),
+            fixture_new_config=ValidationError(
+                'Undefined domain: not-a-domain',
+            ),
             fixture_user_inputs=('x', 'e'),
             expected_next_command=NextCommand.SELF,
             expected_prints=['Invalid choice. Please try again.'],
@@ -630,7 +660,9 @@ class TestEditCommand(TestCase):
             ToolSettings(editor='code --wait'),
         )
         preview_result = RunActionsResult[None](preview_config)
-        preview_manager = MockSystemManager[None].default(result=preview_result)
+        preview_manager = MockSystemManager[None].default(
+            result=preview_result,
+        )
         system_config_renderer = SystemConfigRenderer()
         yaml_serializer = YamlSerializer()
         preview_command = PreviewCommand(
@@ -646,8 +678,8 @@ class TestEditCommand(TestCase):
         def apply_command_factory() -> ApplyCommand:
             return apply_command
 
-        old_path = fpath('/config/.history/current.yaml')
-        new_path = fpath('/manual/config.yaml')
+        old_path = PurePath('/config/.history/current.yaml')
+        new_path = PurePath('/manual/config.yaml')
         edit_command = EditCommand(
             config_reader=config_reader,
             old_path=old_path,
@@ -718,18 +750,27 @@ class TestEditCommand(TestCase):
         ),
         'invalid config aborted': RaiseDataset(
             fixture_edit_results=(EditResult.CLOSED,),
-            fixture_new_config=ValidationError('Undefined domain: not-a-domain'),
+            fixture_new_config=ValidationError(
+                'Undefined domain: not-a-domain',
+            ),
             fixture_user_inputs=('a',),
             expected_message='The invalid config was not applied',
         ),
         'five invalid choices for an invalid config': RaiseDataset(
             fixture_edit_results=(EditResult.CLOSED,),
-            fixture_new_config=ValidationError('Undefined domain: not-a-domain'),
+            fixture_new_config=ValidationError(
+                'Undefined domain: not-a-domain',
+            ),
             fixture_user_inputs=('x',) * 5,
             expected_message='The invalid config was not applied',
         ),
         'no editor found': RaiseDataset(
-            fixture_old_config=SystemConfig.create_from_entries((), (), (), ()),
+            fixture_old_config=SystemConfig.create_from_entries(
+                (),
+                (),
+                (),
+                (),
+            ),
             fixture_paths_by_name={},
             fixture_edit_results=(),
             fixture_new_config=SystemConfig.create_from_entries(
@@ -761,8 +802,8 @@ class TestEditCommand(TestCase):
         which = MockWhich(dataset.fixture_paths_by_name)
         editor_resolver = EditorResolver('linux', which)
         editor_launcher = MockEditorLauncher(dataset.fixture_edit_results)
-        old_path = fpath('/config/.history/current.yaml')
-        new_path = fpath('/manual/config.yaml')
+        old_path = PurePath('/config/.history/current.yaml')
+        new_path = PurePath('/manual/config.yaml')
         edit_command = EditCommand(
             config_reader=config_reader,
             old_path=old_path,
@@ -800,13 +841,15 @@ class TestEditCommand(TestCase):
         'different old path': EqualityDataset(
             input_command=make_edit_command(),
             input_other=make_edit_command(
-                old_path=Path('/other/current.yaml'),
+                old_path=PurePath('/other/current.yaml'),
             ),
             expected_equal=False,
         ),
         'different new path': EqualityDataset(
             input_command=make_edit_command(),
-            input_other=make_edit_command(new_path=Path('/other/config.yaml')),
+            input_other=make_edit_command(
+                new_path=PurePath('/other/config.yaml'),
+            ),
             expected_equal=False,
         ),
         'different editor resolver': EqualityDataset(

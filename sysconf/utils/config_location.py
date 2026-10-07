@@ -1,8 +1,9 @@
 # pyright: strict
 
-from pathlib import Path
+from pathlib import PurePath
 
 from sysconf.system.file import FileReader, FileWriter
+from sysconf.system.path_service import PathService
 from sysconf.utils.validation import validate
 from sysconf.utils.defaults import Defaults
 
@@ -16,9 +17,15 @@ class ConfigLocationReader:
     - a directory holding the configuration itself.
     """
 
-    def __init__(self, defaults: Defaults, file_reader: FileReader) -> None:
+    def __init__(
+        self,
+        defaults: Defaults,
+        file_reader: FileReader,
+        path_service: PathService,
+    ) -> None:
         self.defaults = defaults
         self.file_reader = file_reader
+        self.path_service = path_service
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, ConfigLocationReader):
@@ -27,23 +34,25 @@ class ConfigLocationReader:
         return (
             self.defaults == value.defaults
             and self.file_reader == value.file_reader
+            and self.path_service == value.path_service
         )
 
-    def get_config_path(self) -> Path:
+    def get_config_path(self) -> PurePath:
         """
         Get the path of the configuration recorded at the config location.
 
         Returns:
-            Path: The path of the recorded configuration.
+            PurePath: The path of the recorded configuration.
         """
 
         location_path = self.defaults.get_config_location_path()
 
-        if location_path.is_dir():
+        if self.path_service.is_dir(location_path):
             return self.defaults.get_new_config_path()
 
+        is_location_file = self.path_service.is_file(location_path)
         validate(
-            location_path.is_file(),
+            is_location_file,
             f'No config location recorded at {location_path}, \n'
             + ConfigLocationReader.get_init_message(),
         )
@@ -58,7 +67,9 @@ class ConfigLocationReader:
             + ConfigLocationReader.get_init_message(),
         )
 
-        return Path(recorded_path).expanduser()
+        config_path = PurePath(recorded_path)
+
+        return self.path_service.expand_user(config_path)
 
     @staticmethod
     def get_init_message() -> str:
@@ -82,10 +93,12 @@ class ConfigLocationWriter:
         defaults: Defaults,
         file_reader: FileReader,
         file_writer: FileWriter,
+        path_service: PathService,
     ) -> None:
         self.defaults = defaults
         self.file_reader = file_reader
         self.file_writer = file_writer
+        self.path_service = path_service
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, ConfigLocationWriter):
@@ -95,29 +108,29 @@ class ConfigLocationWriter:
             self.defaults == value.defaults
             and self.file_reader == value.file_reader
             and self.file_writer == value.file_writer
+            and self.path_service == value.path_service
         )
 
-    def record_config_path(self, argument_path: Path) -> bool:
+    def record_config_path(self, argument_path: PurePath) -> bool:
         """
         Record the given path as the config location, unless the location is a
         directory holding the configuration itself.
 
         Args:
-            argument_path (Path): The path given on the command line.
+            argument_path (PurePath): The path given on the command line.
         Returns:
             bool: True if the config path was recorded, False otherwise.
         """
 
         location_path = self.defaults.get_config_location_path()
 
-        if location_path.is_dir():
+        if self.path_service.is_dir(location_path):
             return False
 
-        # Rebuild as a plain Path so that resolve() does not have to
-        # re-construct whichever Path subclass was given to us
-        absolute_path = Path(argument_path).expanduser().resolve()
+        expanded_path = self.path_service.expand_user(argument_path)
+        absolute_path = self.path_service.resolve(expanded_path)
 
-        if location_path.is_file():
+        if self.path_service.is_file(location_path):
             recorded_path = self.file_reader \
                 .get_file_contents(location_path) \
                 .strip()

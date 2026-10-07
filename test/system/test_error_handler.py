@@ -207,7 +207,10 @@ class TestPromptUserErrorHandler(TestCase):
         # Arrange
         handler = PromptUserErrorHandler(
             *dataset.input_handled_exceptions,
-            failure_resolutions=(MockFailureResolution.ABORT, MockFailureResolution.EDIT),
+            failure_resolutions=(
+                MockFailureResolution.ABORT,
+                MockFailureResolution.EDIT,
+            ),
         )
         task = SequencedTask(dataset.fixture_task_results)
 
@@ -235,7 +238,10 @@ class TestPromptUserErrorHandler(TestCase):
             expected_prompt='r/s/m: ',
         ),
         'all failure resolutions': PrintDataset(
-            input_failure_resolutions=(MockFailureResolution.ABORT, MockFailureResolution.EDIT),
+            input_failure_resolutions=(
+                MockFailureResolution.ABORT,
+                MockFailureResolution.EDIT,
+            ),
             expected_options=[
                 '[r] Retry',
                 '[s] Skip',
