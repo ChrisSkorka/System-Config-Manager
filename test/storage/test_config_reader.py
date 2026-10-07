@@ -6,13 +6,13 @@ from textwrap import dedent
 
 from sysconf.config.actions import ShellAction
 from sysconf.config.system_config import SystemConfig
+from sysconf.storage.config_reader import ConfigReader
 from sysconf.system.file import FileReader
-from sysconf.utils.config_loader import ConfigReader
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
+from test.system.mock_file import MockFileReader
 from test.system.mock_path_service import MockPathService
 from test.test_case import TestCase
-from test.utils.mock_file import MockFileReader
 
 
 class TestLoadConfigFromFile(TestCase):

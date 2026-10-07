@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, Callable, Self
 
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
-from sysconf.system.editor import EditResult, EditorLauncher, EditorResolver
-from sysconf.utils.config_loader import ConfigReader
-from sysconf.utils.context import Context
+from sysconf.interaction.editor import EditResult, EditorLauncher, EditorResolver
+from sysconf.storage.config_reader import ConfigReader
+from sysconf.system.context import Context
 from sysconf.utils.validation import ValidationError
 
 if TYPE_CHECKING:

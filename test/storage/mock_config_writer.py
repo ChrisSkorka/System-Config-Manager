@@ -5,9 +5,9 @@ from pathlib import PurePath
 from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
 from sysconf.config.system_config import SystemConfig
+from sysconf.storage.config_writer import ConfigWriter
 from sysconf.system.file import FileWriter
-from sysconf.utils.config_writer import ConfigWriter
-from test.utils.mock_file import MockFileWriter
+from test.system.mock_file import MockFileWriter
 
 
 class MockConfigWriter (ConfigWriter):

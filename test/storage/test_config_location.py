@@ -4,16 +4,16 @@ from dataclasses import dataclass
 from pathlib import PurePath
 
 from sysconf.utils.validation import ValidationError
-from sysconf.utils.config_location import ConfigLocationReader, ConfigLocationWriter
-from sysconf.utils.defaults import Defaults
+from sysconf.storage.config_location import ConfigLocationReader, ConfigLocationWriter
+from sysconf.storage.defaults import Defaults
 from test.datasets import datasets
 from test.system.mock_path_service import MockPathService
 from test.test_case import TestCase
-from test.utils.default_paths import (
+from test.storage.default_paths import (
     DEFAULT_CONFIG_LOCATION_PATH,
     DEFAULT_NEW_CONFIG_PATH,
 )
-from test.utils.mock_file import MockFileReader, MockFileWriter
+from test.system.mock_file import MockFileReader, MockFileWriter
 
 
 class TestConfigLocationReader(TestCase):

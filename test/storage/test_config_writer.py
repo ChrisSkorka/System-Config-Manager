@@ -9,10 +9,10 @@ from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
 from sysconf.config.settings import ToolSettings
 from sysconf.config.system_config import SystemConfig
-from sysconf.utils.config_writer import ConfigWriter
+from sysconf.storage.config_writer import ConfigWriter
 from test.datasets import datasets
+from test.system.mock_file import MockFileWriter
 from test.test_case import TestCase
-from test.utils.mock_file import MockFileWriter
 
 
 class TestConfigWriter(TestCase):

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace, _SubParsersAction  # pyright: ignore
 from typing import Self
 
-from sysconf.utils.context import Context
+from sysconf.system.context import Context
 
 
 # Export this otherwise private type since it's needed to static type checking

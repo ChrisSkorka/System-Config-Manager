@@ -9,13 +9,13 @@ from textwrap import dedent
 from unittest.mock import patch
 
 from sysconf.cli import main
+from sysconf.storage.defaults import Defaults
+from sysconf.system.context import Context
 from sysconf.system.executor import CommandException, SystemExecutor
 from sysconf.system.file import FileReader, FileWriter
 from sysconf.system.path_service import PathService
-from sysconf.utils.context import Context
-from sysconf.utils.defaults import Defaults
 from test.datasets import datasets
-from test.system.mock_editor import MockWhich
+from test.interaction.mock_editor import MockWhich
 from test.test_case import TestCase
 
 

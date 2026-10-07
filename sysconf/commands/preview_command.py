@@ -9,10 +9,10 @@ from sysconf.commands.comparative_config_command_parser import ComparativeConfig
 from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
 from sysconf.config.system_config import SystemManager
-from sysconf.system.error_handler import FailingErrorHandler
+from sysconf.interaction.error_handler import FailingErrorHandler
+from sysconf.storage.config_reader import ConfigReader
+from sysconf.system.context import Context
 from sysconf.system.executor import PreviewSystemExecutor
-from sysconf.utils.config_loader import ConfigReader
-from sysconf.utils.context import Context
 
 
 class PreviewCommand (Command):

@@ -1,9 +1,9 @@
 # pyright: strict
 
-from sysconf.utils.context import Context
+from sysconf.system.context import Context
+from test.system.mock_file import MockFileReader, MockFileWriter
 from test.system.mock_path_service import MockPathService
 from test.system.mock_system_executor import MockSystemExecutor
-from test.utils.mock_file import MockFileReader, MockFileWriter
 
 
 def mock_context() -> Context:

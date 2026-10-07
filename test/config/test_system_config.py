@@ -9,12 +9,12 @@ from sysconf.config.domains import ConfigEntryId, Domain, DomainConfigEntry
 from sysconf.config.settings import ToolSettings
 from sysconf.config.system_config import SystemConfig, SystemConfigTransitioner, SystemManager
 from sysconf.domains.user_domains import UserDomain
-from sysconf.system.error_handler import ErrorHandler
+from sysconf.interaction.error_handler import ErrorHandler
 from sysconf.utils.transition import SequenceTransitioner
 from test.datasets import datasets
 from test.domains.mock_domain_config_entry import MockDomainConfigEntry
 from test.domains.mock_user_domain import MockUserDomain
-from test.system.mock_error_handler import (
+from test.interaction.mock_error_handler import (
     MockFailErrorHandler,
     MockFailureResolution,
     MockSequencedErrorHandler,

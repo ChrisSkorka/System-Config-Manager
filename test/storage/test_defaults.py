@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from pathlib import PurePath
 from typing import Callable
 
+from sysconf.storage.defaults import Defaults
 from sysconf.system.path_service import PathService
-from sysconf.utils.defaults import Defaults
 from test.datasets import datasets
 from test.system.mock_path_service import MockPathService
 from test.test_case import TestCase

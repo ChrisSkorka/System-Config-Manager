@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 from typing import Type
 from pathlib import Path
 
-from sysconf.utils.context import Context
+from sysconf.system.context import Context
 
 
 # Add the parent directory of this file to the Python path to enable imports

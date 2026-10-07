@@ -9,15 +9,15 @@ from unittest.mock import _Call, call  # type: ignore
 from unittest.mock import patch
 
 from sysconf.commands.apply_command import ApplyCommand
+from sysconf.system.context import Context
 from sysconf.system.executor import LiveSystemExecutor
 from sysconf.system.file import FileReader
-from sysconf.utils.context import Context
 from test.datasets import datasets
+from test.storage.default_paths import DEFAULT_CONFIG_LOCATION_PATH
+from test.system.mock_file import MockFileReader, MockFileWriter
 from test.system.mock_path_service import MockPathService
 from test.system.mock_subprocess import create_mock_run
 from test.test_case import TestCase
-from test.utils.default_paths import DEFAULT_CONFIG_LOCATION_PATH
-from test.utils.mock_file import MockFileReader, MockFileWriter
 
 
 class TestIntegrationApplyCommand (TestCase):

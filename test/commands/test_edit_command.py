@@ -19,26 +19,26 @@ from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
 from sysconf.config.settings import ToolSettings
 from sysconf.config.system_config import RunActionsResult, SystemConfig
-from sysconf.system.editor import EditResult, EditorLauncher, EditorResolver
+from sysconf.interaction.editor import EditResult, EditorLauncher, EditorResolver
 from sysconf.system.file import FileReader
-from sysconf.utils.config_loader import ConfigReader
-from sysconf.utils.config_location import ConfigLocationWriter
-from sysconf.utils.context import Context
-from sysconf.utils.defaults import Defaults
+from sysconf.storage.config_reader import ConfigReader
+from sysconf.storage.config_location import ConfigLocationWriter
+from sysconf.system.context import Context
+from sysconf.storage.defaults import Defaults
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
-from test.system.mock_editor import MockEditorLauncher, MockWhich
+from test.interaction.mock_editor import MockEditorLauncher, MockWhich
 from test.system.mock_system_executor import MockRaisingSystemExecutor, MockSystemExecutor
 from test.system.mock_path_service import MockPathService
-from test.system.mock_system_manager import MockSystemManager
+from test.config.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
-from test.utils.mock_config_writer import MockConfigWriter
-from test.utils.default_paths import (
+from test.storage.mock_config_writer import MockConfigWriter
+from test.storage.default_paths import (
     DEFAULT_CONFIG_LOCATION_PATH,
     DEFAULT_NEW_CONFIG_PATH,
     DEFAULT_OLD_CONFIG_PATH,
 )
-from test.utils.mock_file import MockFileReader, MockFileWriter
+from test.system.mock_file import MockFileReader, MockFileWriter
 
 
 class NextCommand (Enum):

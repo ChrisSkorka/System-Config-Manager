@@ -4,7 +4,7 @@ from typing import TypeVar
 from unittest.mock import MagicMock
 
 from sysconf.config.system_config import RunActionsResult, SystemConfig, SystemManager
-from sysconf.system.error_handler import ErrorHandler, FailureResolution
+from sysconf.interaction.error_handler import ErrorHandler, FailureResolution
 from test.system.mock_system_executor import MockSystemExecutor
 
 

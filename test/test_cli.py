@@ -15,8 +15,8 @@ from sysconf.commands.preview_command import PreviewCommand
 from sysconf.commands.show_command import ShowCommand
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
+from test.system.mock_context import mock_context
 from test.test_case import TestCase
-from test.utils.mock_context import mock_context
 
 
 class TestMain(TestCase):

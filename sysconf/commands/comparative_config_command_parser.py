@@ -6,9 +6,9 @@ from typing import Self
 
 from sysconf.commands.command import CommandArgumentParserBuilder
 from sysconf.system.file import FileReader
-from sysconf.utils.context import Context
-from sysconf.utils.defaults import Defaults
-from sysconf.utils.config_location import ConfigLocationReader
+from sysconf.system.context import Context
+from sysconf.storage.defaults import Defaults
+from sysconf.storage.config_location import ConfigLocationReader
 
 
 class ComparativeConfigCommandParser (CommandArgumentParserBuilder):

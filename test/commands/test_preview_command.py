@@ -9,16 +9,16 @@ from unittest.mock import MagicMock
 from sysconf.commands.preview_command import PreviewCommand
 from sysconf.config.actions import ShellAction
 from sysconf.config.system_config import RunActionsResult, SystemConfig, SystemManager
-from sysconf.system.error_handler import FailingErrorHandler
+from sysconf.interaction.error_handler import FailingErrorHandler
+from sysconf.system.context import Context
 from sysconf.system.executor import PreviewSystemExecutor
-from sysconf.utils.context import Context
+from test.config.mock_system_manager import MockSystemManager
 from test.datasets import datasets
+from test.storage.default_paths import DEFAULT_OLD_CONFIG_PATH
+from test.system.mock_file import MockFileReader, MockFileWriter
 from test.system.mock_path_service import MockPathService
 from test.system.mock_system_executor import MockSystemExecutor
-from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
-from test.utils.default_paths import DEFAULT_OLD_CONFIG_PATH
-from test.utils.mock_file import MockFileReader, MockFileWriter
 
 
 class TestPreviewCommand(TestCase):

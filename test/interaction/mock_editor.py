@@ -2,7 +2,7 @@
 
 from pathlib import PurePath
 
-from sysconf.system.editor import EditResult, EditorLauncher
+from sysconf.interaction.editor import EditResult, EditorLauncher
 from test.system.mock_system_executor import MockSystemExecutor
 
 

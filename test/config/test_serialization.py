@@ -8,7 +8,7 @@ from typing import Any
 from test.datasets import datasets
 from test.system.mock_path_service import MockPathService
 from test.test_case import TestCase
-from test.utils.mock_file import MockFileReader
+from test.system.mock_file import MockFileReader
 from sysconf.config.serialization import YamlDeserializer, YamlSerializer
 from sysconf.utils.validation import ValidationError
 

@@ -9,14 +9,14 @@ from sysconf.commands.comparative_config_command_parser import ComparativeConfig
 from sysconf.config.parser import SystemConfigRenderer
 from sysconf.config.serialization import YamlSerializer
 from sysconf.config.system_config import SystemManager
-from sysconf.system.error_handler import PromptUserErrorHandler
+from sysconf.interaction.choice_prompt import ChoicePromptOptionEnum
+from sysconf.interaction.error_handler import PromptUserErrorHandler
+from sysconf.storage.config_location import ConfigLocationWriter
+from sysconf.storage.config_reader import ConfigReader
+from sysconf.storage.config_writer import ConfigWriter
+from sysconf.storage.defaults import Defaults
+from sysconf.system.context import Context
 from sysconf.system.executor import CommandException
-from sysconf.utils.choice_prompt import ChoicePromptOptionEnum
-from sysconf.utils.config_loader import ConfigReader
-from sysconf.utils.config_location import ConfigLocationWriter
-from sysconf.utils.config_writer import ConfigWriter
-from sysconf.utils.context import Context
-from sysconf.utils.defaults import Defaults
 
 if TYPE_CHECKING:
     from sysconf.commands.edit_command import EditCommand

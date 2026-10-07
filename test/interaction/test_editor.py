@@ -5,11 +5,11 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import PurePath
 
-from sysconf.system.editor import EditResult, EditorLauncher, EditorResolver
+from sysconf.interaction.editor import EditResult, EditorLauncher, EditorResolver
 from sysconf.system.executor import CommandException
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
-from test.system.mock_editor import MockWhich
+from test.interaction.mock_editor import MockWhich
 from test.system.mock_system_executor import MockSystemExecutor
 from test.test_case import TestCase
 

@@ -5,19 +5,19 @@ from dataclasses import dataclass
 from pathlib import PurePath
 
 from sysconf.commands.comparative_config_command_parser import ComparativeConfigCommandParser
+from sysconf.system.context import Context
 from sysconf.system.file import FileReader
-from sysconf.utils.context import Context
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
-from test.system.mock_path_service import MockPathService
-from test.system.mock_system_executor import MockSystemExecutor
-from test.test_case import TestCase
-from test.utils.default_paths import (
+from test.storage.default_paths import (
     DEFAULT_CONFIG_LOCATION_PATH,
     DEFAULT_NEW_CONFIG_PATH,
     DEFAULT_OLD_CONFIG_PATH,
 )
-from test.utils.mock_file import MockFileReader, MockFileWriter
+from test.system.mock_file import MockFileReader, MockFileWriter
+from test.system.mock_path_service import MockPathService
+from test.system.mock_system_executor import MockSystemExecutor
+from test.test_case import TestCase
 
 
 class TestComparativeConfigCommandParser(TestCase):

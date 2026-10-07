@@ -7,14 +7,14 @@ from textwrap import dedent
 from unittest.mock import call, patch
 
 from sysconf.commands.show_command import ShowCommand
-from sysconf.utils.context import Context
+from sysconf.system.context import Context
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
+from test.storage.default_paths import DEFAULT_OLD_CONFIG_PATH
+from test.system.mock_file import MockFileReader, MockFileWriter
 from test.system.mock_path_service import MockPathService
 from test.system.mock_system_executor import MockSystemExecutor
 from test.test_case import TestCase
-from test.utils.default_paths import DEFAULT_OLD_CONFIG_PATH
-from test.utils.mock_file import MockFileReader, MockFileWriter
 
 
 class TestShowCommand(TestCase):

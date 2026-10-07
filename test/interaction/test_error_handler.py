@@ -3,9 +3,9 @@
 from dataclasses import dataclass
 from unittest.mock import call, patch
 
-from sysconf.system.error_handler import ErrorHandler, FailingErrorHandler, PromptUserErrorHandler
+from sysconf.interaction.error_handler import ErrorHandler, FailingErrorHandler, PromptUserErrorHandler
 from test.datasets import datasets
-from test.system.mock_error_handler import MockFailureResolution
+from test.interaction.mock_error_handler import MockFailureResolution
 from test.test_case import TestCase
 
 

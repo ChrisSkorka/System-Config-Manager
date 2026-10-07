@@ -3,7 +3,7 @@
 from abc import ABCMeta
 from enum import Enum, EnumMeta
 
-from sysconf.system.error_handler import FailureResolution
+from sysconf.interaction.error_handler import FailureResolution
 
 
 class ABCEnumMeta(ABCMeta, EnumMeta):

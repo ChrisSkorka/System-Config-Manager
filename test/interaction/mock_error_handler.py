@@ -2,8 +2,8 @@
 
 from typing import Callable
 
-from sysconf.system.error_handler import ErrorHandler, TryRunResult
-from sysconf.utils.choice_prompt import ChoicePromptOptionEnum
+from sysconf.interaction.choice_prompt import ChoicePromptOptionEnum
+from sysconf.interaction.error_handler import ErrorHandler, TryRunResult
 
 
 class MockFailureResolution (ChoicePromptOptionEnum):

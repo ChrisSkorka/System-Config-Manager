@@ -5,7 +5,7 @@ from pathlib import PurePath
 from sysconf.system.file import FileReader, FileWriter
 from sysconf.system.path_service import PathService
 from sysconf.utils.validation import validate
-from sysconf.utils.defaults import Defaults
+from sysconf.storage.defaults import Defaults
 
 
 class ConfigLocationReader:

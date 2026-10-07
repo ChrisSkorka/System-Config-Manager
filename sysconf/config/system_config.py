@@ -7,7 +7,7 @@ from sysconf.config.domain_registry import builtin_domains
 from sysconf.config.domains import ConfigEntryId, Domain, DomainAction, DomainConfigEntry, NoDomainAction
 from sysconf.config.settings import ToolSettings
 from sysconf.domains.user_domains import UserDomain
-from sysconf.system.error_handler import ErrorHandler, FailureResolution
+from sysconf.interaction.error_handler import ErrorHandler, FailureResolution
 from sysconf.system.executor import SystemExecutor
 from sysconf.utils.diff import Diff
 from sysconf.utils.transition import SequenceTransitioner
