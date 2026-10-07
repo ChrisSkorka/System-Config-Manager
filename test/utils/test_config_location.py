@@ -5,10 +5,14 @@ from pathlib import PurePath
 
 from sysconf.utils.validation import ValidationError
 from sysconf.utils.config_location import ConfigLocationReader, ConfigLocationWriter
+from sysconf.utils.defaults import Defaults
 from test.datasets import datasets
 from test.system.mock_path_service import MockPathService
 from test.test_case import TestCase
-from test.utils.mock_defaults import MockDefaults
+from test.utils.default_paths import (
+    DEFAULT_CONFIG_LOCATION_PATH,
+    DEFAULT_NEW_CONFIG_PATH,
+)
 from test.utils.mock_file import MockFileReader, MockFileWriter
 
 
@@ -18,50 +22,40 @@ class TestConfigLocationReader(TestCase):
     @dataclass
     class GetConfigPathDataset:
         fixture_path_service: MockPathService
-        fixture_defaults: MockDefaults
         fixture_file_reader: MockFileReader
         expected_path: PurePath
 
     @datasets({
         'recorded location is a directory': GetConfigPathDataset(
-            fixture_path_service=MockPathService(dirs={'/config/config'}),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
-                new_config_path=PurePath('/config/config/config.yaml'),
-            ),
+            fixture_path_service=MockPathService(
+                dirs={DEFAULT_CONFIG_LOCATION_PATH}),
             fixture_file_reader=MockFileReader({}),
-            expected_path=PurePath('/config/config/config.yaml'),
+            expected_path=PurePath(DEFAULT_NEW_CONFIG_PATH),
         ),
         'recorded location is a file': GetConfigPathDataset(
-            fixture_path_service=MockPathService(files={'/config/config'}),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
-            ),
+            fixture_path_service=MockPathService(
+                files={DEFAULT_CONFIG_LOCATION_PATH}),
             fixture_file_reader=MockFileReader({
-                '/config/config': '/dotfiles/system.yaml',
+                DEFAULT_CONFIG_LOCATION_PATH: '/dotfiles/system.yaml',
             }),
             expected_path=PurePath('/dotfiles/system.yaml'),
         ),
         'recorded location has surrounding whitespace': GetConfigPathDataset(
-            fixture_path_service=MockPathService(files={'/config/config'}),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
+            fixture_path_service=MockPathService(
+                files={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
-                '/config/config': '\n  /dotfiles/system.yaml  \n',
+                DEFAULT_CONFIG_LOCATION_PATH: '\n  /dotfiles/system.yaml  \n',
             }),
             expected_path=PurePath('/dotfiles/system.yaml'),
         ),
         'recorded location uses the home shorthand': GetConfigPathDataset(
             fixture_path_service=MockPathService(
-                files={'/config/config'},
+                files={DEFAULT_CONFIG_LOCATION_PATH},
                 home_dir='/home/user',
             ),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
-            ),
             fixture_file_reader=MockFileReader({
-                '/config/config': '~/dotfiles/system.yaml',
+                DEFAULT_CONFIG_LOCATION_PATH: '~/dotfiles/system.yaml',
             }),
             expected_path=PurePath('/home/user/dotfiles/system.yaml'),
         ),
@@ -70,8 +64,9 @@ class TestConfigLocationReader(TestCase):
         """Test that the configuration path is resolved for each location form."""
 
         # Arrange
+        defaults = Defaults(dataset.fixture_path_service)
         reader = ConfigLocationReader(
-            dataset.fixture_defaults,
+            defaults,
             dataset.fixture_file_reader,
             dataset.fixture_path_service,
         )
@@ -85,36 +80,30 @@ class TestConfigLocationReader(TestCase):
     @dataclass
     class GetConfigPathErrorDataset:
         fixture_path_service: MockPathService
-        fixture_defaults: MockDefaults
         fixture_file_reader: MockFileReader
         expected_message_contains: str
 
     @datasets({
         'nothing recorded': GetConfigPathErrorDataset(
             fixture_path_service=MockPathService(),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
-            ),
             fixture_file_reader=MockFileReader({}),
             expected_message_contains='No config location recorded',
         ),
         'recorded location is empty': GetConfigPathErrorDataset(
-            fixture_path_service=MockPathService(files={'/config/config'}),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
+            fixture_path_service=MockPathService(
+                files={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
-                '/config/config': '',
+                DEFAULT_CONFIG_LOCATION_PATH: '',
             }),
             expected_message_contains='is empty',
         ),
         'recorded location is blank': GetConfigPathErrorDataset(
-            fixture_path_service=MockPathService(files={'/config/config'}),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
+            fixture_path_service=MockPathService(
+                files={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
-                '/config/config': '  \n  ',
+                DEFAULT_CONFIG_LOCATION_PATH: '  \n  ',
             }),
             expected_message_contains='is empty',
         ),
@@ -126,8 +115,9 @@ class TestConfigLocationReader(TestCase):
         """Test that an unusable config location is reported to the user."""
 
         # Arrange
+        defaults = Defaults(dataset.fixture_path_service)
         reader = ConfigLocationReader(
-            dataset.fixture_defaults,
+            defaults,
             dataset.fixture_file_reader,
             dataset.fixture_path_service,
         )
@@ -148,7 +138,6 @@ class TestConfigLocationWriter(TestCase):
     @dataclass
     class RecordConfigPathDataset:
         fixture_path_service: MockPathService
-        fixture_defaults: MockDefaults
         fixture_file_reader: MockFileReader
         input_argument_path: PurePath
         expected_recorded: bool
@@ -156,9 +145,8 @@ class TestConfigLocationWriter(TestCase):
 
     @datasets({
         'recorded location is a directory': RecordConfigPathDataset(
-            fixture_path_service=MockPathService(dirs={'/config/config'}),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
+            fixture_path_service=MockPathService(
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({}),
             input_argument_path=PurePath('/manual/new.yaml'),
@@ -167,37 +155,32 @@ class TestConfigLocationWriter(TestCase):
         ),
         'nothing recorded yet': RecordConfigPathDataset(
             fixture_path_service=MockPathService(),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
-            ),
             fixture_file_reader=MockFileReader({}),
             input_argument_path=PurePath('/manual/new.yaml'),
             expected_recorded=True,
             expected_written_files={
-                '/config/config': '/manual/new.yaml\n',
+                DEFAULT_CONFIG_LOCATION_PATH: '/manual/new.yaml\n',
             },
         ),
         'a different location is recorded': RecordConfigPathDataset(
-            fixture_path_service=MockPathService(files={'/config/config'}),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
+            fixture_path_service=MockPathService(
+                files={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
-                '/config/config': '/other/old.yaml\n',
+                DEFAULT_CONFIG_LOCATION_PATH: '/other/old.yaml\n',
             }),
             input_argument_path=PurePath('/manual/new.yaml'),
             expected_recorded=True,
             expected_written_files={
-                '/config/config': '/manual/new.yaml\n',
+                DEFAULT_CONFIG_LOCATION_PATH: '/manual/new.yaml\n',
             },
         ),
         'this location is already recorded': RecordConfigPathDataset(
-            fixture_path_service=MockPathService(files={'/config/config'}),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
+            fixture_path_service=MockPathService(
+                files={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
-                '/config/config': '/manual/new.yaml\n',
+                DEFAULT_CONFIG_LOCATION_PATH: '/manual/new.yaml\n',
             }),
             input_argument_path=PurePath('/manual/new.yaml'),
             expected_recorded=False,
@@ -212,8 +195,9 @@ class TestConfigLocationWriter(TestCase):
 
         # Arrange
         file_writer = MockFileWriter()
+        defaults = Defaults(dataset.fixture_path_service)
         writer = ConfigLocationWriter(
-            dataset.fixture_defaults,
+            defaults,
             dataset.fixture_file_reader,
             file_writer,
             dataset.fixture_path_service,

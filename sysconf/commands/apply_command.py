@@ -16,6 +16,7 @@ from sysconf.utils.config_loader import ConfigReader
 from sysconf.utils.config_location import ConfigLocationWriter
 from sysconf.utils.config_writer import ConfigWriter
 from sysconf.utils.context import Context
+from sysconf.utils.defaults import Defaults
 
 if TYPE_CHECKING:
     from sysconf.commands.edit_command import EditCommand
@@ -99,10 +100,10 @@ class ApplyCommand (Command):
         Create an instance of the command from the given context.
         """
 
-        defaults = context.get_defaults()
         executor = context.get_system_executor()
         file_reader = context.get_file_reader()
         path_service = context.get_path_service()
+        defaults = Defaults(path_service)
         file_writer = context.get_file_writer()
 
         system_config_renderer = SystemConfigRenderer()

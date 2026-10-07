@@ -16,7 +16,7 @@ from test.datasets import datasets
 from test.system.mock_path_service import MockPathService
 from test.system.mock_subprocess import create_mock_run
 from test.test_case import TestCase
-from test.utils.mock_defaults import MockDefaults
+from test.utils.default_paths import DEFAULT_CONFIG_LOCATION_PATH
 from test.utils.mock_file import MockFileReader, MockFileWriter
 
 
@@ -43,7 +43,7 @@ class TestIntegrationApplyCommand (TestCase):
         'empty, no changes': RunSuccessDataset(
             fixture_path_service=MockPathService(
                 files={'/configs/config-new.yaml', '/configs/config-old.yaml'},
-                dirs={'/config/config'},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
                 '/configs/config-old.yaml': dedent('''\
@@ -66,7 +66,7 @@ class TestIntegrationApplyCommand (TestCase):
         'simple, empty last config': RunSuccessDataset(
             fixture_path_service=MockPathService(
                 files={'/configs/config-new.yaml', '/configs/config-old.yaml'},
-                dirs={'/config/config'},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
                 '/configs/config-old.yaml': dedent('''\
@@ -97,7 +97,7 @@ class TestIntegrationApplyCommand (TestCase):
         'no last config yet': RunSuccessDataset(
             fixture_path_service=MockPathService(
                 files={'/configs/config-new.yaml'},
-                dirs={'/config/config'},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
                 '/configs/config-new.yaml': dedent('''\
@@ -124,7 +124,7 @@ class TestIntegrationApplyCommand (TestCase):
         'add, change, remove': RunSuccessDataset(
             fixture_path_service=MockPathService(
                 files={'/configs/config-new.yaml', '/configs/config-old.yaml'},
-                dirs={'/config/config'},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
                 '/configs/config-old.yaml': dedent('''\
@@ -168,7 +168,7 @@ class TestIntegrationApplyCommand (TestCase):
         'dconf add, change and remove': RunSuccessDataset(
             fixture_path_service=MockPathService(
                 files={'/configs/config-new.yaml', '/configs/config-old.yaml'},
-                dirs={'/config/config'},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
                 '/configs/config-old.yaml': dedent('''\
@@ -210,7 +210,7 @@ class TestIntegrationApplyCommand (TestCase):
         'dconf encodes non string values': RunSuccessDataset(
             fixture_path_service=MockPathService(
                 files={'/configs/config-new.yaml', '/configs/config-old.yaml'},
-                dirs={'/config/config'},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
                 '/configs/config-old.yaml': dedent('''\
@@ -245,7 +245,7 @@ class TestIntegrationApplyCommand (TestCase):
         'user defined list domain add and remove': RunSuccessDataset(
             fixture_path_service=MockPathService(
                 files={'/configs/config-new.yaml', '/configs/config-old.yaml'},
-                dirs={'/config/config'},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
                 '/configs/config-old.yaml': dedent('''\
@@ -291,7 +291,7 @@ class TestIntegrationApplyCommand (TestCase):
         'user defined list domain with keyed paths': RunSuccessDataset(
             fixture_path_service=MockPathService(
                 files={'/configs/config-new.yaml', '/configs/config-old.yaml'},
-                dirs={'/config/config'},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
                 '/configs/config-old.yaml': dedent('''\
@@ -341,7 +341,7 @@ class TestIntegrationApplyCommand (TestCase):
         'user defined map domain add, update and remove': RunSuccessDataset(
             fixture_path_service=MockPathService(
                 files={'/configs/config-new.yaml', '/configs/config-old.yaml'},
-                dirs={'/config/config'},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
                 '/configs/config-old.yaml': dedent('''\
@@ -397,7 +397,7 @@ class TestIntegrationApplyCommand (TestCase):
         'before and after scripts run around the changes': RunSuccessDataset(
             fixture_path_service=MockPathService(
                 files={'/configs/config-new.yaml', '/configs/config-old.yaml'},
-                dirs={'/config/config'},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
                 '/configs/config-old.yaml': dedent('''\
@@ -444,16 +444,9 @@ class TestIntegrationApplyCommand (TestCase):
         mock_run = create_mock_run()
         mock_stdout = io.StringIO()
 
-        # The config location is a directory, so nothing is recorded and
-        # nothing extra is printed
-        defaults = MockDefaults(
-            old_config_path=PurePath('/config/.history/current.yaml'),
-            config_location_path=PurePath('/config/config'),
-        )
         file_writer = MockFileWriter()
         system_executor = LiveSystemExecutor()
         context = Context(
-            defaults=defaults,
             file_reader=dataset.fixture_file_reader,
             file_writer=file_writer,
             path_service=dataset.fixture_path_service,
@@ -477,7 +470,6 @@ class TestIntegrationApplyCommand (TestCase):
     @dataclass
     class RunRecordsConfigLocationDataset:
         fixture_path_service: MockPathService
-        fixture_defaults: MockDefaults
         fixture_location_files: dict[str, str]
         expected_stdout: str
         expected_recorded_contents: str | None
@@ -487,10 +479,6 @@ class TestIntegrationApplyCommand (TestCase):
             fixture_path_service=MockPathService(
                 files={'/configs/config-new.yaml', '/configs/config-old.yaml'},
             ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/config/.history/current.yaml'),
-                config_location_path=PurePath('/config/config'),
-            ),
             fixture_location_files={},
             expected_stdout='Saved "/configs/config-new.yaml" as your config location\n'
             + '# No system config changes. (no differential commands to run)\n',
@@ -499,17 +487,13 @@ class TestIntegrationApplyCommand (TestCase):
         'a different location is recorded': RunRecordsConfigLocationDataset(
             fixture_path_service=MockPathService(
                 files={
-                    '/config/config',
+                    DEFAULT_CONFIG_LOCATION_PATH,
                     '/configs/config-new.yaml',
                     '/configs/config-old.yaml',
                 },
             ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/config/.history/current.yaml'),
-                config_location_path=PurePath('/config/config'),
-            ),
             fixture_location_files={
-                '/config/config': '/configs/other.yaml\n',
+                DEFAULT_CONFIG_LOCATION_PATH: '/configs/other.yaml\n',
             },
             expected_stdout='Saved "/configs/config-new.yaml" as your config location\n'
             + '# No system config changes. (no differential commands to run)\n',
@@ -518,11 +502,7 @@ class TestIntegrationApplyCommand (TestCase):
         'config location is a directory': RunRecordsConfigLocationDataset(
             fixture_path_service=MockPathService(
                 files={'/configs/config-new.yaml', '/configs/config-old.yaml'},
-                dirs={'/config/config'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/config/.history/current.yaml'),
-                config_location_path=PurePath('/config/config'),
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_location_files={},
             expected_stdout='# No system config changes. '
@@ -553,7 +533,6 @@ class TestIntegrationApplyCommand (TestCase):
         })
         system_executor = LiveSystemExecutor()
         context = Context(
-            defaults=dataset.fixture_defaults,
             file_reader=file_reader,
             file_writer=file_writer,
             path_service=dataset.fixture_path_service,
@@ -579,6 +558,6 @@ class TestIntegrationApplyCommand (TestCase):
         # Assert
         self.assertEqual(mock_stdout.getvalue(), dataset.expected_stdout)
         self.assertEqual(
-            file_writer.written_files.get('/config/config'),
+            file_writer.written_files.get(DEFAULT_CONFIG_LOCATION_PATH),
             dataset.expected_recorded_contents,
         )

@@ -7,6 +7,7 @@ from typing import Self
 from sysconf.commands.command import CommandArgumentParserBuilder
 from sysconf.system.file import FileReader
 from sysconf.utils.context import Context
+from sysconf.utils.defaults import Defaults
 from sysconf.utils.config_location import ConfigLocationReader
 
 
@@ -50,9 +51,9 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
         old and new configurations.
         """
 
-        defaults = context.get_defaults()
         file_reader = context.get_file_reader()
         path_service = context.get_path_service()
+        defaults = Defaults(path_service)
         config_location_reader = ConfigLocationReader(
             defaults,
             file_reader,

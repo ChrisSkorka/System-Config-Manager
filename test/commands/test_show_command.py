@@ -13,7 +13,7 @@ from test.datasets import datasets
 from test.system.mock_path_service import MockPathService
 from test.system.mock_system_executor import MockSystemExecutor
 from test.test_case import TestCase
-from test.utils.mock_defaults import MockDefaults
+from test.utils.default_paths import DEFAULT_OLD_CONFIG_PATH
 from test.utils.mock_file import MockFileReader, MockFileWriter
 
 
@@ -80,7 +80,6 @@ class TestShowCommand(TestCase):
     @dataclass
     class CreateFromArgumentsDataset:
         fixture_path_service: MockPathService
-        fixture_defaults: MockDefaults
         input_parsed_arguments: Namespace
         expected_config_path: PurePath
 
@@ -89,23 +88,19 @@ class TestShowCommand(TestCase):
             fixture_path_service=MockPathService(
                 files={'/manual/config.yaml'},
             ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-            ),
             input_parsed_arguments=Namespace(
                 config_path=PurePath('/manual/config.yaml'),
             ),
             expected_config_path=PurePath('/manual/config.yaml'),
         ),
         'no path': CreateFromArgumentsDataset(
-            fixture_path_service=MockPathService(files={'/default/old.yaml'}),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
+            fixture_path_service=MockPathService(
+                files={DEFAULT_OLD_CONFIG_PATH},
             ),
             input_parsed_arguments=Namespace(
                 config_path=None,
             ),
-            expected_config_path=PurePath('/default/old.yaml'),
+            expected_config_path=PurePath(DEFAULT_OLD_CONFIG_PATH),
         ),
     })
     def test_create_from_arguments_returns(
@@ -119,7 +114,6 @@ class TestShowCommand(TestCase):
         file_writer = MockFileWriter()
         system_executor = MockSystemExecutor()
         context = Context(
-            defaults=dataset.fixture_defaults,
             file_reader=file_reader,
             file_writer=file_writer,
             path_service=dataset.fixture_path_service,
@@ -139,28 +133,21 @@ class TestShowCommand(TestCase):
     @dataclass
     class CreateFromArgumentsErrorDataset:
         fixture_path_service: MockPathService
-        fixture_defaults: MockDefaults
         input_parsed_arguments: Namespace
         expected_exception_message: str
 
     @datasets({
         'default path does not exist yet': CreateFromArgumentsErrorDataset(
             fixture_path_service=MockPathService(),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-            ),
             input_parsed_arguments=Namespace(
                 config_path=None,
             ),
-            expected_exception_message='File /default/old.yaml does not exist',
+            expected_exception_message=f'File {DEFAULT_OLD_CONFIG_PATH} does not exist',
         ),
         'explicit path is a directory': CreateFromArgumentsErrorDataset(
             fixture_path_service=MockPathService(
-                files={'/default/old.yaml'},
+                files={DEFAULT_OLD_CONFIG_PATH},
                 dirs={'/manual/config.yaml'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
             ),
             input_parsed_arguments=Namespace(
                 config_path=PurePath('/manual/config.yaml'),
@@ -179,7 +166,6 @@ class TestShowCommand(TestCase):
         file_writer = MockFileWriter()
         system_executor = MockSystemExecutor()
         context = Context(
-            defaults=dataset.fixture_defaults,
             file_reader=file_reader,
             file_writer=file_writer,
             path_service=dataset.fixture_path_service,

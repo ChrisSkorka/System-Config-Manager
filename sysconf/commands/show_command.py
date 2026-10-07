@@ -7,6 +7,7 @@ from typing import Self
 from sysconf.commands.command import Command, SubParsersAction
 from sysconf.system.file import FileReader
 from sysconf.utils.context import Context
+from sysconf.utils.defaults import Defaults
 
 
 class ShowCommand (Command):
@@ -44,9 +45,9 @@ class ShowCommand (Command):
         parsed_arguments: Namespace,
     ) -> Self:
 
-        defaults = context.get_defaults()
         file_reader = context.get_file_reader()
         path_service = context.get_path_service()
+        defaults = Defaults(path_service)
 
         config_path = (
             parsed_arguments.config_path

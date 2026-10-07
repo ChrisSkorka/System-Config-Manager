@@ -12,7 +12,11 @@ from test.datasets import datasets
 from test.system.mock_path_service import MockPathService
 from test.system.mock_system_executor import MockSystemExecutor
 from test.test_case import TestCase
-from test.utils.mock_defaults import MockDefaults
+from test.utils.default_paths import (
+    DEFAULT_CONFIG_LOCATION_PATH,
+    DEFAULT_NEW_CONFIG_PATH,
+    DEFAULT_OLD_CONFIG_PATH,
+)
 from test.utils.mock_file import MockFileReader, MockFileWriter
 
 
@@ -68,7 +72,6 @@ class TestComparativeConfigCommandParser(TestCase):
     @dataclass
     class CreateFromArgumentsSuccessDataset:
         fixture_path_service: MockPathService
-        fixture_defaults: MockDefaults
         input_parsed_arguments: Namespace
         expected_old_path: PurePath
         expected_new_path: PurePath
@@ -78,16 +81,11 @@ class TestComparativeConfigCommandParser(TestCase):
         'both paths provided': CreateFromArgumentsSuccessDataset(
             fixture_path_service=MockPathService(
                 files={
-                    '/default/new.yaml',
-                    '/default/old.yaml',
+                    DEFAULT_NEW_CONFIG_PATH,
+                    DEFAULT_OLD_CONFIG_PATH,
                     '/manual/new.yaml',
                     '/manual/old.yaml',
                 },
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-                new_config_path=PurePath('/default/new.yaml'),
-                config_location_path=PurePath('/config/config'),
             ),
             input_parsed_arguments=Namespace(
                 config_file=PurePath('/manual/new.yaml'),
@@ -100,80 +98,60 @@ class TestComparativeConfigCommandParser(TestCase):
         'only new config provided, uses default old path': CreateFromArgumentsSuccessDataset(
             fixture_path_service=MockPathService(
                 files={
-                    '/default/new.yaml',
-                    '/default/old.yaml',
+                    DEFAULT_NEW_CONFIG_PATH,
+                    DEFAULT_OLD_CONFIG_PATH,
                     '/manual/new.yaml',
                 },
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-                new_config_path=PurePath('/default/new.yaml'),
-                config_location_path=PurePath('/config/config'),
             ),
             input_parsed_arguments=Namespace(
                 config_file=PurePath('/manual/new.yaml'),
                 last_config=None,
             ),
-            expected_old_path=PurePath('/default/old.yaml'),
+            expected_old_path=PurePath(DEFAULT_OLD_CONFIG_PATH),
             expected_new_path=PurePath('/manual/new.yaml'),
             expected_is_config_file_explicit=True,
         ),
         'only old config provided, uses the recorded config location': CreateFromArgumentsSuccessDataset(
             fixture_path_service=MockPathService(
                 files={
-                    '/default/new.yaml',
-                    '/default/old.yaml',
+                    DEFAULT_NEW_CONFIG_PATH,
+                    DEFAULT_OLD_CONFIG_PATH,
                     '/manual/old.yaml',
                 },
-                dirs={'/config/config'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-                new_config_path=PurePath('/default/new.yaml'),
-                config_location_path=PurePath('/config/config'),
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             input_parsed_arguments=Namespace(
                 config_file=None,
                 last_config=PurePath('/manual/old.yaml'),
             ),
             expected_old_path=PurePath('/manual/old.yaml'),
-            expected_new_path=PurePath('/default/new.yaml'),
+            expected_new_path=PurePath(DEFAULT_NEW_CONFIG_PATH),
             expected_is_config_file_explicit=False,
         ),
         'no paths provided, uses the recorded config location': CreateFromArgumentsSuccessDataset(
             fixture_path_service=MockPathService(
-                files={'/default/new.yaml', '/default/old.yaml'},
-                dirs={'/config/config'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-                new_config_path=PurePath('/default/new.yaml'),
-                config_location_path=PurePath('/config/config'),
+                files={DEFAULT_NEW_CONFIG_PATH, DEFAULT_OLD_CONFIG_PATH},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             input_parsed_arguments=Namespace(
                 config_file=None,
                 last_config=None,
             ),
-            expected_old_path=PurePath('/default/old.yaml'),
-            expected_new_path=PurePath('/default/new.yaml'),
+            expected_old_path=PurePath(DEFAULT_OLD_CONFIG_PATH),
+            expected_new_path=PurePath(DEFAULT_NEW_CONFIG_PATH),
             expected_is_config_file_explicit=False,
         ),
         'default old path does not exist yet': CreateFromArgumentsSuccessDataset(
             fixture_path_service=MockPathService(
-                files={'/default/new.yaml'},
-                dirs={'/config/config'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-                new_config_path=PurePath('/default/new.yaml'),
-                config_location_path=PurePath('/config/config'),
+                files={DEFAULT_NEW_CONFIG_PATH},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             input_parsed_arguments=Namespace(
                 config_file=None,
                 last_config=None,
             ),
-            expected_old_path=PurePath('/default/old.yaml'),
-            expected_new_path=PurePath('/default/new.yaml'),
+            expected_old_path=PurePath(DEFAULT_OLD_CONFIG_PATH),
+            expected_new_path=PurePath(DEFAULT_NEW_CONFIG_PATH),
             expected_is_config_file_explicit=False,
         ),
     })
@@ -188,7 +166,6 @@ class TestComparativeConfigCommandParser(TestCase):
         file_writer = MockFileWriter()
         system_executor = MockSystemExecutor()
         context = Context(
-            defaults=dataset.fixture_defaults,
             file_reader=file_reader,
             file_writer=file_writer,
             path_service=dataset.fixture_path_service,
@@ -213,19 +190,13 @@ class TestComparativeConfigCommandParser(TestCase):
     @dataclass
     class CreateFromArgumentsErrorDataset:
         fixture_path_service: MockPathService
-        fixture_defaults: MockDefaults
         input_parsed_arguments: Namespace
         expected_exception_message: str
 
     @datasets({
         'no config location recorded': CreateFromArgumentsErrorDataset(
             fixture_path_service=MockPathService(
-                files={'/default/new.yaml', '/default/old.yaml'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-                new_config_path=PurePath('/default/new.yaml'),
-                config_location_path=PurePath('/config/config'),
+                files={DEFAULT_NEW_CONFIG_PATH, DEFAULT_OLD_CONFIG_PATH},
             ),
             input_parsed_arguments=Namespace(
                 config_file=None,
@@ -235,13 +206,8 @@ class TestComparativeConfigCommandParser(TestCase):
         ),
         'recorded config location holds no config file': CreateFromArgumentsErrorDataset(
             fixture_path_service=MockPathService(
-                files={'/default/old.yaml'},
-                dirs={'/config/config'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-                new_config_path=PurePath('/config/config/config.yaml'),
-                config_location_path=PurePath('/config/config'),
+                files={DEFAULT_OLD_CONFIG_PATH},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             input_parsed_arguments=Namespace(
                 config_file=None,
@@ -251,12 +217,7 @@ class TestComparativeConfigCommandParser(TestCase):
         ),
         'new config param file not found': CreateFromArgumentsErrorDataset(
             fixture_path_service=MockPathService(
-                files={'/default/new.yaml', '/default/old.yaml'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-                new_config_path=PurePath('/default/new.yaml'),
-                config_location_path=PurePath('/config/config'),
+                files={DEFAULT_NEW_CONFIG_PATH, DEFAULT_OLD_CONFIG_PATH},
             ),
             input_parsed_arguments=Namespace(
                 config_file=PurePath('nonexistent.yaml'),
@@ -266,13 +227,8 @@ class TestComparativeConfigCommandParser(TestCase):
         ),
         'new config param is directory': CreateFromArgumentsErrorDataset(
             fixture_path_service=MockPathService(
-                files={'/default/new.yaml', '/default/old.yaml'},
+                files={DEFAULT_NEW_CONFIG_PATH, DEFAULT_OLD_CONFIG_PATH},
                 dirs={'/manual/directory'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-                new_config_path=PurePath('/default/new.yaml'),
-                config_location_path=PurePath('/config/config'),
             ),
             input_parsed_arguments=Namespace(
                 config_file=PurePath('/manual/directory'),
@@ -282,13 +238,8 @@ class TestComparativeConfigCommandParser(TestCase):
         ),
         'old config param is directory': CreateFromArgumentsErrorDataset(
             fixture_path_service=MockPathService(
-                files={'/default/new.yaml', '/default/old.yaml'},
-                dirs={'/config/config', '/manual/directory'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-                new_config_path=PurePath('/default/new.yaml'),
-                config_location_path=PurePath('/config/config'),
+                files={DEFAULT_NEW_CONFIG_PATH, DEFAULT_OLD_CONFIG_PATH},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH, '/manual/directory'},
             ),
             input_parsed_arguments=Namespace(
                 config_file=None,
@@ -298,13 +249,8 @@ class TestComparativeConfigCommandParser(TestCase):
         ),
         'old config param file not found': CreateFromArgumentsErrorDataset(
             fixture_path_service=MockPathService(
-                files={'/default/new.yaml', '/default/old.yaml'},
-                dirs={'/config/config'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-                new_config_path=PurePath('/default/new.yaml'),
-                config_location_path=PurePath('/config/config'),
+                files={DEFAULT_NEW_CONFIG_PATH, DEFAULT_OLD_CONFIG_PATH},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             input_parsed_arguments=Namespace(
                 config_file=None,
@@ -314,13 +260,8 @@ class TestComparativeConfigCommandParser(TestCase):
         ),
         'default old path is directory': CreateFromArgumentsErrorDataset(
             fixture_path_service=MockPathService(
-                files={'/default/new.yaml'},
-                dirs={'/config/config', '/default/old.yaml'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/default/old.yaml'),
-                new_config_path=PurePath('/default/new.yaml'),
-                config_location_path=PurePath('/config/config'),
+                files={DEFAULT_NEW_CONFIG_PATH},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH, DEFAULT_OLD_CONFIG_PATH},
             ),
             input_parsed_arguments=Namespace(
                 config_file=None,
@@ -340,7 +281,6 @@ class TestComparativeConfigCommandParser(TestCase):
         file_writer = MockFileWriter()
         system_executor = MockSystemExecutor()
         context = Context(
-            defaults=dataset.fixture_defaults,
             file_reader=file_reader,
             file_writer=file_writer,
             path_service=dataset.fixture_path_service,

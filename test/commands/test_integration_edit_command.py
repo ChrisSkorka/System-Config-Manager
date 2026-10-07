@@ -19,16 +19,17 @@ from test.system.mock_editor import MockWhich
 from test.test_case import TestCase
 
 
-class DirectoryDefaults (Defaults):
-    """Keep this tool's config directory in the given directory."""
+class HomeDirectoryPathService (PathService):
+    """Use the real file system, with the given directory as the user's home."""
 
-    def __init__(self, path_service: PathService, config_dir: PurePath) -> None:
-        super().__init__(path_service)
+    def __init__(self, home_dir: PurePath) -> None:
+        self.home_dir = home_dir
 
-        self.config_dir = config_dir
+    def expand_user(self, path: PurePath) -> PurePath:
+        if not path.parts or path.parts[0] != '~':
+            return path
 
-    def get_config_dir(self) -> PurePath:
-        return self.config_dir
+        return self.home_dir.joinpath(*path.parts[1:])
 
 
 class ScriptedSystemExecutor (SystemExecutor):
@@ -396,9 +397,9 @@ class TestIntegrationEditCommand (TestCase):
             # Arrange
             base_path = Path(directory).resolve()
             config_path = base_path / 'manual' / 'config.yaml'
-            config_dir = base_path / 'system-config-manager'
-            path_service = PathService()
-            defaults = DirectoryDefaults(path_service, config_dir)
+            home_dir = base_path / 'home'
+            path_service = HomeDirectoryPathService(home_dir)
+            defaults = Defaults(path_service)
             current_path = defaults.get_old_config_path()
             location_path = defaults.get_config_location_path()
 
@@ -417,7 +418,6 @@ class TestIntegrationEditCommand (TestCase):
                 file_writer=file_writer,
             )
             context = Context(
-                defaults=defaults,
                 file_reader=file_reader,
                 file_writer=file_writer,
                 path_service=path_service,

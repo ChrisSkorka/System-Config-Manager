@@ -8,6 +8,10 @@ from pathlib import PurePath
 from sysconf.system.path_service import PathService
 
 
+DEFAULT_HOME_DIR = '/home/user'
+DEFAULT_WORKING_DIR = '/working'
+
+
 class MockPathService(PathService):
     """
     Simulate a file system holding the given files & directories.
@@ -23,8 +27,8 @@ class MockPathService(PathService):
         self,
         files: Collection[str] = (),
         dirs: Collection[str] = (),
-        home_dir: str = '/home/user',
-        working_dir: str = '/working',
+        home_dir: str = DEFAULT_HOME_DIR,
+        working_dir: str = DEFAULT_WORKING_DIR,
     ) -> None:
         self.files = files
         self.dirs = dirs

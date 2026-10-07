@@ -3,7 +3,6 @@
 from sysconf.system.executor import SystemExecutor
 from sysconf.system.file import FileReader, FileWriter
 from sysconf.system.path_service import PathService
-from sysconf.utils.defaults import Defaults
 
 
 class Context:
@@ -11,20 +10,15 @@ class Context:
 
     def __init__(
         self,
-        defaults: Defaults,
         file_reader: FileReader,
         file_writer: FileWriter,
         path_service: PathService,
         system_executor: SystemExecutor,
     ) -> None:
-        self.defaults = defaults
         self.file_reader = file_reader
         self.file_writer = file_writer
         self.path_service = path_service
         self.system_executor = system_executor
-
-    def get_defaults(self) -> Defaults:
-        return self.defaults
 
     def get_file_reader(self) -> FileReader:
         return self.file_reader

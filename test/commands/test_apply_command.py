@@ -19,14 +19,19 @@ from sysconf.system.executor import CommandException
 from sysconf.utils.config_location import ConfigLocationWriter
 from sysconf.utils.config_writer import ConfigWriter
 from sysconf.utils.context import Context
+from sysconf.utils.defaults import Defaults
 from test.datasets import datasets
 from test.system.mock_path_service import MockPathService
 from test.system.mock_system_executor import MockSystemExecutor
 from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
 from test.utils.mock_config_writer import MockConfigWriter
+from test.utils.default_paths import (
+    DEFAULT_CONFIG_LOCATION_PATH,
+    DEFAULT_NEW_CONFIG_PATH,
+    DEFAULT_OLD_CONFIG_PATH,
+)
 from test.utils.mock_context import mock_context
-from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_file import MockFileReader, MockFileWriter
 
 
@@ -64,10 +69,10 @@ def make_apply_command(
         old_config=old_config,
         new_config=new_config,
     )
-    defaults = MockDefaults()
     file_reader = MockFileReader({})
     file_writer = MockFileWriter()
     path_service = MockPathService()
+    defaults = Defaults(path_service)
     config_location_writer = ConfigLocationWriter(
         defaults,
         file_reader,
@@ -137,7 +142,6 @@ class TestApplyCommand(TestCase):
     @dataclass
     class CreateFromArgumentsDataset:
         fixture_path_service: MockPathService
-        fixture_defaults: MockDefaults
         fixture_file_reader: MockFileReader
         input_parsed_arguments: Namespace
         expected_old_path: PurePath
@@ -147,13 +151,10 @@ class TestApplyCommand(TestCase):
     @datasets({
         'config file given': CreateFromArgumentsDataset(
             fixture_path_service=MockPathService(
-                files={'/config/.history/current.yaml', '/manual/new.yaml'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/config/.history/current.yaml'),
+                files={DEFAULT_OLD_CONFIG_PATH, '/manual/new.yaml'},
             ),
             fixture_file_reader=MockFileReader({
-                '/config/.history/current.yaml': dedent('''\
+                DEFAULT_OLD_CONFIG_PATH: dedent('''\
                     version: 1
                     before:
                       - echo old
@@ -170,31 +171,23 @@ class TestApplyCommand(TestCase):
                 config_file=PurePath('/manual/new.yaml'),
                 last_config=None,
             ),
-            expected_old_path=PurePath('/config/.history/current.yaml'),
+            expected_old_path=PurePath(DEFAULT_OLD_CONFIG_PATH),
             expected_new_path=PurePath('/manual/new.yaml'),
             expected_should_override_config_path=True,
         ),
         'config file from the config location': CreateFromArgumentsDataset(
             fixture_path_service=MockPathService(
-                files={
-                    '/config/.history/current.yaml',
-                    '/config/config/config.yaml',
-                },
-                dirs={'/config/config'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/config/.history/current.yaml'),
-                new_config_path=PurePath('/config/config/config.yaml'),
-                config_location_path=PurePath('/config/config'),
+                files={DEFAULT_OLD_CONFIG_PATH, DEFAULT_NEW_CONFIG_PATH},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
-                '/config/.history/current.yaml': dedent('''\
+                DEFAULT_OLD_CONFIG_PATH: dedent('''\
                     version: 1
                     before:
                       - echo old
                     config: []
                     '''),
-                '/config/config/config.yaml': dedent('''\
+                DEFAULT_NEW_CONFIG_PATH: dedent('''\
                     version: 1
                     before:
                       - echo new
@@ -205,15 +198,12 @@ class TestApplyCommand(TestCase):
                 config_file=None,
                 last_config=None,
             ),
-            expected_old_path=PurePath('/config/.history/current.yaml'),
-            expected_new_path=PurePath('/config/config/config.yaml'),
+            expected_old_path=PurePath(DEFAULT_OLD_CONFIG_PATH),
+            expected_new_path=PurePath(DEFAULT_NEW_CONFIG_PATH),
             expected_should_override_config_path=False,
         ),
         'old config does not exist yet': CreateFromArgumentsDataset(
             fixture_path_service=MockPathService(files={'/manual/new.yaml'}),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/config/.history/current.yaml'),
-            ),
             fixture_file_reader=MockFileReader({
                 '/manual/new.yaml': dedent('''\
                     version: 1
@@ -226,16 +216,13 @@ class TestApplyCommand(TestCase):
                 config_file=PurePath('/manual/new.yaml'),
                 last_config=None,
             ),
-            expected_old_path=PurePath('/config/.history/current.yaml'),
+            expected_old_path=PurePath(DEFAULT_OLD_CONFIG_PATH),
             expected_new_path=PurePath('/manual/new.yaml'),
             expected_should_override_config_path=True,
         ),
         'old config given': CreateFromArgumentsDataset(
             fixture_path_service=MockPathService(
                 files={'/manual/new.yaml', '/manual/old.yaml'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/config/.history/current.yaml'),
             ),
             fixture_file_reader=MockFileReader({
                 '/manual/old.yaml': dedent('''\
@@ -270,7 +257,6 @@ class TestApplyCommand(TestCase):
         file_writer = MockFileWriter()
         system_executor = MockSystemExecutor()
         context = Context(
-            defaults=dataset.fixture_defaults,
             file_reader=dataset.fixture_file_reader,
             file_writer=file_writer,
             path_service=dataset.fixture_path_service,
@@ -372,11 +358,9 @@ class TestApplyCommand(TestCase):
         """
 
         # Arrange
-        defaults = MockDefaults()
         file_writer = MockFileWriter()
         system_executor = MockSystemExecutor()
         context = Context(
-            defaults=defaults,
             file_reader=dataset.fixture_file_reader,
             file_writer=file_writer,
             path_service=dataset.fixture_path_service,
@@ -386,8 +370,9 @@ class TestApplyCommand(TestCase):
             old_config=dataset.expected_old_config,
             new_config=dataset.expected_new_config,
         )
+        defaults = Defaults(dataset.fixture_path_service)
         expected_config_location_writer = ConfigLocationWriter(
-            defaults=context.get_defaults(),
+            defaults=defaults,
             file_reader=context.get_file_reader(),
             file_writer=context.get_file_writer(),
             path_service=context.get_path_service(),
@@ -520,10 +505,10 @@ class TestApplyCommand(TestCase):
             new_config=new_config,
         )
         config_writer = MockConfigWriter.create()
-        defaults = MockDefaults()
         file_reader = MockFileReader({})
         file_writer = MockFileWriter()
         path_service = MockPathService()
+        defaults = Defaults(path_service)
         config_location_writer = ConfigLocationWriter(
             defaults,
             file_reader,
@@ -642,10 +627,10 @@ class TestApplyCommand(TestCase):
             old_config=old_config,
             new_config=new_config,
         )
-        location_defaults = MockDefaults()
         location_file_reader = MockFileReader({})
         location_file_writer = MockFileWriter()
         path_service = MockPathService()
+        location_defaults = Defaults(path_service)
         config_location_writer = ConfigLocationWriter(
             location_defaults,
             location_file_reader,
@@ -677,7 +662,6 @@ class TestApplyCommand(TestCase):
     @dataclass
     class RecordConfigLocationDataset:
         fixture_path_service: MockPathService
-        fixture_defaults: MockDefaults
         fixture_file_reader: MockFileReader
         input_should_override_config_path: bool
         expected_prints: list[str]
@@ -686,25 +670,21 @@ class TestApplyCommand(TestCase):
     @datasets({
         'override and nothing recorded': RecordConfigLocationDataset(
             fixture_path_service=MockPathService(),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
-            ),
             fixture_file_reader=MockFileReader({}),
             input_should_override_config_path=True,
             expected_prints=[
                 'Saved "/manual/new.yaml" as your config location',
             ],
             expected_written_files={
-                '/config/config': '/manual/new.yaml\n',
+                DEFAULT_CONFIG_LOCATION_PATH: '/manual/new.yaml\n',
             },
         ),
         'override and same location recorded': RecordConfigLocationDataset(
-            fixture_path_service=MockPathService(files={'/config/config'}),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
+            fixture_path_service=MockPathService(
+                files={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({
-                '/config/config': '/manual/new.yaml\n',
+                DEFAULT_CONFIG_LOCATION_PATH: '/manual/new.yaml\n',
             }),
             input_should_override_config_path=True,
             expected_prints=[],
@@ -712,18 +692,14 @@ class TestApplyCommand(TestCase):
         ),
         'no override': RecordConfigLocationDataset(
             fixture_path_service=MockPathService(),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
-            ),
             fixture_file_reader=MockFileReader({}),
             input_should_override_config_path=False,
             expected_prints=[],
             expected_written_files={},
         ),
         'recorded location is a directory': RecordConfigLocationDataset(
-            fixture_path_service=MockPathService(dirs={'/config/config'}),
-            fixture_defaults=MockDefaults(
-                config_location_path=PurePath('/config/config'),
+            fixture_path_service=MockPathService(
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_file_reader=MockFileReader({}),
             input_should_override_config_path=True,
@@ -750,8 +726,9 @@ class TestApplyCommand(TestCase):
             new_config=new_config,
         )
         config_writer = MockConfigWriter.create()
+        defaults = Defaults(dataset.fixture_path_service)
         config_location_writer = ConfigLocationWriter(
-            dataset.fixture_defaults,
+            defaults,
             dataset.fixture_file_reader,
             location_file_writer,
             dataset.fixture_path_service,
@@ -862,9 +839,9 @@ class TestApplyCommand(TestCase):
             yaml_serializer=yaml_serializer,
             file_writer=file_writer,
         )
-        location_defaults = MockDefaults()
         location_file_reader = MockFileReader({})
         path_service = MockPathService()
+        location_defaults = Defaults(path_service)
         config_location_writer = ConfigLocationWriter(
             location_defaults,
             location_file_reader,

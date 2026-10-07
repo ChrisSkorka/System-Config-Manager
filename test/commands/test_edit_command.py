@@ -24,6 +24,7 @@ from sysconf.system.file import FileReader
 from sysconf.utils.config_loader import ConfigReader
 from sysconf.utils.config_location import ConfigLocationWriter
 from sysconf.utils.context import Context
+from sysconf.utils.defaults import Defaults
 from sysconf.utils.validation import ValidationError
 from test.datasets import datasets
 from test.system.mock_editor import MockEditorLauncher, MockWhich
@@ -32,7 +33,11 @@ from test.system.mock_path_service import MockPathService
 from test.system.mock_system_manager import MockSystemManager
 from test.test_case import TestCase
 from test.utils.mock_config_writer import MockConfigWriter
-from test.utils.mock_defaults import MockDefaults
+from test.utils.default_paths import (
+    DEFAULT_CONFIG_LOCATION_PATH,
+    DEFAULT_NEW_CONFIG_PATH,
+    DEFAULT_OLD_CONFIG_PATH,
+)
 from test.utils.mock_file import MockFileReader, MockFileWriter
 
 
@@ -128,10 +133,10 @@ def make_apply_command() -> ApplyCommand:
         new_config=new_config,
     )
     config_writer = MockConfigWriter.create()
-    defaults = MockDefaults()
     file_reader = MockFileReader({})
     file_writer = MockFileWriter()
     path_service = MockPathService()
+    defaults = Defaults(path_service)
     config_location_writer = ConfigLocationWriter(
         defaults=defaults,
         file_reader=file_reader,
@@ -225,7 +230,6 @@ class TestEditCommand(TestCase):
     @dataclass
     class CreateFromArgumentsDataset:
         fixture_path_service: MockPathService
-        fixture_defaults: MockDefaults
         fixture_files: dict[str, str]
         input_parsed_arguments: Namespace
         expected_old_path: PurePath
@@ -235,13 +239,10 @@ class TestEditCommand(TestCase):
     @datasets({
         'config file given': CreateFromArgumentsDataset(
             fixture_path_service=MockPathService(
-                files={'/config/.history/current.yaml', '/manual/config.yaml'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/config/.history/current.yaml'),
+                files={DEFAULT_OLD_CONFIG_PATH, '/manual/config.yaml'},
             ),
             fixture_files={
-                '/config/.history/current.yaml': dedent('''\
+                DEFAULT_OLD_CONFIG_PATH: dedent('''\
                     version: 1
                     system-config-manager:
                       editor: code --wait
@@ -262,25 +263,17 @@ class TestEditCommand(TestCase):
                 config_file=PurePath('/manual/config.yaml'),
                 last_config=None,
             ),
-            expected_old_path=PurePath('/config/.history/current.yaml'),
+            expected_old_path=PurePath(DEFAULT_OLD_CONFIG_PATH),
             expected_new_path=PurePath('/manual/config.yaml'),
             expected_should_override_config_path=True,
         ),
         'config file from the config location': CreateFromArgumentsDataset(
             fixture_path_service=MockPathService(
-                files={
-                    '/config/.history/current.yaml',
-                    '/config/config/config.yaml',
-                },
-                dirs={'/config/config'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/config/.history/current.yaml'),
-                new_config_path=PurePath('/config/config/config.yaml'),
-                config_location_path=PurePath('/config/config'),
+                files={DEFAULT_OLD_CONFIG_PATH, DEFAULT_NEW_CONFIG_PATH},
+                dirs={DEFAULT_CONFIG_LOCATION_PATH},
             ),
             fixture_files={
-                '/config/.history/current.yaml': dedent('''\
+                DEFAULT_OLD_CONFIG_PATH: dedent('''\
                     version: 1
                     system-config-manager:
                       editor: code --wait
@@ -288,7 +281,7 @@ class TestEditCommand(TestCase):
                       - echo old
                     config: []
                     '''),
-                '/config/config/config.yaml': dedent('''\
+                DEFAULT_NEW_CONFIG_PATH: dedent('''\
                     version: 1
                     system-config-manager:
                       editor: code --wait
@@ -301,16 +294,13 @@ class TestEditCommand(TestCase):
                 config_file=None,
                 last_config=None,
             ),
-            expected_old_path=PurePath('/config/.history/current.yaml'),
-            expected_new_path=PurePath('/config/config/config.yaml'),
+            expected_old_path=PurePath(DEFAULT_OLD_CONFIG_PATH),
+            expected_new_path=PurePath(DEFAULT_NEW_CONFIG_PATH),
             expected_should_override_config_path=False,
         ),
         'old config given': CreateFromArgumentsDataset(
             fixture_path_service=MockPathService(
                 files={'/manual/config.yaml', '/manual/old.yaml'},
-            ),
-            fixture_defaults=MockDefaults(
-                old_config_path=PurePath('/config/.history/current.yaml'),
             ),
             fixture_files={
                 '/manual/old.yaml': dedent('''\
@@ -353,7 +343,6 @@ class TestEditCommand(TestCase):
         system_executor = MockSystemExecutor()
         file_writer = MockFileWriter()
         context = Context(
-            defaults=dataset.fixture_defaults,
             file_reader=file_reader,
             file_writer=file_writer,
             path_service=dataset.fixture_path_service,
