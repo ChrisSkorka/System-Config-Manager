@@ -118,6 +118,9 @@ class YamlSerializer:
     A serializer for YAML configuration files.
     """
 
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, YamlSerializer)
+
     def get_serialized_data(self, data: YamlSerializable) -> str:
         """
         Serialize the given data into a YAML string.

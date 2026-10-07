@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Format All",
+            "type": "shell",
+            "command": "python3 -m autopep8 --in-place --recursive sysconf test",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PYTHONPATH": "${userHome}/.vscode/extensions/ms-python.autopep8-2026.4.0/bundled/libs"
+                }
+            },
+            "problemMatcher": []
+        }
+    ]
+}

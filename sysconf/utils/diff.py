@@ -51,12 +51,14 @@ class Diff(Generic[T]):
 
         _value: Diff[Any] = cast(Diff[Any], value)
 
-        return self.old == _value.old \
-            and self.new == _value.new \
-            and self.exclusive_old == _value.exclusive_old \
-            and self.exclusive_new == _value.exclusive_new \
-            and self.intersection == _value.intersection \
+        return (
+            self.old == _value.old
+            and self.new == _value.new
+            and self.exclusive_old == _value.exclusive_old
+            and self.exclusive_new == _value.exclusive_new
+            and self.intersection == _value.intersection
             and self.union == _value.union
+        )
 
     @classmethod
     def create_from_iterables(cls, old_items: Iterable[T], new_items: Iterable[T]) -> 'Diff[T]':

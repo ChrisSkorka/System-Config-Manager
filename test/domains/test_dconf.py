@@ -18,14 +18,6 @@ from test.system.mock_system_executor import MockSystemExecutor
 from test.test_case import TestCase
 
 
-def dconf_entry(
-    path: str,
-    value: YamlSerializable,
-) -> MapConfigEntry[YamlSerializable]:
-    """Build a single-key dconf MapConfigEntry (path_depth=1)."""
-    return MapConfigEntry(create_dconf_domain(), (path,), value)
-
-
 class TestEncodeValue(TestCase):
     """Test encoding of YamlSerializable values into dconf strings."""
 
@@ -118,8 +110,11 @@ class TestDConfAddAction(TestCase):
 
     @datasets({
         'string value': AddDataset(
-            input_new_entry=dconf_entry(
-                '/org/gnome/desktop/interface/clock-format', '24h'),
+            input_new_entry=MapConfigEntry(
+                create_dconf_domain(),
+                ('/org/gnome/desktop/interface/clock-format',),
+                '24h',
+            ),
             expected_description='Add dconf: /org/gnome/desktop/interface/clock-format = 24h',
             expected_command=(
                 'dconf', 'write',
@@ -127,8 +122,11 @@ class TestDConfAddAction(TestCase):
             ),
         ),
         'bool value': AddDataset(
-            input_new_entry=dconf_entry(
-                '/org/gnome/desktop/interface/enable-animations', False),
+            input_new_entry=MapConfigEntry(
+                create_dconf_domain(),
+                ('/org/gnome/desktop/interface/enable-animations',),
+                False,
+            ),
             expected_description='Add dconf: /org/gnome/desktop/interface/enable-animations = False',
             expected_command=(
                 'dconf', 'write',
@@ -136,8 +134,9 @@ class TestDConfAddAction(TestCase):
             ),
         ),
         'list value': AddDataset(
-            input_new_entry=dconf_entry(
-                '/org/gnome/shell/favorite-apps',
+            input_new_entry=MapConfigEntry(
+                create_dconf_domain(),
+                ('/org/gnome/shell/favorite-apps',),
                 ['firefox.desktop', 'code.desktop'],
             ),
             expected_description="Add dconf: /org/gnome/shell/favorite-apps = ['firefox.desktop', 'code.desktop']",
@@ -182,10 +181,16 @@ class TestDConfUpdateAction(TestCase):
 
     @datasets({
         'string change': UpdateDataset(
-            input_old_entry=dconf_entry(
-                '/org/gnome/desktop/interface/clock-format', '12h'),
-            input_new_entry=dconf_entry(
-                '/org/gnome/desktop/interface/clock-format', '24h'),
+            input_old_entry=MapConfigEntry(
+                create_dconf_domain(),
+                ('/org/gnome/desktop/interface/clock-format',),
+                '12h',
+            ),
+            input_new_entry=MapConfigEntry(
+                create_dconf_domain(),
+                ('/org/gnome/desktop/interface/clock-format',),
+                '24h',
+            ),
             expected_description='Update dconf: /org/gnome/desktop/interface/clock-format = 12h -> 24h',
             expected_command=(
                 'dconf', 'write',
@@ -193,10 +198,16 @@ class TestDConfUpdateAction(TestCase):
             ),
         ),
         'int change': UpdateDataset(
-            input_old_entry=dconf_entry(
-                '/org/gnome/desktop/peripherals/mouse/speed', 10),
-            input_new_entry=dconf_entry(
-                '/org/gnome/desktop/peripherals/mouse/speed', 20),
+            input_old_entry=MapConfigEntry(
+                create_dconf_domain(),
+                ('/org/gnome/desktop/peripherals/mouse/speed',),
+                10,
+            ),
+            input_new_entry=MapConfigEntry(
+                create_dconf_domain(),
+                ('/org/gnome/desktop/peripherals/mouse/speed',),
+                20,
+            ),
             expected_description='Update dconf: /org/gnome/desktop/peripherals/mouse/speed = 10 -> 20',
             expected_command=(
                 'dconf', 'write',
@@ -241,8 +252,11 @@ class TestDConfRemoveAction(TestCase):
 
     @datasets({
         'string value': RemoveDataset(
-            input_old_entry=dconf_entry(
-                '/org/gnome/desktop/interface/clock-format', '24h'),
+            input_old_entry=MapConfigEntry(
+                create_dconf_domain(),
+                ('/org/gnome/desktop/interface/clock-format',),
+                '24h',
+            ),
             expected_description='Remove dconf: /org/gnome/desktop/interface/clock-format = 24h',
             expected_command=(
                 'dconf', 'reset',
@@ -250,8 +264,9 @@ class TestDConfRemoveAction(TestCase):
             ),
         ),
         'list value': RemoveDataset(
-            input_old_entry=dconf_entry(
-                '/org/gnome/shell/favorite-apps',
+            input_old_entry=MapConfigEntry(
+                create_dconf_domain(),
+                ('/org/gnome/shell/favorite-apps',),
                 ['firefox.desktop'],
             ),
             expected_description="Remove dconf: /org/gnome/shell/favorite-apps = ['firefox.desktop']",

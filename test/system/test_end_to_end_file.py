@@ -3,10 +3,10 @@
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from textwrap import dedent
 
 from sysconf.system.file import FileReader, FileWriter
 from test.datasets import datasets
-from test.helper import unindent
 from test.test_case import TestCase
 
 
@@ -29,13 +29,13 @@ FILE_DATASETS: dict[str, FileDataset] = {
     ),
     'multiline yaml': FileDataset(
         input_relative_path='system.yaml',
-        input_contents=unindent("""
+        input_contents=dedent('''\
             version: 1
             config:
               - gsettings:
                   org.schema:
                     key: value
-        """),
+        '''),
     ),
     'trailing newline is preserved': FileDataset(
         input_relative_path='trailing.yaml',

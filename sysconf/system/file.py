@@ -8,6 +8,9 @@ class FileReader:
     A simple file reader
     """
 
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, FileReader)
+
     def get_file_contents(self, path: Path) -> str:
         """
         Read the contents of a file and return it as a string.
@@ -29,6 +32,9 @@ class FileWriter:
     """
     A simple file writer
     """
+
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, FileWriter)
 
     def write_file_contents(self, path: Path, contents: str) -> None:
         """

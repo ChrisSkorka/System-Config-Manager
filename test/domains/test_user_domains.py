@@ -284,11 +284,11 @@ class TestUserListDomain(TestCase):
     def test_equality(self, dataset: EqualityDataset) -> None:
         """Test that domains compare by their user defined specs."""
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(dataset.input_domain, dataset.input_other)
-        else:
-            self.assertNotEqual(dataset.input_domain, dataset.input_other)
+        # Act
+        actual = dataset.input_domain == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)
 
 
 class TestUserMapDomain(TestCase):
@@ -523,8 +523,8 @@ class TestUserMapDomain(TestCase):
     def test_equality(self, dataset: EqualityDataset) -> None:
         """Test that domains compare by their user defined specs."""
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(dataset.input_domain, dataset.input_other)
-        else:
-            self.assertNotEqual(dataset.input_domain, dataset.input_other)
+        # Act
+        actual = dataset.input_domain == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)

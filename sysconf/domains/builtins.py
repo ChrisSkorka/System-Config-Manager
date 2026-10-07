@@ -1,13 +1,13 @@
 # pyright: strict
 
 
+from textwrap import dedent
 from typing import cast
 
 from sysconf.config.domains import Domain
 from sysconf.domains.dconf import create_dconf_domain
 from sysconf.domains.gsettings import create_gsettings_domain
 from sysconf.domains.shell_domains import create_list_shell_domain, create_map_shell_domain
-from sysconf.utils.str import unindent
 
 
 builtin_domains: list[Domain] = cast(
@@ -39,10 +39,10 @@ builtin_domains: list[Domain] = cast(
             key='snap',
             path_depth=0,
             add_script='sudo snap install $value',
-            remove_script=unindent("""
+            remove_script=dedent('''\
                 value="$value";
                 sudo snap remove ${value%% *};
-            """),
+            ''').strip(),
         ),
         create_list_shell_domain(
             key='pip',
@@ -78,76 +78,76 @@ builtin_domains: list[Domain] = cast(
         create_map_shell_domain(
             key='symlinks',
             path_depth=1,
-            add_script=unindent("""
+            add_script=dedent('''\
                 rm -f $key;
                 ln -sf $value $key;
-            """),
-            update_script=unindent("""
+            ''').strip(),
+            update_script=dedent('''\
                 rm -f $key;
                 ln -sf $value $key;
-            """),
+            ''').strip(),
             remove_script='rm -f $key',
         ),
         create_map_shell_domain(
             key='sysctl',
             path_depth=1,
-            add_script=unindent("""
+            add_script=dedent('''\
                 echo "$value" | sudo tee /etc/sysctl.d/$key > /dev/null;
                 sudo chmod 644 /etc/sysctl.d/$key;
                 sudo sysctl --system;
-            """),
-            update_script=unindent("""
+            ''').strip(),
+            update_script=dedent('''\
                 echo "$value" | sudo tee /etc/sysctl.d/$key > /dev/null;
                 sudo chmod 644 /etc/sysctl.d/$key;
                 sudo sysctl --system;
-            """),
-            remove_script=unindent("""
+            ''').strip(),
+            remove_script=dedent('''\
                 sudo rm -f /etc/sysctl.d/$key;
                 sudo sysctl --system;
-            """),
+            ''').strip(),
         ),
         create_list_shell_domain(
             key='apt-repository',
             path_depth=0,
-            add_script=unindent("""
+            add_script=dedent('''\
                 sudo add-apt-repository -y $value;
                 sudo apt update;
-            """),
-            remove_script=unindent("""
+            ''').strip(),
+            remove_script=dedent('''\
                 sudo add-apt-repository -r -y $value;
                 sudo apt update;
-            """),
+            ''').strip(),
         ),
         create_map_shell_domain(
             key='apt-source-list',
             path_depth=1,
-            add_script=unindent("""
+            add_script=dedent('''\
                 echo "$value" | sudo tee /etc/apt/sources.list.d/$key > /dev/null; 
                 sudo chmod 644 /etc/apt/sources.list.d/$key;
                 sudo apt update;
-            """),
-            update_script=unindent("""
+            ''').strip(),
+            update_script=dedent('''\
                 echo "$value" | sudo tee /etc/apt/sources.list.d/$key > /dev/null; 
                 sudo chmod 644 /etc/apt/sources.list.d/$key;
                 sudo apt update;
-            """),
-            remove_script=unindent("""
+            ''').strip(),
+            remove_script=dedent('''\
                 sudo rm -f /etc/apt/sources.list.d/$key; 
                 sudo apt update;
-            """),
+            ''').strip(),
         ),
         create_map_shell_domain(
             key='apt-keyring',
             path_depth=1,
-            add_script=unindent("""
+            add_script=dedent('''\
                 sudo install -m 0755 -d $(dirname "$key"); 
                 echo "$value" | sudo tee "$key" > /dev/null; 
                 sudo chmod 644 "$key";
-            """),
-            update_script=unindent("""
+            ''').strip(),
+            update_script=dedent('''\
                 echo "$value" | sudo tee "$key" > /dev/null; 
                 sudo chmod 644 "$key";
-            """),
+            ''').strip(),
             remove_script='sudo rm -f "$key"',
         ),
         create_list_shell_domain(

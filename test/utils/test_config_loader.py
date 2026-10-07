@@ -259,21 +259,6 @@ class TestLoadConfigFromFile(TestCase):
             config_reader.load(dataset.input_path)
 
 
-CONFIG_YAML = dedent('''\
-    version: "1"
-    before:
-      - echo before
-    config: []
-    ''')
-CONFIG = SystemConfig.create_from_entries(
-    (ShellAction('echo before'),),
-    (),
-    (),
-    (),
-)
-EMPTY_CONFIG = SystemConfig.create_from_entries((), (), (), ())
-
-
 class TestConfigReader(TestCase):
     """Test loading configs with a fixed file reader."""
 
@@ -285,9 +270,21 @@ class TestConfigReader(TestCase):
 
     @datasets({
         'valid config': LoadDataset(
-            fixture_files={'/config/config.yaml': CONFIG_YAML},
+            fixture_files={
+                '/config/config.yaml': dedent('''\
+                    version: "1"
+                    before:
+                      - echo before
+                    config: []
+                    '''),
+            },
             input_path=fpath('/config/config.yaml'),
-            expected=CONFIG,
+            expected=SystemConfig.create_from_entries(
+                (ShellAction('echo before'),),
+                (),
+                (),
+                (),
+            ),
         ),
     })
     def test_load_returns(self, dataset: LoadDataset) -> None:
@@ -347,14 +344,26 @@ class TestConfigReader(TestCase):
 
     @datasets({
         'file exists': LoadOrDefaultDataset(
-            fixture_files={'/config/current.yaml': CONFIG_YAML},
+            fixture_files={
+                '/config/current.yaml': dedent('''\
+                    version: "1"
+                    before:
+                      - echo before
+                    config: []
+                    '''),
+            },
             input_path=fpath('/config/current.yaml'),
-            expected=CONFIG,
+            expected=SystemConfig.create_from_entries(
+                (ShellAction('echo before'),),
+                (),
+                (),
+                (),
+            ),
         ),
         'file does not exist': LoadOrDefaultDataset(
             fixture_files={},
             input_path=MockPath('/config/current.yaml'),
-            expected=EMPTY_CONFIG,
+            expected=SystemConfig.create_from_entries((), (), (), ()),
         ),
     })
     def test_load_or_default(self, dataset: LoadOrDefaultDataset) -> None:

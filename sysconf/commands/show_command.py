@@ -48,8 +48,10 @@ class ShowCommand (Command):
         defaults = context.get_defaults()
         file_reader = context.get_file_reader()
 
-        config_path = parsed_arguments.config_path \
+        config_path = (
+            parsed_arguments.config_path
             or defaults.get_old_config_path()
+        )
 
         config_path = get_validated_file_path(
             config_path,

@@ -175,12 +175,14 @@ class EditCommand (Command):
         if not isinstance(value, EditCommand):
             return False
 
-        return self.config_reader == value.config_reader \
-            and self.new_path == value.new_path \
-            and self.old_path == value.old_path \
-            and self.editor_resolver == value.editor_resolver \
-            and self.editor_launcher == value.editor_launcher \
-            # excluded:
+        return (
+            self.config_reader == value.config_reader
+            and self.new_path == value.new_path
+            and self.old_path == value.old_path
+            and self.editor_resolver == value.editor_resolver
+            and self.editor_launcher == value.editor_launcher
+        )
+        # excluded:
         # and self.preview_command_factory == value.preview_command_factory
         # and self.apply_command_factory == value.apply_command_factory
 

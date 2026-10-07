@@ -12,6 +12,12 @@ class MockWhich:
     def __init__(self, paths_by_name: dict[str, str]) -> None:
         self.paths_by_name = paths_by_name
 
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, MockWhich):
+            return False
+
+        return self.paths_by_name == value.paths_by_name
+
     def __call__(self, name: str) -> str | None:
         return self.paths_by_name.get(name)
 

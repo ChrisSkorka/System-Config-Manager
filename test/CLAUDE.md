@@ -19,6 +19,22 @@ python3 -m unittest discover test
 - many data one test
 - strong types
 - dedent for multiline strings (avoid using `\n`)
+  - prefer the `dedent('''\` form, no redundant `()` wrapped around `dedent(...)`
+- inline trivial helpers (module consts, one-line wrapper/factory functions) into datasets & tests
+  - keep only when identity is needed (e.g. `assertIs`) or a shared table would otherwise be duplicated
+  - when identity is only needed because a class lacks `__eq__`, add `__eq__` to the class & inline
+- dataset fixtures use mock objects rather than raw data for them (e.g. `fixture_file_reader: MockFileReader`, not `fixture_files: dict[str, str]`)
+- mocks return preset results & record calls, they don't replicate real behaviour (e.g. printing)
+  - unit tests assert only the tested unit's own output
+- don't merge tests of different methods (e.g. keep `test_create_from_arguments` & `test_create_from_context` separate)
+- `test_equality` bodies:
+  ```py
+  # Act
+  actual = dataset.input_command == dataset.input_other
+
+  # Assert
+  self.assertEqual(actual, dataset.expected_equal)
+  ```
 - arrange, act, assert comments (strict)
 - avoid standalone test functions, merge with other tests when possible
 - avoid setUp unless it's large or paired with tearDown, prefer simple setups in tests

@@ -14,9 +14,6 @@ from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_path import MockPath, dpath, fpath
 
 
-FILE_READER = FileReader()
-
-
 class TestComparativeConfigCommandParser(TestCase):
 
     @dataclass
@@ -305,13 +302,13 @@ class TestComparativeConfigCommandParser(TestCase):
                 old_path=Path('/old.yaml'),
                 new_path=Path('/new.yaml'),
                 is_config_file_explicit=True,
-                file_reader=FILE_READER,
+                file_reader=FileReader(),
             ),
             input_other=ComparativeConfigCommandParser(
                 old_path=Path('/old.yaml'),
                 new_path=Path('/new.yaml'),
                 is_config_file_explicit=True,
-                file_reader=FILE_READER,
+                file_reader=FileReader(),
             ),
             expected_equal=True,
         ),
@@ -320,13 +317,13 @@ class TestComparativeConfigCommandParser(TestCase):
                 old_path=Path('/old.yaml'),
                 new_path=Path('/new.yaml'),
                 is_config_file_explicit=True,
-                file_reader=FILE_READER,
+                file_reader=FileReader(),
             ),
             input_other=ComparativeConfigCommandParser(
                 old_path=Path('/other.yaml'),
                 new_path=Path('/new.yaml'),
                 is_config_file_explicit=True,
-                file_reader=FILE_READER,
+                file_reader=FileReader(),
             ),
             expected_equal=False,
         ),
@@ -335,13 +332,13 @@ class TestComparativeConfigCommandParser(TestCase):
                 old_path=Path('/old.yaml'),
                 new_path=Path('/new.yaml'),
                 is_config_file_explicit=True,
-                file_reader=FILE_READER,
+                file_reader=FileReader(),
             ),
             input_other=ComparativeConfigCommandParser(
                 old_path=Path('/old.yaml'),
                 new_path=Path('/other.yaml'),
                 is_config_file_explicit=True,
-                file_reader=FILE_READER,
+                file_reader=FileReader(),
             ),
             expected_equal=False,
         ),
@@ -350,27 +347,12 @@ class TestComparativeConfigCommandParser(TestCase):
                 old_path=Path('/old.yaml'),
                 new_path=Path('/new.yaml'),
                 is_config_file_explicit=True,
-                file_reader=FILE_READER,
+                file_reader=FileReader(),
             ),
             input_other=ComparativeConfigCommandParser(
                 old_path=Path('/old.yaml'),
                 new_path=Path('/new.yaml'),
                 is_config_file_explicit=False,
-                file_reader=FILE_READER,
-            ),
-            expected_equal=False,
-        ),
-        'different file reader instance': EqualityDataset(
-            input_parser=ComparativeConfigCommandParser(
-                old_path=Path('/old.yaml'),
-                new_path=Path('/new.yaml'),
-                is_config_file_explicit=True,
-                file_reader=FILE_READER,
-            ),
-            input_other=ComparativeConfigCommandParser(
-                old_path=Path('/old.yaml'),
-                new_path=Path('/new.yaml'),
-                is_config_file_explicit=True,
                 file_reader=FileReader(),
             ),
             expected_equal=False,
@@ -380,7 +362,7 @@ class TestComparativeConfigCommandParser(TestCase):
                 old_path=Path('/old.yaml'),
                 new_path=Path('/new.yaml'),
                 is_config_file_explicit=True,
-                file_reader=FILE_READER,
+                file_reader=FileReader(),
             ),
             input_other='parser',
             expected_equal=False,
@@ -389,8 +371,8 @@ class TestComparativeConfigCommandParser(TestCase):
     def test_equality(self, dataset: EqualityDataset) -> None:
         """Test that parsers compare by paths, explicitness and file reader."""
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(dataset.input_parser, dataset.input_other)
-        else:
-            self.assertNotEqual(dataset.input_parser, dataset.input_other)
+        # Act
+        actual = dataset.input_parser == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)

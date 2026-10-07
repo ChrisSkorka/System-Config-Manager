@@ -43,22 +43,6 @@ GIT_CONFIG_DOMAIN: MapDomain[str] = create_map_shell_domain(
 )
 
 
-def list_entry(
-    domain: ListDomain,
-    path: tuple[str, ...],
-    value: str,
-) -> ListConfigEntry:
-    return ListConfigEntry(domain=domain, path=path, value=value)
-
-
-def map_entry(
-    domain: MapDomain[str],
-    path: tuple[str, ...],
-    value: str,
-) -> MapConfigEntry[str]:
-    return MapConfigEntry(domain=domain, path=path, value=value)
-
-
 class TestShellScriptTemplate(TestCase):
     """Test shell script template equality, path variables and interpolation."""
 
@@ -98,11 +82,11 @@ class TestShellScriptTemplate(TestCase):
     def test_equality(self, dataset: EqualityDataset) -> None:
         """Test that templates compare by script content only."""
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(dataset.input_template, dataset.input_other)
-        else:
-            self.assertNotEqual(dataset.input_template, dataset.input_other)
+        # Act
+        actual = dataset.input_template == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)
 
     @dataclass
     class PathVariablesDataset:
@@ -228,7 +212,7 @@ class TestShellAddAction(TestCase):
         'list domain without keys': AddDataset(
             input_action=ShellAddAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt install -y $value'),
             ),
             expected_description='Add apt: git',
@@ -237,7 +221,7 @@ class TestShellAddAction(TestCase):
         'list domain with one key': AddDataset(
             input_action=ShellAddAction(
                 'user-groups',
-                list_entry(USER_GROUPS_DOMAIN, ('alice',), 'docker'),
+                ListConfigEntry(USER_GROUPS_DOMAIN, ('alice',), 'docker'),
                 ShellScriptTemplate('sudo usermod -aG "$value" "$key"'),
             ),
             expected_description='Add user-groups: alice = docker',
@@ -246,7 +230,7 @@ class TestShellAddAction(TestCase):
         'map domain with one key': AddDataset(
             input_action=ShellAddAction(
                 'git-config-global',
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
                 ShellScriptTemplate('git config --global "$key" "$value"'),
             ),
             expected_description='Add git-config-global: user.email = a@b.com',
@@ -255,7 +239,7 @@ class TestShellAddAction(TestCase):
         'new_value alias': AddDataset(
             input_action=ShellAddAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'vim'),
+                ListConfigEntry(APT_DOMAIN, (), 'vim'),
                 ShellScriptTemplate('echo $new_value'),
             ),
             expected_description='Add apt: vim',
@@ -293,12 +277,12 @@ class TestShellAddAction(TestCase):
         'identical actions': EqualityDataset(
             input_action=ShellAddAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt install -y $value'),
             ),
             input_other=ShellAddAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt install -y $value'),
             ),
             expected_equal=True,
@@ -306,12 +290,12 @@ class TestShellAddAction(TestCase):
         'different key': EqualityDataset(
             input_action=ShellAddAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt install -y $value'),
             ),
             input_other=ShellAddAction(
                 'snap',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt install -y $value'),
             ),
             expected_equal=False,
@@ -319,12 +303,12 @@ class TestShellAddAction(TestCase):
         'different entry value': EqualityDataset(
             input_action=ShellAddAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt install -y $value'),
             ),
             input_other=ShellAddAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'vim'),
+                ListConfigEntry(APT_DOMAIN, (), 'vim'),
                 ShellScriptTemplate('sudo apt install -y $value'),
             ),
             expected_equal=False,
@@ -332,12 +316,12 @@ class TestShellAddAction(TestCase):
         'not equal to remove action': EqualityDataset(
             input_action=ShellAddAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt install -y $value'),
             ),
             input_other=ShellRemoveAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt install -y $value'),
             ),
             expected_equal=False,
@@ -345,7 +329,7 @@ class TestShellAddAction(TestCase):
         'not equal to string': EqualityDataset(
             input_action=ShellAddAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt install -y $value'),
             ),
             input_other='apt',
@@ -355,11 +339,11 @@ class TestShellAddAction(TestCase):
     def test_equality(self, dataset: EqualityDataset) -> None:
         """Test that add actions compare by key, entry and script template."""
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(dataset.input_action, dataset.input_other)
-        else:
-            self.assertNotEqual(dataset.input_action, dataset.input_other)
+        # Act
+        actual = dataset.input_action == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)
 
 
 class TestShellUpdateAction(TestCase):
@@ -375,8 +359,8 @@ class TestShellUpdateAction(TestCase):
         'map domain value change': UpdateDataset(
             input_action=ShellUpdateAction(
                 'git-config-global',
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'old@b.com'),
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'new@b.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'old@b.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'new@b.com'),
                 ShellScriptTemplate('git config --global "$key" "$value"'),
             ),
             expected_description='Update git-config-global: user.email = old@b.com -> new@b.com',
@@ -385,8 +369,8 @@ class TestShellUpdateAction(TestCase):
         'script using old and new value': UpdateDataset(
             input_action=ShellUpdateAction(
                 'git-config-global',
-                map_entry(GIT_CONFIG_DOMAIN, ('user.name',), 'Old Name'),
-                map_entry(GIT_CONFIG_DOMAIN, ('user.name',), 'New Name'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.name',), 'Old Name'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.name',), 'New Name'),
                 ShellScriptTemplate('echo "$old_value => $new_value"'),
             ),
             expected_description='Update git-config-global: user.name = Old Name -> New Name',
@@ -424,14 +408,14 @@ class TestShellUpdateAction(TestCase):
         'identical actions': EqualityDataset(
             input_action=ShellUpdateAction(
                 'git-config-global',
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'c@d.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'c@d.com'),
                 ShellScriptTemplate('git config --global "$key" "$value"'),
             ),
             input_other=ShellUpdateAction(
                 'git-config-global',
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'c@d.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'c@d.com'),
                 ShellScriptTemplate('git config --global "$key" "$value"'),
             ),
             expected_equal=True,
@@ -439,14 +423,14 @@ class TestShellUpdateAction(TestCase):
         'different old entry': EqualityDataset(
             input_action=ShellUpdateAction(
                 'git-config-global',
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'c@d.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'c@d.com'),
                 ShellScriptTemplate('git config --global "$key" "$value"'),
             ),
             input_other=ShellUpdateAction(
                 'git-config-global',
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'x@y.com'),
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'c@d.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'x@y.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'c@d.com'),
                 ShellScriptTemplate('git config --global "$key" "$value"'),
             ),
             expected_equal=False,
@@ -454,8 +438,8 @@ class TestShellUpdateAction(TestCase):
         'not equal to none': EqualityDataset(
             input_action=ShellUpdateAction(
                 'git-config-global',
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'c@d.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'c@d.com'),
                 ShellScriptTemplate('git config --global "$key" "$value"'),
             ),
             input_other=None,
@@ -465,11 +449,11 @@ class TestShellUpdateAction(TestCase):
     def test_equality(self, dataset: EqualityDataset) -> None:
         """Test that update actions compare by key, both entries and template."""
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(dataset.input_action, dataset.input_other)
-        else:
-            self.assertNotEqual(dataset.input_action, dataset.input_other)
+        # Act
+        actual = dataset.input_action == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)
 
 
 class TestShellRemoveAction(TestCase):
@@ -485,7 +469,7 @@ class TestShellRemoveAction(TestCase):
         'list domain without keys': RemoveDataset(
             input_action=ShellRemoveAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt remove -y $value'),
             ),
             expected_description='Remove apt: git',
@@ -494,7 +478,7 @@ class TestShellRemoveAction(TestCase):
         'map domain with one key': RemoveDataset(
             input_action=ShellRemoveAction(
                 'git-config-global',
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
                 ShellScriptTemplate('git config --global --unset "$key"'),
             ),
             expected_description='Remove git-config-global: user.email = a@b.com',
@@ -503,7 +487,7 @@ class TestShellRemoveAction(TestCase):
         'script using old_value': RemoveDataset(
             input_action=ShellRemoveAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'vim'),
+                ListConfigEntry(APT_DOMAIN, (), 'vim'),
                 ShellScriptTemplate('echo removing $old_value'),
             ),
             expected_description='Remove apt: vim',
@@ -541,12 +525,12 @@ class TestShellRemoveAction(TestCase):
         'identical actions': EqualityDataset(
             input_action=ShellRemoveAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt remove -y $value'),
             ),
             input_other=ShellRemoveAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt remove -y $value'),
             ),
             expected_equal=True,
@@ -554,12 +538,12 @@ class TestShellRemoveAction(TestCase):
         'different template': EqualityDataset(
             input_action=ShellRemoveAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt remove -y $value'),
             ),
             input_other=ShellRemoveAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt purge -y $value'),
             ),
             expected_equal=False,
@@ -567,7 +551,7 @@ class TestShellRemoveAction(TestCase):
         'not equal to int': EqualityDataset(
             input_action=ShellRemoveAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt remove -y $value'),
             ),
             input_other=42,
@@ -577,11 +561,11 @@ class TestShellRemoveAction(TestCase):
     def test_equality(self, dataset: EqualityDataset) -> None:
         """Test that remove actions compare by key, entry and script template."""
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(dataset.input_action, dataset.input_other)
-        else:
-            self.assertNotEqual(dataset.input_action, dataset.input_other)
+        # Act
+        actual = dataset.input_action == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)
 
 
 class TestCreateListShellDomain(TestCase):
@@ -599,21 +583,21 @@ class TestCreateListShellDomain(TestCase):
         'add': FactoryDataset(
             fixture_domain=APT_DOMAIN,
             input_old_entry=None,
-            input_new_entry=list_entry(APT_DOMAIN, (), 'git'),
+            input_new_entry=ListConfigEntry(APT_DOMAIN, (), 'git'),
             expected_action=ShellAddAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt install -y $value'),
             ),
             expected_script='sudo apt install -y git',
         ),
         'remove': FactoryDataset(
             fixture_domain=APT_DOMAIN,
-            input_old_entry=list_entry(APT_DOMAIN, (), 'git'),
+            input_old_entry=ListConfigEntry(APT_DOMAIN, (), 'git'),
             input_new_entry=None,
             expected_action=ShellRemoveAction(
                 'apt',
-                list_entry(APT_DOMAIN, (), 'git'),
+                ListConfigEntry(APT_DOMAIN, (), 'git'),
                 ShellScriptTemplate('sudo apt remove -y $value'),
             ),
             expected_script='sudo apt remove -y git',
@@ -621,13 +605,13 @@ class TestCreateListShellDomain(TestCase):
         'add with a keyed path': FactoryDataset(
             fixture_domain=USER_GROUPS_DOMAIN,
             input_old_entry=None,
-            input_new_entry=list_entry(
+            input_new_entry=ListConfigEntry(
                 USER_GROUPS_DOMAIN,
                 ('alice',), 'docker',
             ),
             expected_action=ShellAddAction(
                 'user-groups',
-                list_entry(USER_GROUPS_DOMAIN, ('alice',), 'docker'),
+                ListConfigEntry(USER_GROUPS_DOMAIN, ('alice',), 'docker'),
                 ShellScriptTemplate('sudo usermod -aG "$value" "$key"'),
             ),
             expected_script='sudo usermod -aG "docker" "alice"',
@@ -668,41 +652,41 @@ class TestCreateMapShellDomain(TestCase):
         'add': FactoryDataset(
             fixture_domain=GIT_CONFIG_DOMAIN,
             input_old_entry=None,
-            input_new_entry=map_entry(
+            input_new_entry=MapConfigEntry(
                 GIT_CONFIG_DOMAIN,
                 ('user.email',),
                 'a@b.com',
             ),
             expected_action=ShellAddAction(
                 'git-config-global',
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
                 ShellScriptTemplate('git config --global "$key" "$value"'),
             ),
             expected_script='git config --global "user.email" "a@b.com"',
         ),
         'update': FactoryDataset(
             fixture_domain=GIT_CONFIG_DOMAIN,
-            input_old_entry=map_entry(
+            input_old_entry=MapConfigEntry(
                 GIT_CONFIG_DOMAIN,
                 ('user.email',),
                 'a@b.com',
             ),
-            input_new_entry=map_entry(
+            input_new_entry=MapConfigEntry(
                 GIT_CONFIG_DOMAIN,
                 ('user.email',),
                 'c@d.com',
             ),
             expected_action=ShellUpdateAction(
                 'git-config-global',
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'c@d.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'c@d.com'),
                 ShellScriptTemplate('git config --global "$key" "$value"'),
             ),
             expected_script='git config --global "user.email" "c@d.com"',
         ),
         'remove': FactoryDataset(
             fixture_domain=GIT_CONFIG_DOMAIN,
-            input_old_entry=map_entry(
+            input_old_entry=MapConfigEntry(
                 GIT_CONFIG_DOMAIN,
                 ('user.email',),
                 'a@b.com',
@@ -710,7 +694,7 @@ class TestCreateMapShellDomain(TestCase):
             input_new_entry=None,
             expected_action=ShellRemoveAction(
                 'git-config-global',
-                map_entry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
+                MapConfigEntry(GIT_CONFIG_DOMAIN, ('user.email',), 'a@b.com'),
                 ShellScriptTemplate('git config --global --unset "$key"'),
             ),
             expected_script='git config --global --unset "user.email"',

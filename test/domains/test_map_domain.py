@@ -48,17 +48,6 @@ def make_map_domain(key: str, path_depth: int) -> MapDomain[str]:
     )
 
 
-SETTINGS_DOMAIN = make_map_domain('settings', 1)
-OTHER_DOMAIN = make_map_domain('other', 1)
-LIST_DOMAIN = ListDomain(
-    key='settings',
-    path_depth=1,
-    get_value=str,
-    add_action_factory=list_add_action_factory,
-    remove_action_factory=list_remove_action_factory,
-)
-
-
 class TestMapDomain(TestCase):
     """Test MapDomain equality."""
 
@@ -84,32 +73,26 @@ class TestMapDomain(TestCase):
             input_other=make_map_domain('settings', 2),
             expected_equal=False,
         ),
-        'different action factory': EqualityDataset(
+        'not a map domain': EqualityDataset(
             input_domain=make_map_domain('settings', 1),
-            input_other=MapDomain[str](
+            input_other=ListDomain(
                 key='settings',
                 path_depth=1,
                 get_value=str,
-                add_action_factory=other_add_action_factory,
-                update_action_factory=update_action_factory,
-                remove_action_factory=remove_action_factory,
+                add_action_factory=list_add_action_factory,
+                remove_action_factory=list_remove_action_factory,
             ),
-            expected_equal=False,
-        ),
-        'not a map domain': EqualityDataset(
-            input_domain=make_map_domain('settings', 1),
-            input_other=LIST_DOMAIN,
             expected_equal=False,
         ),
     })
     def test_equality(self, dataset: EqualityDataset) -> None:
         """Test that domains compare by key, depth and their functions."""
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(dataset.input_domain, dataset.input_other)
-        else:
-            self.assertNotEqual(dataset.input_domain, dataset.input_other)
+        # Act
+        actual = dataset.input_domain == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)
 
 
 class TestMapConfigEntry(TestCase):
@@ -123,45 +106,59 @@ class TestMapConfigEntry(TestCase):
 
     @datasets({
         'identical entries': EqualityDataset(
-            input_entry=MapConfigEntry(SETTINGS_DOMAIN, ('key',), 'value'),
-            input_other=MapConfigEntry(SETTINGS_DOMAIN, ('key',), 'value'),
+            input_entry=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
+            input_other=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
             expected_equal=True,
         ),
-        'same domain key from another domain instance': EqualityDataset(
-            input_entry=MapConfigEntry(SETTINGS_DOMAIN, ('key',), 'value'),
+        'same domain key from a different domain': EqualityDataset(
+            input_entry=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
             input_other=MapConfigEntry(
-                make_map_domain('settings', 1),
+                make_map_domain('settings', 2),
                 ('key',),
                 'value',
             ),
-            expected_equal=True,
+            expected_equal=False,
         ),
         'different value': EqualityDataset(
-            input_entry=MapConfigEntry(SETTINGS_DOMAIN, ('key',), 'value'),
-            input_other=MapConfigEntry(SETTINGS_DOMAIN, ('key',), 'other'),
+            input_entry=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
+            input_other=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'other'),
             expected_equal=False,
         ),
         'different path': EqualityDataset(
-            input_entry=MapConfigEntry(SETTINGS_DOMAIN, ('key',), 'value'),
-            input_other=MapConfigEntry(SETTINGS_DOMAIN, ('other',), 'value'),
+            input_entry=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
+            input_other=MapConfigEntry(
+                make_map_domain('settings', 1),
+                ('other',),
+                'value',
+            ),
             expected_equal=False,
         ),
         'different domain key': EqualityDataset(
-            input_entry=MapConfigEntry(SETTINGS_DOMAIN, ('key',), 'value'),
-            input_other=MapConfigEntry(OTHER_DOMAIN, ('key',), 'value'),
+            input_entry=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
+            input_other=MapConfigEntry(make_map_domain('other', 1), ('key',), 'value'),
             expected_equal=False,
         ),
         'not equal to list entry': EqualityDataset(
-            input_entry=MapConfigEntry(SETTINGS_DOMAIN, ('key',), 'value'),
-            input_other=ListConfigEntry(LIST_DOMAIN, ('key',), 'value'),
+            input_entry=MapConfigEntry(make_map_domain('settings', 1), ('key',), 'value'),
+            input_other=ListConfigEntry(
+                ListDomain(
+                    key='settings',
+                    path_depth=1,
+                    get_value=str,
+                    add_action_factory=list_add_action_factory,
+                    remove_action_factory=list_remove_action_factory,
+                ),
+                ('key',),
+                'value',
+            ),
             expected_equal=False,
         ),
     })
     def test_equality(self, dataset: EqualityDataset) -> None:
         """Test that entries compare by domain key, path and value."""
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(dataset.input_entry, dataset.input_other)
-        else:
-            self.assertNotEqual(dataset.input_entry, dataset.input_other)
+        # Act
+        actual = dataset.input_entry == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)

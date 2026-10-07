@@ -71,13 +71,11 @@ class TestShellAction(TestCase):
     def test_equality_with_shell_actions(self, dataset: EqualityDataset) -> None:
         """Test that equality works correctly between ShellAction instances and other types."""
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(dataset.input_shell_action_1,
-                             dataset.input_shell_action_2)
-        else:
-            self.assertNotEqual(dataset.input_shell_action_1,
-                                dataset.input_shell_action_2)
+        # Act
+        actual = dataset.input_shell_action_1 == dataset.input_shell_action_2
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)
 
     @dataclass
     class RenderDataset:

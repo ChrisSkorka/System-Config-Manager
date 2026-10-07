@@ -311,6 +311,9 @@ class SystemConfigRenderer:
     Renders a SystemConfig object into a serializable format (e.g., dicts, lists, scalars).
     """
 
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, SystemConfigRenderer)
+
     def render_config(self, system_config: SystemConfig) -> YamlSerializable:
         """
         Render the given SystemConfig object into a serializable format.

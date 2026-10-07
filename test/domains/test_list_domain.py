@@ -30,23 +30,6 @@ def make_list_domain(key: str, path_depth: int) -> ListDomain:
     )
 
 
-APT_DOMAIN: ListDomain = make_list_domain('apt', 0)
-USER_GROUPS_DOMAIN: ListDomain = make_list_domain('user-groups', 1)
-FILES_DOMAIN: ListDomain = make_list_domain('files', 2)
-
-OTHER_DOMAIN: ListDomain = make_list_domain('snap', 0)
-
-MAP_DOMAIN: MapDomain[str] = MapDomain[str](
-    key='map',
-    path_depth=1,
-    get_value=str,
-    add_action_factory=lambda new_entry: MockDomainAction('add'),
-    update_action_factory=lambda old_entry, new_entry:
-        MockDomainAction('update'),
-    remove_action_factory=lambda old_entry: MockDomainAction('remove'),
-)
-
-
 class TestListDomain(TestCase):
     """Test parsing, rendering and action selection for list domains."""
 
@@ -58,55 +41,55 @@ class TestListDomain(TestCase):
 
     @datasets({
         'none data': GetEntriesDataset(
-            fixture_domain=APT_DOMAIN,
+            fixture_domain=make_list_domain('apt', 0),
             input_data=None,
             expected_entries=(),
         ),
         'empty list': GetEntriesDataset(
-            fixture_domain=APT_DOMAIN,
+            fixture_domain=make_list_domain('apt', 0),
             input_data=[],
             expected_entries=(),
         ),
         'flat list': GetEntriesDataset(
-            fixture_domain=APT_DOMAIN,
+            fixture_domain=make_list_domain('apt', 0),
             input_data=['git', 'vim'],
             expected_entries=(
-                ListConfigEntry(APT_DOMAIN, (), 'git'),
-                ListConfigEntry(APT_DOMAIN, (), 'vim'),
+                ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
+                ListConfigEntry(make_list_domain('apt', 0), (), 'vim'),
             ),
         ),
         'flat list coerces values to strings': GetEntriesDataset(
-            fixture_domain=APT_DOMAIN,
+            fixture_domain=make_list_domain('apt', 0),
             input_data=[1, 2],
             expected_entries=(
-                ListConfigEntry(APT_DOMAIN, (), '1'),
-                ListConfigEntry(APT_DOMAIN, (), '2'),
+                ListConfigEntry(make_list_domain('apt', 0), (), '1'),
+                ListConfigEntry(make_list_domain('apt', 0), (), '2'),
             ),
         ),
         'one level of keys': GetEntriesDataset(
-            fixture_domain=USER_GROUPS_DOMAIN,
+            fixture_domain=make_list_domain('user-groups', 1),
             input_data={
                 'alice': ['docker', 'sudo'],
                 'bob': ['docker'],
             },
             expected_entries=(
-                ListConfigEntry(USER_GROUPS_DOMAIN, ('alice',), 'docker'),
-                ListConfigEntry(USER_GROUPS_DOMAIN, ('alice',), 'sudo'),
-                ListConfigEntry(USER_GROUPS_DOMAIN, ('bob',), 'docker'),
+                ListConfigEntry(make_list_domain('user-groups', 1), ('alice',), 'docker'),
+                ListConfigEntry(make_list_domain('user-groups', 1), ('alice',), 'sudo'),
+                ListConfigEntry(make_list_domain('user-groups', 1), ('bob',), 'docker'),
             ),
         ),
         'one level of keys with none value': GetEntriesDataset(
-            fixture_domain=USER_GROUPS_DOMAIN,
+            fixture_domain=make_list_domain('user-groups', 1),
             input_data={
                 'alice': None,
                 'bob': ['docker'],
             },
             expected_entries=(
-                ListConfigEntry(USER_GROUPS_DOMAIN, ('bob',), 'docker'),
+                ListConfigEntry(make_list_domain('user-groups', 1), ('bob',), 'docker'),
             ),
         ),
         'two levels of keys': GetEntriesDataset(
-            fixture_domain=FILES_DOMAIN,
+            fixture_domain=make_list_domain('files', 2),
             input_data={
                 'root': {
                     '/root/dir-1': ['a.txt', 'b.txt'],
@@ -115,17 +98,17 @@ class TestListDomain(TestCase):
             },
             expected_entries=(
                 ListConfigEntry(
-                    FILES_DOMAIN,
+                    make_list_domain('files', 2),
                     ('root', '/root/dir-1'),
                     'a.txt',
                 ),
                 ListConfigEntry(
-                    FILES_DOMAIN,
+                    make_list_domain('files', 2),
                     ('root', '/root/dir-1'),
                     'b.txt',
                 ),
                 ListConfigEntry(
-                    FILES_DOMAIN,
+                    make_list_domain('files', 2),
                     ('root', '/root/dir-2'),
                     'c.txt',
                 ),
@@ -151,29 +134,29 @@ class TestListDomain(TestCase):
 
     @datasets({
         'no keys, no entries': RenderDataset(
-            fixture_domain=APT_DOMAIN,
+            fixture_domain=make_list_domain('apt', 0),
             input_entries=(),
             expected_data=[],
         ),
         'no keys, several entries': RenderDataset(
-            fixture_domain=APT_DOMAIN,
+            fixture_domain=make_list_domain('apt', 0),
             input_entries=(
-                ListConfigEntry(APT_DOMAIN, (), 'git'),
-                ListConfigEntry(APT_DOMAIN, (), 'vim'),
+                ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
+                ListConfigEntry(make_list_domain('apt', 0), (), 'vim'),
             ),
             expected_data=['git', 'vim'],
         ),
         'one key, no entries': RenderDataset(
-            fixture_domain=USER_GROUPS_DOMAIN,
+            fixture_domain=make_list_domain('user-groups', 1),
             input_entries=(),
             expected_data={},
         ),
         'one key, several entries': RenderDataset(
-            fixture_domain=USER_GROUPS_DOMAIN,
+            fixture_domain=make_list_domain('user-groups', 1),
             input_entries=(
-                ListConfigEntry(USER_GROUPS_DOMAIN, ('alice',), 'docker'),
-                ListConfigEntry(USER_GROUPS_DOMAIN, ('alice',), 'sudo'),
-                ListConfigEntry(USER_GROUPS_DOMAIN, ('bob',), 'docker'),
+                ListConfigEntry(make_list_domain('user-groups', 1), ('alice',), 'docker'),
+                ListConfigEntry(make_list_domain('user-groups', 1), ('alice',), 'sudo'),
+                ListConfigEntry(make_list_domain('user-groups', 1), ('bob',), 'docker'),
             ),
             expected_data={
                 'alice': ['docker', 'sudo'],
@@ -181,20 +164,20 @@ class TestListDomain(TestCase):
             },
         ),
         'two keys': RenderDataset(
-            fixture_domain=FILES_DOMAIN,
+            fixture_domain=make_list_domain('files', 2),
             input_entries=(
                 ListConfigEntry(
-                    FILES_DOMAIN,
+                    make_list_domain('files', 2),
                     ('root', '/root/dir-1'),
                     'a.txt',
                 ),
                 ListConfigEntry(
-                    FILES_DOMAIN,
+                    make_list_domain('files', 2),
                     ('root', '/root/dir-1'),
                     'b.txt',
                 ),
                 ListConfigEntry(
-                    FILES_DOMAIN,
+                    make_list_domain('files', 2),
                     ('root', '/root/dir-2'),
                     'c.txt',
                 ),
@@ -224,15 +207,15 @@ class TestListDomain(TestCase):
 
     @datasets({
         'no keys': RoundTripDataset(
-            fixture_domain=APT_DOMAIN,
+            fixture_domain=make_list_domain('apt', 0),
             input_data=['git', 'vim'],
         ),
         'one key': RoundTripDataset(
-            fixture_domain=USER_GROUPS_DOMAIN,
+            fixture_domain=make_list_domain('user-groups', 1),
             input_data={'alice': ['docker', 'sudo'], 'bob': ['docker']},
         ),
         'two keys': RoundTripDataset(
-            fixture_domain=FILES_DOMAIN,
+            fixture_domain=make_list_domain('files', 2),
             input_data={'root': {'/dir': ['a.txt', 'b.txt']}},
         ),
     })
@@ -255,14 +238,14 @@ class TestListDomain(TestCase):
 
     @datasets({
         'add when only new entry': GetActionDataset(
-            fixture_domain=APT_DOMAIN,
+            fixture_domain=make_list_domain('apt', 0),
             input_old_entry=None,
-            input_new_entry=ListConfigEntry(APT_DOMAIN, (), 'git'),
+            input_new_entry=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
             expected_action=MockDomainAction('add git'),
         ),
         'remove when only old entry': GetActionDataset(
-            fixture_domain=APT_DOMAIN,
-            input_old_entry=ListConfigEntry(APT_DOMAIN, (), 'git'),
+            fixture_domain=make_list_domain('apt', 0),
+            input_old_entry=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
             input_new_entry=None,
             expected_action=MockDomainAction('remove git'),
         ),
@@ -283,11 +266,12 @@ class TestListDomain(TestCase):
         """Test that an unchanged entry produces a no-op action."""
 
         # Arrange
-        old_entry = ListConfigEntry(APT_DOMAIN, (), 'git')
-        new_entry = ListConfigEntry(APT_DOMAIN, (), 'git')
+        domain = make_list_domain('apt', 0)
+        old_entry = ListConfigEntry(domain, (), 'git')
+        new_entry = ListConfigEntry(domain, (), 'git')
 
         # Act
-        actual = APT_DOMAIN.get_action(old_entry, new_entry)
+        actual = domain.get_action(old_entry, new_entry)
 
         # Assert
         self.assertIsInstance(actual, NoDomainAction)
@@ -303,18 +287,42 @@ class TestListDomain(TestCase):
 
     @datasets({
         'both entries none': InvalidActionDataset(
-            fixture_domain=APT_DOMAIN,
+            fixture_domain=make_list_domain('apt', 0),
             input_old_entry=None,
             input_new_entry=None,
         ),
         'new entry is a map entry': InvalidActionDataset(
-            fixture_domain=APT_DOMAIN,
+            fixture_domain=make_list_domain('apt', 0),
             input_old_entry=None,
-            input_new_entry=MapConfigEntry(MAP_DOMAIN, ('key',), 'value'),
+            input_new_entry=MapConfigEntry(
+                MapDomain[str](
+                    key='map',
+                    path_depth=1,
+                    get_value=str,
+                    add_action_factory=lambda new_entry: MockDomainAction('add'),
+                    update_action_factory=lambda old_entry, new_entry:
+                        MockDomainAction('update'),
+                    remove_action_factory=lambda old_entry: MockDomainAction('remove'),
+                ),
+                ('key',),
+                'value',
+            ),
         ),
         'old entry is a map entry': InvalidActionDataset(
-            fixture_domain=APT_DOMAIN,
-            input_old_entry=MapConfigEntry(MAP_DOMAIN, ('key',), 'value'),
+            fixture_domain=make_list_domain('apt', 0),
+            input_old_entry=MapConfigEntry(
+                MapDomain[str](
+                    key='map',
+                    path_depth=1,
+                    get_value=str,
+                    add_action_factory=lambda new_entry: MockDomainAction('add'),
+                    update_action_factory=lambda old_entry, new_entry:
+                        MockDomainAction('update'),
+                    remove_action_factory=lambda old_entry: MockDomainAction('remove'),
+                ),
+                ('key',),
+                'value',
+            ),
             input_new_entry=None,
         ),
     })
@@ -345,45 +353,57 @@ class TestListConfigEntry(TestCase):
 
     @datasets({
         'identical entries': EqualityDataset(
-            input_entry=ListConfigEntry(APT_DOMAIN, (), 'git'),
-            input_other=ListConfigEntry(APT_DOMAIN, (), 'git'),
-            expected_equal=True,
-        ),
-        'same domain key from another domain instance': EqualityDataset(
-            input_entry=ListConfigEntry(APT_DOMAIN, (), 'git'),
+            input_entry=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
             input_other=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
             expected_equal=True,
         ),
+        'same domain key from a different domain': EqualityDataset(
+            input_entry=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
+            input_other=ListConfigEntry(make_list_domain('apt', 1), (), 'git'),
+            expected_equal=False,
+        ),
         'different value': EqualityDataset(
-            input_entry=ListConfigEntry(APT_DOMAIN, (), 'git'),
-            input_other=ListConfigEntry(APT_DOMAIN, (), 'vim'),
+            input_entry=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
+            input_other=ListConfigEntry(make_list_domain('apt', 0), (), 'vim'),
             expected_equal=False,
         ),
         'different path': EqualityDataset(
             input_entry=ListConfigEntry(
-                USER_GROUPS_DOMAIN,
+                make_list_domain('user-groups', 1),
                 ('alice',),
                 'docker',
             ),
             input_other=ListConfigEntry(
-                USER_GROUPS_DOMAIN,
+                make_list_domain('user-groups', 1),
                 ('bob',),
                 'docker',
             ),
             expected_equal=False,
         ),
-        'different domain': EqualityDataset(
-            input_entry=ListConfigEntry(APT_DOMAIN, (), 'git'),
-            input_other=ListConfigEntry(OTHER_DOMAIN, (), 'git'),
+        'different domain key': EqualityDataset(
+            input_entry=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
+            input_other=ListConfigEntry(make_list_domain('snap', 0), (), 'git'),
             expected_equal=False,
         ),
         'not equal to map entry': EqualityDataset(
-            input_entry=ListConfigEntry(APT_DOMAIN, (), 'git'),
-            input_other=MapConfigEntry(MAP_DOMAIN, ('key',), 'git'),
+            input_entry=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
+            input_other=MapConfigEntry(
+                MapDomain[str](
+                    key='map',
+                    path_depth=1,
+                    get_value=str,
+                    add_action_factory=lambda new_entry: MockDomainAction('add'),
+                    update_action_factory=lambda old_entry, new_entry:
+                        MockDomainAction('update'),
+                    remove_action_factory=lambda old_entry: MockDomainAction('remove'),
+                ),
+                ('key',),
+                'git',
+            ),
             expected_equal=False,
         ),
         'not equal to string': EqualityDataset(
-            input_entry=ListConfigEntry(APT_DOMAIN, (), 'git'),
+            input_entry=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
             input_other='git',
             expected_equal=False,
         ),
@@ -391,11 +411,11 @@ class TestListConfigEntry(TestCase):
     def test_equality(self, dataset: EqualityDataset) -> None:
         """Test that entries compare by domain, path and value."""
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(dataset.input_entry, dataset.input_other)
-        else:
-            self.assertNotEqual(dataset.input_entry, dataset.input_other)
+        # Act
+        actual = dataset.input_entry == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)
 
     @dataclass
     class EntryDataset:
@@ -406,29 +426,29 @@ class TestListConfigEntry(TestCase):
 
     @datasets({
         'no keys': EntryDataset(
-            input_entry=ListConfigEntry(APT_DOMAIN, (), 'git'),
+            input_entry=ListConfigEntry(make_list_domain('apt', 0), (), 'git'),
             expected_id=('apt', 'git'),
-            expected_domain=APT_DOMAIN,
+            expected_domain=make_list_domain('apt', 0),
             expected_repr="ListConfigEntry(apt, (), git)",
         ),
         'one key': EntryDataset(
             input_entry=ListConfigEntry(
-                USER_GROUPS_DOMAIN,
+                make_list_domain('user-groups', 1),
                 ('alice',),
                 'docker',
             ),
             expected_id=('user-groups', 'alice', 'docker'),
-            expected_domain=USER_GROUPS_DOMAIN,
+            expected_domain=make_list_domain('user-groups', 1),
             expected_repr="ListConfigEntry(user-groups, ('alice',), docker)",
         ),
         'two keys': EntryDataset(
             input_entry=ListConfigEntry(
-                FILES_DOMAIN,
+                make_list_domain('files', 2),
                 ('root', '/dir'),
                 'a.txt',
             ),
             expected_id=('files', 'root', '/dir', 'a.txt'),
-            expected_domain=FILES_DOMAIN,
+            expected_domain=make_list_domain('files', 2),
             expected_repr="ListConfigEntry(files, ('root', '/dir'), a.txt)",
         ),
     })
@@ -437,7 +457,7 @@ class TestListConfigEntry(TestCase):
 
         # Act & Assert
         self.assertEqual(dataset.input_entry.get_id(), dataset.expected_id)
-        self.assertIs(
+        self.assertEqual(
             dataset.input_entry.get_domain(),
             dataset.expected_domain,
         )

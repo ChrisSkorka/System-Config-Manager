@@ -38,7 +38,6 @@ E.g. a major system update may add and remove system packages, but this tool wil
   - package registry system
 - code
   - class for overall (cli) command
-  - replace unindent with textwrap.dedent
 - deploy to pypi
 
 ## Installation (From Source)

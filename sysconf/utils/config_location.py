@@ -24,8 +24,10 @@ class ConfigLocationReader:
         if not isinstance(value, ConfigLocationReader):
             return False
 
-        return self.defaults == value.defaults \
+        return (
+            self.defaults == value.defaults
             and self.file_reader == value.file_reader
+        )
 
     def get_config_path(self) -> Path:
         """
@@ -89,9 +91,11 @@ class ConfigLocationWriter:
         if not isinstance(value, ConfigLocationWriter):
             return False
 
-        return self.defaults == value.defaults \
-            and self.file_reader == value.file_reader \
+        return (
+            self.defaults == value.defaults
+            and self.file_reader == value.file_reader
             and self.file_writer == value.file_writer
+        )
 
     def record_config_path(self, argument_path: Path) -> bool:
         """

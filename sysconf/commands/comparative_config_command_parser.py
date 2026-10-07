@@ -107,7 +107,9 @@ class ComparativeConfigCommandParser (CommandArgumentParserBuilder):
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, ComparativeConfigCommandParser):
             return False
-        return self.old_path == value.old_path \
-            and self.new_path == value.new_path \
-            and self.is_config_file_explicit == value.is_config_file_explicit \
+        return (
+            self.old_path == value.old_path
+            and self.new_path == value.new_path
+            and self.is_config_file_explicit == value.is_config_file_explicit
             and self.file_reader == value.file_reader
+        )

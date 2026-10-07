@@ -27,9 +27,11 @@ class ConfigWriter:
         if not isinstance(value, ConfigWriter):
             return False
 
-        return self.system_config_renderer == value.system_config_renderer \
-            and self.yaml_serializer == value.yaml_serializer \
+        return (
+            self.system_config_renderer == value.system_config_renderer
+            and self.yaml_serializer == value.yaml_serializer
             and self.file_writer == value.file_writer
+        )
 
     def write(self, config: SystemConfig, path: Path) -> None:
         """

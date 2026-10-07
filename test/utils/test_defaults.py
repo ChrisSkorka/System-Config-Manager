@@ -11,11 +11,6 @@ from test.datasets import datasets
 from test.test_case import TestCase
 
 
-# A fixed home directory so the expanded paths are the same on every machine
-HOME_DIRECTORY = '/home/test-user'
-CONFIG_DIR = Path(HOME_DIRECTORY) / '.config' / 'system-config-manager'
-
-
 class TestDefaults(TestCase):
     """Test the default paths derived from the user's home directory."""
 
@@ -27,19 +22,19 @@ class TestDefaults(TestCase):
     @datasets({
         'config dir': DefaultPathDataset(
             input_get_path=lambda defaults: defaults.get_config_dir(),
-            expected_path=CONFIG_DIR,
+            expected_path=Path('/home/test-user/.config/system-config-manager'),
         ),
         'old config path': DefaultPathDataset(
             input_get_path=lambda defaults: defaults.get_old_config_path(),
-            expected_path=CONFIG_DIR / '.history' / 'current.yaml',
+            expected_path=Path('/home/test-user/.config/system-config-manager/.history/current.yaml'),
         ),
         'config location path': DefaultPathDataset(
             input_get_path=lambda defaults: defaults.get_config_location_path(),
-            expected_path=CONFIG_DIR / 'config',
+            expected_path=Path('/home/test-user/.config/system-config-manager/config'),
         ),
         'new config path': DefaultPathDataset(
             input_get_path=lambda defaults: defaults.get_new_config_path(),
-            expected_path=CONFIG_DIR / 'config' / 'config.yaml',
+            expected_path=Path('/home/test-user/.config/system-config-manager/config/config.yaml'),
         ),
     })
     def test_default_paths(self, dataset: DefaultPathDataset) -> None:
@@ -49,7 +44,7 @@ class TestDefaults(TestCase):
         defaults = Defaults()
 
         # Act
-        with patch.dict(os.environ, {'HOME': HOME_DIRECTORY}):
+        with patch.dict(os.environ, {'HOME': '/home/test-user'}):
             actual = dataset.input_get_path(defaults)
 
         # Assert

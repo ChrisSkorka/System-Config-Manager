@@ -3,6 +3,7 @@
 from argparse import Namespace
 from dataclasses import dataclass
 import io
+from textwrap import dedent
 from unittest.mock import _Call, call  # type: ignore
 from unittest.mock import patch
 
@@ -10,18 +11,12 @@ from sysconf.commands.apply_command import ApplyCommand
 from sysconf.system.executor import LiveSystemExecutor
 from sysconf.system.file import FileReader
 from test.datasets import datasets
-from test.helper import unindent
 from test.system.mock_subprocess import create_mock_run
 from test.test_case import TestCase
 from test.utils.mock_context import MockContext
 from test.utils.mock_defaults import MockDefaults
 from test.utils.mock_file import MockFileReader, MockFileWriter
 from test.utils.mock_path import MockPath, dpath, fpath
-
-
-CONFIG_LOCATION_PATH = '/config/config'
-OLD_CONFIG_PATH = '/configs/config-old.yaml'
-NEW_CONFIG_PATH = '/configs/config-new.yaml'
 
 
 class TestIntegrationApplyCommand (TestCase):
@@ -45,14 +40,14 @@ class TestIntegrationApplyCommand (TestCase):
     @datasets({
         'empty, no changes': RunSuccessDataset(
             fixture_file_reader=MockFileReader({
-                '/configs/config-old.yaml': unindent("""
+                '/configs/config-old.yaml': dedent('''\
                     version: 1
                     config: []
-                """),
-                '/configs/config-new.yaml': unindent("""
+                '''),
+                '/configs/config-new.yaml': dedent('''\
                     version: 1
                     config: []
-                """),
+                '''),
             }),
             input_parsed_arguments=Namespace(
                 last_config=fpath('/configs/config-old.yaml'),
@@ -64,78 +59,78 @@ class TestIntegrationApplyCommand (TestCase):
         ),
         'simple, empty last config': RunSuccessDataset(
             fixture_file_reader=MockFileReader({
-                '/configs/config-old.yaml': unindent("""
+                '/configs/config-old.yaml': dedent('''\
                     version: 1
                     config: []
-                """),
-                '/configs/config-new.yaml': unindent("""
+                '''),
+                '/configs/config-new.yaml': dedent('''\
                     version: 1
                     config:
                       - gsettings:
                           org.schema:
                             key: value
-                """),
+                '''),
             }),
             input_parsed_arguments=Namespace(
                 last_config=fpath('/configs/config-old.yaml'),
                 config_file=fpath('/configs/config-new.yaml'),
             ),
-            expected_stdout=unindent("""
+            expected_stdout=dedent('''\
                 # Add gsettings: key = value
                 $ gsettings set org.schema key \\"value\\"
 
-            """) + '\n',
+            '''),
             expected_subprocess_calls=[
                 call(('gsettings', 'set', 'org.schema', 'key', '"value"')),
             ],
         ),
         'no last config yet': RunSuccessDataset(
             fixture_file_reader=MockFileReader({
-                '/configs/config-new.yaml': unindent("""
+                '/configs/config-new.yaml': dedent('''\
                     version: 1
                     config:
                       - gsettings:
                           org.schema:
                             key: value
-                """),
+                '''),
             }),
             input_parsed_arguments=Namespace(
                 last_config=None,
                 config_file=fpath('/configs/config-new.yaml'),
             ),
-            expected_stdout=unindent("""
+            expected_stdout=dedent('''\
                 # Add gsettings: key = value
                 $ gsettings set org.schema key \\"value\\"
 
-            """) + '\n',
+            '''),
             expected_subprocess_calls=[
                 call(('gsettings', 'set', 'org.schema', 'key', '"value"')),
             ],
         ),
         'add, change, remove': RunSuccessDataset(
             fixture_file_reader=MockFileReader({
-                '/configs/config-old.yaml': unindent("""
+                '/configs/config-old.yaml': dedent('''\
                     version: 1
                     config:
                       - gsettings:
                           org.schema:
                             updated: old-value
                             removed: removed-value
-                """),
-                '/configs/config-new.yaml': unindent("""
+                '''),
+                '/configs/config-new.yaml': dedent('''\
                     version: 1
                     config:
                       - gsettings:
                           org.schema:
                             updated: new-value
                             added: added-value
-                """),
+                '''),
             }),
             input_parsed_arguments=Namespace(
                 last_config=fpath('/configs/config-old.yaml'),
                 config_file=fpath('/configs/config-new.yaml'),
             ),
-            expected_stdout=unindent("""
+            expected_stdout=dedent('''\
                 # Remove gsettings: removed = removed-value
                 $ gsettings reset org.schema removed
 
@@ -145,7 +140,7 @@ class TestIntegrationApplyCommand (TestCase):
                 # Add gsettings: added = added-value
                 $ gsettings set org.schema added \\"added-value\\"
 
-            """) + '\n',
+            '''),
             expected_subprocess_calls=[
                 call(('gsettings', 'reset', 'org.schema', 'removed')),
                 call(('gsettings', 'set', 'org.schema', 'updated', '"new-value"')),
@@ -154,26 +149,26 @@ class TestIntegrationApplyCommand (TestCase):
         ),
         'dconf add, change and remove': RunSuccessDataset(
             fixture_file_reader=MockFileReader({
-                '/configs/config-old.yaml': unindent("""
+                '/configs/config-old.yaml': dedent('''\
                     version: 1
                     config:
                       - dconf:
                           /org/gnome/updated: old-value
                           /org/gnome/removed: removed-value
-                """),
-                '/configs/config-new.yaml': unindent("""
+                '''),
+                '/configs/config-new.yaml': dedent('''\
                     version: 1
                     config:
                       - dconf:
                           /org/gnome/updated: new-value
                           /org/gnome/added: added-value
-                """),
+                '''),
             }),
             input_parsed_arguments=Namespace(
                 last_config=fpath('/configs/config-old.yaml'),
                 config_file=fpath('/configs/config-new.yaml'),
             ),
-            expected_stdout=unindent("""
+            expected_stdout=dedent('''\
                 # Remove dconf: /org/gnome/removed = removed-value
                 $ dconf reset /org/gnome/removed
 
@@ -183,7 +178,7 @@ class TestIntegrationApplyCommand (TestCase):
                 # Add dconf: /org/gnome/added = added-value
                 $ dconf write /org/gnome/added \\"added-value\\"
 
-            """) + '\n',
+            '''),
             expected_subprocess_calls=[
                 call(('dconf', 'reset', '/org/gnome/removed')),
                 call(('dconf', 'write', '/org/gnome/updated', '"new-value"')),
@@ -192,30 +187,30 @@ class TestIntegrationApplyCommand (TestCase):
         ),
         'dconf encodes non string values': RunSuccessDataset(
             fixture_file_reader=MockFileReader({
-                '/configs/config-old.yaml': unindent("""
+                '/configs/config-old.yaml': dedent('''\
                     version: 1
                     config: []
-                """),
-                '/configs/config-new.yaml': unindent("""
+                '''),
+                '/configs/config-new.yaml': dedent('''\
                     version: 1
                     config:
                       - dconf:
                           /org/gnome/enabled: true
                           /org/gnome/speed: -0.2
-                """),
+                '''),
             }),
             input_parsed_arguments=Namespace(
                 last_config=fpath('/configs/config-old.yaml'),
                 config_file=fpath('/configs/config-new.yaml'),
             ),
-            expected_stdout=unindent("""
+            expected_stdout=dedent('''\
                 # Add dconf: /org/gnome/enabled = True
                 $ dconf write /org/gnome/enabled true
 
                 # Add dconf: /org/gnome/speed = -0.2
                 $ dconf write /org/gnome/speed -0.2
 
-            """) + '\n',
+            '''),
             expected_subprocess_calls=[
                 call(('dconf', 'write', '/org/gnome/enabled', 'true')),
                 call(('dconf', 'write', '/org/gnome/speed', '-0.2')),
@@ -223,7 +218,7 @@ class TestIntegrationApplyCommand (TestCase):
         ),
         'user defined list domain add and remove': RunSuccessDataset(
             fixture_file_reader=MockFileReader({
-                '/configs/config-old.yaml': unindent("""
+                '/configs/config-old.yaml': dedent('''\
                     version: 1
                     domains:
                       my-packages:
@@ -233,8 +228,8 @@ class TestIntegrationApplyCommand (TestCase):
                     config:
                       - my-packages:
                           - removed-package
-                """),
-                '/configs/config-new.yaml': unindent("""
+                '''),
+                '/configs/config-new.yaml': dedent('''\
                     version: 1
                     domains:
                       my-packages:
@@ -244,20 +239,20 @@ class TestIntegrationApplyCommand (TestCase):
                     config:
                       - my-packages:
                           - added-package
-                """),
+                '''),
             }),
             input_parsed_arguments=Namespace(
                 last_config=fpath('/configs/config-old.yaml'),
                 config_file=fpath('/configs/config-new.yaml'),
             ),
-            expected_stdout=unindent("""
+            expected_stdout=dedent('''\
                 # Remove my-packages: removed-package
                 $ my-pm remove removed-package
 
                 # Add my-packages: added-package
                 $ my-pm install added-package
 
-            """) + '\n',
+            '''),
             expected_subprocess_calls=[
                 call('my-pm remove removed-package', shell=True),
                 call('my-pm install added-package', shell=True),
@@ -265,7 +260,7 @@ class TestIntegrationApplyCommand (TestCase):
         ),
         'user defined list domain with keyed paths': RunSuccessDataset(
             fixture_file_reader=MockFileReader({
-                '/configs/config-old.yaml': unindent("""
+                '/configs/config-old.yaml': dedent('''\
                     version: 1
                     domains:
                       user-groups:
@@ -277,8 +272,8 @@ class TestIntegrationApplyCommand (TestCase):
                       - user-groups:
                           alice:
                             - sudo
-                """),
-                '/configs/config-new.yaml': unindent("""
+                '''),
+                '/configs/config-new.yaml': dedent('''\
                     version: 1
                     domains:
                       user-groups:
@@ -290,20 +285,20 @@ class TestIntegrationApplyCommand (TestCase):
                       - user-groups:
                           alice:
                             - docker
-                """),
+                '''),
             }),
             input_parsed_arguments=Namespace(
                 last_config=fpath('/configs/config-old.yaml'),
                 config_file=fpath('/configs/config-new.yaml'),
             ),
-            expected_stdout=unindent("""
+            expected_stdout=dedent('''\
                 # Remove user-groups: alice = sudo
                 $ gpasswd -d "alice" "sudo"
 
                 # Add user-groups: alice = docker
                 $ usermod -aG "docker" "alice"
 
-            """) + '\n',
+            '''),
             expected_subprocess_calls=[
                 call('gpasswd -d "alice" "sudo"', shell=True),
                 call('usermod -aG "docker" "alice"', shell=True),
@@ -311,7 +306,7 @@ class TestIntegrationApplyCommand (TestCase):
         ),
         'user defined map domain add, update and remove': RunSuccessDataset(
             fixture_file_reader=MockFileReader({
-                '/configs/config-old.yaml': unindent("""
+                '/configs/config-old.yaml': dedent('''\
                     version: 1
                     domains:
                       my-config:
@@ -324,8 +319,8 @@ class TestIntegrationApplyCommand (TestCase):
                       - my-config:
                           updated: old-value
                           removed: removed-value
-                """),
-                '/configs/config-new.yaml': unindent("""
+                '''),
+                '/configs/config-new.yaml': dedent('''\
                     version: 1
                     domains:
                       my-config:
@@ -338,13 +333,13 @@ class TestIntegrationApplyCommand (TestCase):
                       - my-config:
                           updated: new-value
                           added: added-value
-                """),
+                '''),
             }),
             input_parsed_arguments=Namespace(
                 last_config=fpath('/configs/config-old.yaml'),
                 config_file=fpath('/configs/config-new.yaml'),
             ),
-            expected_stdout=unindent("""
+            expected_stdout=dedent('''\
                 # Remove my-config: removed = removed-value
                 $ my-cfg unset "removed"
 
@@ -354,7 +349,7 @@ class TestIntegrationApplyCommand (TestCase):
                 # Add my-config: added = added-value
                 $ my-cfg set "added" "added-value"
 
-            """) + '\n',
+            '''),
             expected_subprocess_calls=[
                 call('my-cfg unset "removed"', shell=True),
                 call('my-cfg set "updated" "new-value"', shell=True),
@@ -363,11 +358,11 @@ class TestIntegrationApplyCommand (TestCase):
         ),
         'before and after scripts run around the changes': RunSuccessDataset(
             fixture_file_reader=MockFileReader({
-                '/configs/config-old.yaml': unindent("""
+                '/configs/config-old.yaml': dedent('''\
                     version: 1
                     config: []
-                """),
-                '/configs/config-new.yaml': unindent("""
+                '''),
+                '/configs/config-new.yaml': dedent('''\
                     version: 1
                     before:
                       - echo starting
@@ -377,13 +372,13 @@ class TestIntegrationApplyCommand (TestCase):
                       - gsettings:
                           org.schema:
                             key: value
-                """),
+                '''),
             }),
             input_parsed_arguments=Namespace(
                 last_config=fpath('/configs/config-old.yaml'),
                 config_file=fpath('/configs/config-new.yaml'),
             ),
-            expected_stdout=unindent("""
+            expected_stdout=dedent('''\
                 $ echo starting
 
                 # Add gsettings: key = value
@@ -391,7 +386,7 @@ class TestIntegrationApplyCommand (TestCase):
 
                 $ echo finished
 
-            """) + '\n',
+            '''),
             expected_subprocess_calls=[
                 call('echo starting', shell=True),
                 call(('gsettings', 'set', 'org.schema', 'key', '"value"')),
@@ -411,7 +406,7 @@ class TestIntegrationApplyCommand (TestCase):
         # nothing extra is printed
         defaults = MockDefaults(
             old_config_path=MockPath('/config/.history/current.yaml'),
-            config_location_path=dpath(CONFIG_LOCATION_PATH),
+            config_location_path=dpath('/config/config'),
         )
         file_writer = MockFileWriter()
         system_executor = LiveSystemExecutor()
@@ -447,29 +442,29 @@ class TestIntegrationApplyCommand (TestCase):
         'nothing recorded yet': RunRecordsConfigLocationDataset(
             fixture_defaults=MockDefaults(
                 old_config_path=MockPath('/config/.history/current.yaml'),
-                config_location_path=MockPath(CONFIG_LOCATION_PATH),
+                config_location_path=MockPath('/config/config'),
             ),
             fixture_location_files={},
-            expected_stdout=f'Saved "{NEW_CONFIG_PATH}" as your config location\n'
+            expected_stdout='Saved "/configs/config-new.yaml" as your config location\n'
             + '# No system config changes. (no differential commands to run)\n',
-            expected_recorded_contents=f'{NEW_CONFIG_PATH}\n',
+            expected_recorded_contents='/configs/config-new.yaml\n',
         ),
         'a different location is recorded': RunRecordsConfigLocationDataset(
             fixture_defaults=MockDefaults(
                 old_config_path=MockPath('/config/.history/current.yaml'),
-                config_location_path=fpath(CONFIG_LOCATION_PATH),
+                config_location_path=fpath('/config/config'),
             ),
             fixture_location_files={
-                CONFIG_LOCATION_PATH: '/configs/other.yaml\n',
+                '/config/config': '/configs/other.yaml\n',
             },
-            expected_stdout=f'Saved "{NEW_CONFIG_PATH}" as your config location\n'
+            expected_stdout='Saved "/configs/config-new.yaml" as your config location\n'
             + '# No system config changes. (no differential commands to run)\n',
-            expected_recorded_contents=f'{NEW_CONFIG_PATH}\n',
+            expected_recorded_contents='/configs/config-new.yaml\n',
         ),
         'config location is a directory': RunRecordsConfigLocationDataset(
             fixture_defaults=MockDefaults(
                 old_config_path=MockPath('/config/.history/current.yaml'),
-                config_location_path=dpath(CONFIG_LOCATION_PATH),
+                config_location_path=dpath('/config/config'),
             ),
             fixture_location_files={},
             expected_stdout='# No system config changes. '
@@ -488,14 +483,14 @@ class TestIntegrationApplyCommand (TestCase):
         mock_stdout = io.StringIO()
         file_writer = MockFileWriter()
         file_reader = MockFileReader({
-            OLD_CONFIG_PATH: unindent("""
+            '/configs/config-old.yaml': dedent('''\
                 version: 1
                 config: []
-            """),
-            NEW_CONFIG_PATH: unindent("""
+            '''),
+            '/configs/config-new.yaml': dedent('''\
                 version: 1
                 config: []
-            """),
+            '''),
             **dataset.fixture_location_files,
         })
         system_executor = LiveSystemExecutor()
@@ -505,8 +500,8 @@ class TestIntegrationApplyCommand (TestCase):
             file_writer=file_writer,
             system_executor=system_executor,
         )
-        old_config_path = fpath(OLD_CONFIG_PATH)
-        new_config_path = fpath(NEW_CONFIG_PATH)
+        old_config_path = fpath('/configs/config-old.yaml')
+        new_config_path = fpath('/configs/config-new.yaml')
         parsed_arguments = Namespace(
             last_config=old_config_path,
             config_file=new_config_path,
@@ -525,6 +520,6 @@ class TestIntegrationApplyCommand (TestCase):
         # Assert
         self.assertEqual(mock_stdout.getvalue(), dataset.expected_stdout)
         self.assertEqual(
-            file_writer.written_files.get(CONFIG_LOCATION_PATH),
+            file_writer.written_files.get('/config/config'),
             dataset.expected_recorded_contents,
         )

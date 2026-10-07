@@ -18,77 +18,6 @@ from test.test_case import TestCase
 from test.utils.mock_context import MockContext
 
 
-EDITOR_PATH = '/usr/bin/editor'
-FALLBACK_EDITOR_PATHS = {
-    'editor': EDITOR_PATH,
-    'nano': EDITOR_PATH,
-    'notepad': EDITOR_PATH,
-}
-
-BROKEN_CONFIG = dedent('''\
-    version: 1
-    domains:
-      my-packages:
-        type: list
-        add: install $value
-        remove: uninstall $value
-    config:
-      - my-packages:
-          - a
-          - broken
-    ''')
-FIXED_CONFIG = dedent('''\
-    version: 1
-    domains:
-      my-packages:
-        type: list
-        add: install $value
-        remove: uninstall $value
-    config:
-      - my-packages:
-          - a
-          - fixed
-    ''')
-INVALID_CONFIG = dedent('''\
-    version: 1
-    config: [a, b
-    ''')
-
-PARTIAL_CURRENT_CONFIG = dedent('''\
-    version: '1'
-    system-config-manager:
-      editor: null
-    before: []
-    after: []
-    config:
-    - my-packages:
-      - a
-    domains:
-      my-packages:
-        type: list
-        depth: 0
-        add: install $value
-        remove: uninstall $value
-    ''')
-FIXED_CURRENT_CONFIG = dedent('''\
-    version: '1'
-    system-config-manager:
-      editor: null
-    before: []
-    after: []
-    config:
-    - my-packages:
-      - a
-      - fixed
-    domains:
-      my-packages:
-        type: list
-        depth: 0
-        add: install $value
-        remove: uninstall $value
-    ''')
-
-
 class DirectoryDefaults (Defaults):
     """Keep this tool's config directory in the given directory."""
 
@@ -170,56 +99,287 @@ class TestIntegrationEditCommand (TestCase):
     @datasets({
         'failed action aborted': RunDataset(
             fixture_current_config=None,
-            fixture_edited_configs=(BROKEN_CONFIG,),
+            fixture_edited_configs=(
+                dedent('''\
+                    version: 1
+                    domains:
+                      my-packages:
+                        type: list
+                        add: install $value
+                        remove: uninstall $value
+                    config:
+                      - my-packages:
+                          - a
+                          - broken
+                    '''),
+            ),
             fixture_failing_scripts=('install broken',),
             fixture_user_inputs=('y', 'a'),
             expected_scripts=['install a', 'install broken'],
-            expected_current_config=PARTIAL_CURRENT_CONFIG,
+            expected_current_config=dedent('''\
+                version: '1'
+                system-config-manager:
+                  editor: null
+                before: []
+                after: []
+                config:
+                - my-packages:
+                  - a
+                domains:
+                  my-packages:
+                    type: list
+                    depth: 0
+                    add: install $value
+                    remove: uninstall $value
+                '''),
             expected_location_recorded=True,
         ),
         'failed action edited and applied': RunDataset(
             fixture_current_config=None,
-            fixture_edited_configs=(BROKEN_CONFIG, FIXED_CONFIG),
+            fixture_edited_configs=(
+                dedent('''\
+                    version: 1
+                    domains:
+                      my-packages:
+                        type: list
+                        add: install $value
+                        remove: uninstall $value
+                    config:
+                      - my-packages:
+                          - a
+                          - broken
+                    '''),
+                dedent('''\
+                    version: 1
+                    domains:
+                      my-packages:
+                        type: list
+                        add: install $value
+                        remove: uninstall $value
+                    config:
+                      - my-packages:
+                          - a
+                          - fixed
+                    '''),
+            ),
             fixture_failing_scripts=('install broken',),
             fixture_user_inputs=('y', 'e', 'y'),
             expected_scripts=['install a', 'install broken', 'install fixed'],
-            expected_current_config=FIXED_CURRENT_CONFIG,
+            expected_current_config=dedent('''\
+                version: '1'
+                system-config-manager:
+                  editor: null
+                before: []
+                after: []
+                config:
+                - my-packages:
+                  - a
+                  - fixed
+                domains:
+                  my-packages:
+                    type: list
+                    depth: 0
+                    add: install $value
+                    remove: uninstall $value
+                '''),
             expected_location_recorded=True,
         ),
         'failed action edited and exited': RunDataset(
             fixture_current_config=None,
-            fixture_edited_configs=(BROKEN_CONFIG, FIXED_CONFIG),
+            fixture_edited_configs=(
+                dedent('''\
+                    version: 1
+                    domains:
+                      my-packages:
+                        type: list
+                        add: install $value
+                        remove: uninstall $value
+                    config:
+                      - my-packages:
+                          - a
+                          - broken
+                    '''),
+                dedent('''\
+                    version: 1
+                    domains:
+                      my-packages:
+                        type: list
+                        add: install $value
+                        remove: uninstall $value
+                    config:
+                      - my-packages:
+                          - a
+                          - fixed
+                    '''),
+            ),
             fixture_failing_scripts=('install broken',),
             fixture_user_inputs=('y', 'e', 'n'),
             expected_scripts=['install a', 'install broken'],
-            expected_current_config=PARTIAL_CURRENT_CONFIG,
+            expected_current_config=dedent('''\
+                version: '1'
+                system-config-manager:
+                  editor: null
+                before: []
+                after: []
+                config:
+                - my-packages:
+                  - a
+                domains:
+                  my-packages:
+                    type: list
+                    depth: 0
+                    add: install $value
+                    remove: uninstall $value
+                '''),
             expected_location_recorded=True,
         ),
         'invalid config edited and applied': RunDataset(
             fixture_current_config=None,
-            fixture_edited_configs=(INVALID_CONFIG, FIXED_CONFIG),
+            fixture_edited_configs=(
+                dedent('''\
+                    version: 1
+                    config: [a, b
+                    '''),
+                dedent('''\
+                    version: 1
+                    domains:
+                      my-packages:
+                        type: list
+                        add: install $value
+                        remove: uninstall $value
+                    config:
+                      - my-packages:
+                          - a
+                          - fixed
+                    '''),
+            ),
             fixture_failing_scripts=(),
             fixture_user_inputs=('e', 'y'),
             expected_scripts=['install a', 'install fixed'],
-            expected_current_config=FIXED_CURRENT_CONFIG,
+            expected_current_config=dedent('''\
+                version: '1'
+                system-config-manager:
+                  editor: null
+                before: []
+                after: []
+                config:
+                - my-packages:
+                  - a
+                  - fixed
+                domains:
+                  my-packages:
+                    type: list
+                    depth: 0
+                    add: install $value
+                    remove: uninstall $value
+                '''),
             expected_location_recorded=True,
         ),
         'partially applied config edited and applied': RunDataset(
-            fixture_current_config=PARTIAL_CURRENT_CONFIG,
-            fixture_edited_configs=(FIXED_CONFIG,),
+            fixture_current_config=dedent('''\
+                version: '1'
+                system-config-manager:
+                  editor: null
+                before: []
+                after: []
+                config:
+                - my-packages:
+                  - a
+                domains:
+                  my-packages:
+                    type: list
+                    depth: 0
+                    add: install $value
+                    remove: uninstall $value
+                '''),
+            fixture_edited_configs=(
+                dedent('''\
+                    version: 1
+                    domains:
+                      my-packages:
+                        type: list
+                        add: install $value
+                        remove: uninstall $value
+                    config:
+                      - my-packages:
+                          - a
+                          - fixed
+                    '''),
+            ),
             fixture_failing_scripts=(),
             fixture_user_inputs=('y',),
             expected_scripts=['install fixed'],
-            expected_current_config=FIXED_CURRENT_CONFIG,
+            expected_current_config=dedent('''\
+                version: '1'
+                system-config-manager:
+                  editor: null
+                before: []
+                after: []
+                config:
+                - my-packages:
+                  - a
+                  - fixed
+                domains:
+                  my-packages:
+                    type: list
+                    depth: 0
+                    add: install $value
+                    remove: uninstall $value
+                '''),
             expected_location_recorded=True,
         ),
         'unchanged config': RunDataset(
-            fixture_current_config=FIXED_CURRENT_CONFIG,
-            fixture_edited_configs=(FIXED_CONFIG,),
+            fixture_current_config=dedent('''\
+                version: '1'
+                system-config-manager:
+                  editor: null
+                before: []
+                after: []
+                config:
+                - my-packages:
+                  - a
+                  - fixed
+                domains:
+                  my-packages:
+                    type: list
+                    depth: 0
+                    add: install $value
+                    remove: uninstall $value
+                '''),
+            fixture_edited_configs=(
+                dedent('''\
+                    version: 1
+                    domains:
+                      my-packages:
+                        type: list
+                        add: install $value
+                        remove: uninstall $value
+                    config:
+                      - my-packages:
+                          - a
+                          - fixed
+                    '''),
+            ),
             fixture_failing_scripts=(),
             fixture_user_inputs=(),
             expected_scripts=[],
-            expected_current_config=FIXED_CURRENT_CONFIG,
+            expected_current_config=dedent('''\
+                version: '1'
+                system-config-manager:
+                  editor: null
+                before: []
+                after: []
+                config:
+                - my-packages:
+                  - a
+                  - fixed
+                domains:
+                  my-packages:
+                    type: list
+                    depth: 0
+                    add: install $value
+                    remove: uninstall $value
+                '''),
             expected_location_recorded=False,
         ),
     })
@@ -258,7 +418,12 @@ class TestIntegrationEditCommand (TestCase):
                 file_writer=file_writer,
                 system_executor=system_executor,
             )
-            which = MockWhich(FALLBACK_EDITOR_PATHS)
+            paths_by_name = {
+                'editor': '/usr/bin/editor',
+                'nano': '/usr/bin/editor',
+                'notepad': '/usr/bin/editor',
+            }
+            which = MockWhich(paths_by_name)
             argv = ['sysconf', 'edit', str(config_path)]
             expected_location = f'{config_path}\n' \
                 if dataset.expected_location_recorded \

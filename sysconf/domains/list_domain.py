@@ -31,6 +31,19 @@ class ListDomain(Domain):
         self.add_action_factory = add_action_factory
         self.remove_action_factory = remove_action_factory
 
+    def __eq__(self, value: object, /) -> bool:
+        if not isinstance(value, ListDomain):
+            return False
+
+        return (
+            self._key == value._key
+            and self.path_depth == value.path_depth
+            # exclude:
+            # and self.get_value == value.get_value
+            # and self.add_action_factory == value.add_action_factory
+            # and self.remove_action_factory == value.remove_action_factory
+        )
+
     def get_key(self) -> str:
         return self._key
 
@@ -124,9 +137,11 @@ class ListConfigEntry(DomainConfigEntry):
         if not isinstance(value, ListConfigEntry):
             return False
 
-        return self.domain.get_key() == value.domain.get_key() \
-            and self.path == value.path \
+        return (
+            self.domain == value.domain
+            and self.path == value.path
             and self.value == value.value
+        )
 
     def __repr__(self) -> str:
         return f'ListConfigEntry({self.domain.get_key()}, {self.path}, {self.value})'

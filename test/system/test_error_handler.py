@@ -9,9 +9,6 @@ from test.system.mock_error_handler import MockFailureResolution
 from test.test_case import TestCase
 
 
-ALL_RESOLUTIONS = (MockFailureResolution.ABORT, MockFailureResolution.EDIT)
-
-
 class SequencedTask:
     """
     A callable task that raises a configured result per call.
@@ -42,7 +39,10 @@ class TestPromptUserErrorHandler(TestCase):
         fixture_task_results: tuple[BaseException | None, ...]
         fixture_user_inputs: tuple[str, ...]
         input_handled_exceptions: tuple[type[Exception], ...] = (Exception,)
-        input_failure_resolutions: tuple[MockFailureResolution, ...] = ALL_RESOLUTIONS
+        input_failure_resolutions: tuple[MockFailureResolution, ...] = (
+            MockFailureResolution.ABORT,
+            MockFailureResolution.EDIT,
+        )
         expected_status: ErrorHandler.Status = ErrorHandler.Status.SUCCESS
         expected_failure_resolution: MockFailureResolution | None = None
         expected_task_calls: int = 1
@@ -207,7 +207,7 @@ class TestPromptUserErrorHandler(TestCase):
         # Arrange
         handler = PromptUserErrorHandler(
             *dataset.input_handled_exceptions,
-            failure_resolutions=ALL_RESOLUTIONS,
+            failure_resolutions=(MockFailureResolution.ABORT, MockFailureResolution.EDIT),
         )
         task = SequencedTask(dataset.fixture_task_results)
 
@@ -235,7 +235,7 @@ class TestPromptUserErrorHandler(TestCase):
             expected_prompt='r/s/m: ',
         ),
         'all failure resolutions': PrintDataset(
-            input_failure_resolutions=ALL_RESOLUTIONS,
+            input_failure_resolutions=(MockFailureResolution.ABORT, MockFailureResolution.EDIT),
             expected_options=[
                 '[r] Retry',
                 '[s] Skip',

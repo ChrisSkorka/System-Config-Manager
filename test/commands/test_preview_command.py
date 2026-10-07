@@ -21,25 +21,6 @@ from test.utils.mock_file import MockFileReader
 from test.utils.mock_path import MockPath, fpath
 
 
-OLD_CONFIG_YAML = dedent('''\
-    version: 1
-    before:
-      - echo old
-    config: []
-    ''')
-NEW_CONFIG_YAML = dedent('''\
-    version: 1
-    before:
-      - echo new
-    config: []
-    ''')
-EMPTY_CONFIG = SystemConfig.create_from_entries((), (), (), ())
-OLD_CONFIG = SystemConfig.create_from_entries(
-    (ShellAction('echo old'),), (), (), ())
-NEW_CONFIG = SystemConfig.create_from_entries(
-    (ShellAction('echo new'),), (), (), ())
-
-
 class TestPreviewCommand(TestCase):
 
     def test_get_name(self) -> None:
@@ -101,8 +82,18 @@ class TestPreviewCommand(TestCase):
                 old_config_path=fpath('/config/.history/current.yaml'),
             ),
             fixture_file_reader=MockFileReader({
-                '/config/.history/current.yaml': OLD_CONFIG_YAML,
-                '/manual/new.yaml': NEW_CONFIG_YAML,
+                '/config/.history/current.yaml': dedent('''\
+                    version: 1
+                    before:
+                      - echo old
+                    config: []
+                    '''),
+                '/manual/new.yaml': dedent('''\
+                    version: 1
+                    before:
+                      - echo new
+                    config: []
+                    '''),
             }),
             input_parsed_arguments=Namespace(
                 config_file=fpath('/manual/new.yaml'),
@@ -116,7 +107,12 @@ class TestPreviewCommand(TestCase):
                 old_config_path=MockPath('/config/.history/current.yaml'),
             ),
             fixture_file_reader=MockFileReader({
-                '/manual/new.yaml': NEW_CONFIG_YAML,
+                '/manual/new.yaml': dedent('''\
+                    version: 1
+                    before:
+                      - echo new
+                    config: []
+                    '''),
             }),
             input_parsed_arguments=Namespace(
                 config_file=fpath('/manual/new.yaml'),
@@ -130,8 +126,18 @@ class TestPreviewCommand(TestCase):
                 old_config_path=MockPath('/config/.history/current.yaml'),
             ),
             fixture_file_reader=MockFileReader({
-                '/manual/old.yaml': OLD_CONFIG_YAML,
-                '/manual/new.yaml': NEW_CONFIG_YAML,
+                '/manual/old.yaml': dedent('''\
+                    version: 1
+                    before:
+                      - echo old
+                    config: []
+                    '''),
+                '/manual/new.yaml': dedent('''\
+                    version: 1
+                    before:
+                      - echo new
+                    config: []
+                    '''),
             }),
             input_parsed_arguments=Namespace(
                 config_file=fpath('/manual/new.yaml'),
@@ -178,22 +184,43 @@ class TestPreviewCommand(TestCase):
     @datasets({
         'old config exists': CreateFromContextDataset(
             fixture_file_reader=MockFileReader({
-                '/manual/old.yaml': OLD_CONFIG_YAML,
-                '/manual/new.yaml': NEW_CONFIG_YAML,
+                '/manual/old.yaml': dedent('''\
+                    version: 1
+                    before:
+                      - echo old
+                    config: []
+                    '''),
+                '/manual/new.yaml': dedent('''\
+                    version: 1
+                    before:
+                      - echo new
+                    config: []
+                    '''),
             }),
             input_old_path=fpath('/manual/old.yaml'),
             input_new_path=fpath('/manual/new.yaml'),
-            expected_old_config=OLD_CONFIG,
-            expected_new_config=NEW_CONFIG,
+            expected_old_config=SystemConfig.create_from_entries(
+                (ShellAction('echo old'),), (), (), (),
+            ),
+            expected_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+            ),
         ),
         'old config does not exist yet': CreateFromContextDataset(
             fixture_file_reader=MockFileReader({
-                '/manual/new.yaml': NEW_CONFIG_YAML,
+                '/manual/new.yaml': dedent('''\
+                    version: 1
+                    before:
+                      - echo new
+                    config: []
+                    '''),
             }),
             input_old_path=MockPath('/manual/old.yaml'),
             input_new_path=fpath('/manual/new.yaml'),
-            expected_old_config=EMPTY_CONFIG,
-            expected_new_config=NEW_CONFIG,
+            expected_old_config=SystemConfig.create_from_entries((), (), (), ()),
+            expected_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+            ),
         ),
     })
     def test_create_from_context(self, dataset: CreateFromContextDataset) -> None:
@@ -233,20 +260,34 @@ class TestPreviewCommand(TestCase):
 
     @datasets({
         'all actions succeed': RunDataset(
-            fixture_result=RunActionsResult(NEW_CONFIG),
+            fixture_result=RunActionsResult(
+                SystemConfig.create_from_entries(
+                    (ShellAction('echo new'),), (), (), (),
+                ),
+            ),
         ),
         'an action fails': RunDataset(
-            fixture_result=RunActionsResult(OLD_CONFIG),
+            fixture_result=RunActionsResult(
+                SystemConfig.create_from_entries(
+                    (ShellAction('echo old'),), (), (), (),
+                ),
+            ),
         ),
     })
     def test_run_returns(self, dataset: RunDataset) -> None:
         """Test that the actions run and the resulting config is serialized."""
 
         # Arrange
+        old_config = SystemConfig.create_from_entries(
+            (ShellAction('echo old'),), (), (), (),
+        )
+        new_config = SystemConfig.create_from_entries(
+            (ShellAction('echo new'),), (), (), (),
+        )
         manager = MockSystemManager[None].default(
             result=dataset.fixture_result,
-            old_config=OLD_CONFIG,
-            new_config=NEW_CONFIG,
+            old_config=old_config,
+            new_config=new_config,
         )
         system_config_renderer = MagicMock()
         yaml_serializer = MagicMock()
@@ -284,7 +325,10 @@ class TestPreviewCommand(TestCase):
         """Test that a config that can't be serialized is surfaced."""
 
         # Arrange
-        result = RunActionsResult[None](NEW_CONFIG)
+        system_config = SystemConfig.create_from_entries(
+            (ShellAction('echo new'),), (), (), (),
+        )
+        result = RunActionsResult[None](system_config)
         manager = MockSystemManager[None].default(result=result)
         system_config_renderer = MagicMock()
         yaml_serializer = MagicMock()

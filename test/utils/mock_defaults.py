@@ -21,6 +21,17 @@ class MockDefaults(Defaults):
         self._new_config_path = new_config_path
         self._config_location_path = config_location_path
 
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, MockDefaults):
+            return False
+
+        return (
+            self._config_dir == value._config_dir
+            and self._old_config_path == value._old_config_path
+            and self._new_config_path == value._new_config_path
+            and self._config_location_path == value._config_location_path
+        )
+
     def get_config_dir(self) -> MockPath:
         return self._config_dir
 

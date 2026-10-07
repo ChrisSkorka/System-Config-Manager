@@ -151,11 +151,11 @@ class TestLiveSystemExecutor(TestCase):
         # Arrange
         executor = LiveSystemExecutor()
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(executor, dataset.input_other)
-        else:
-            self.assertNotEqual(executor, dataset.input_other)
+        # Act
+        actual = executor == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)
 
 
 class TestPreviewSystemExecutor(TestCase):
@@ -242,11 +242,11 @@ class TestPreviewSystemExecutor(TestCase):
         # Arrange
         executor = PreviewSystemExecutor()
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(executor, dataset.input_other)
-        else:
-            self.assertNotEqual(executor, dataset.input_other)
+        # Act
+        actual = executor == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)
 
 
 class TestCommandException(TestCase):

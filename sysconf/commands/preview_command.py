@@ -126,9 +126,11 @@ class PreviewCommand (Command):
         if not isinstance(value, PreviewCommand):
             return False
 
-        return self.manager == value.manager \
-            and self.system_config_renderer == value.system_config_renderer \
+        return (
+            self.manager == value.manager
+            and self.system_config_renderer == value.system_config_renderer
             and self.yaml_serializer == value.yaml_serializer
+        )
 
     def run(self) -> None:
         """

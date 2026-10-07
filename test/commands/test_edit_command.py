@@ -36,48 +36,6 @@ from test.utils.mock_file import MockFileReader, MockFileWriter
 from test.utils.mock_path import MockPath, dpath, fpath
 
 
-OLD_PATH = fpath('/config/.history/current.yaml')
-NEW_PATH = fpath('/manual/config.yaml')
-
-PATHS_BY_NAME = {
-    'code': '/usr/bin/code',
-    'nano': '/usr/bin/nano',
-}
-CODE = ('/usr/bin/code', '--wait')
-NANO = ('/usr/bin/nano',)
-
-CODE_SETTINGS = ToolSettings(editor='code --wait')
-NANO_SETTINGS = ToolSettings(editor='nano')
-EMPTY_CONFIG = SystemConfig.create_from_entries((), (), (), ())
-OLD_CONFIG = SystemConfig.create_from_entries(
-    (ShellAction('echo old'),), (), (), (), CODE_SETTINGS)
-NEW_CONFIG = SystemConfig.create_from_entries(
-    (ShellAction('echo new'),), (), (), (), CODE_SETTINGS)
-NANO_CONFIG = SystemConfig.create_from_entries(
-    (ShellAction('echo old'),), (), (), (), NANO_SETTINGS)
-
-OLD_CONFIG_YAML = dedent('''\
-    version: 1
-    system-config-manager:
-      editor: code --wait
-    before:
-      - echo old
-    config: []
-    ''')
-NEW_CONFIG_YAML = dedent('''\
-    version: 1
-    system-config-manager:
-      editor: code --wait
-    before:
-      - echo new
-    config: []
-    ''')
-
-FILE_READER = FileReader()
-EDITOR_RESOLVER = EditorResolver('linux', MockWhich(PATHS_BY_NAME))
-EDITOR_LAUNCHER = EditorLauncher(MockSystemExecutor())
-
-
 class NextCommand (Enum):
     """The command a test expects `run` to return."""
 
@@ -152,11 +110,19 @@ def unexpected_apply_command_factory() -> ApplyCommand:
 def make_apply_command() -> ApplyCommand:
     """Build an apply command for the edited config."""
 
-    result = RunActionsResult[ApplyFailureResolution](NEW_CONFIG)
+    old_config = SystemConfig.create_from_entries(
+        (ShellAction('echo old'),), (), (), (),
+        ToolSettings(editor='code --wait'),
+    )
+    new_config = SystemConfig.create_from_entries(
+        (ShellAction('echo new'),), (), (), (),
+        ToolSettings(editor='code --wait'),
+    )
+    result = RunActionsResult[ApplyFailureResolution](new_config)
     manager = MockSystemManager[ApplyFailureResolution].default(
         result=result,
-        old_config=OLD_CONFIG,
-        new_config=NEW_CONFIG,
+        old_config=old_config,
+        new_config=new_config,
     )
     config_writer = MockConfigWriter.create()
     defaults = MockDefaults()
@@ -167,11 +133,13 @@ def make_apply_command() -> ApplyCommand:
         file_reader=file_reader,
         file_writer=file_writer,
     )
+    old_path = fpath('/config/.history/current.yaml')
+    new_path = fpath('/manual/config.yaml')
 
     return ApplyCommand(
         manager=manager,
-        old_path=OLD_PATH,
-        new_path=NEW_PATH,
+        old_path=old_path,
+        new_path=new_path,
         config_writer=config_writer,
         config_location_writer=config_location_writer,
         should_override_config_path=False,
@@ -180,13 +148,16 @@ def make_apply_command() -> ApplyCommand:
 
 
 def make_edit_command(
-    old_path: Path = OLD_PATH,
-    new_path: Path = NEW_PATH,
-    file_reader: FileReader = FILE_READER,
-    editor_resolver: EditorResolver = EDITOR_RESOLVER,
-    editor_launcher: EditorLauncher = EDITOR_LAUNCHER,
+    old_path: Path = fpath('/config/.history/current.yaml'),
+    new_path: Path = fpath('/manual/config.yaml'),
+    file_reader: FileReader = FileReader(),
+    editor_resolver: EditorResolver = EditorResolver('linux', MockWhich({
+        'code': '/usr/bin/code',
+        'nano': '/usr/bin/nano',
+    })),
+    editor_launcher: EditorLauncher = EditorLauncher(MockSystemExecutor()),
 ) -> EditCommand:
-    """Build an edit command from shared collaborators, for equality checks."""
+    """Build an edit command from default collaborators, for equality checks."""
 
     config_reader = ConfigReader(file_reader)
 
@@ -257,35 +228,63 @@ class TestEditCommand(TestCase):
     @datasets({
         'config file given': CreateFromArgumentsDataset(
             fixture_defaults=MockDefaults(
-                old_config_path=OLD_PATH,
+                old_config_path=fpath('/config/.history/current.yaml'),
             ),
             fixture_files={
-                '/config/.history/current.yaml': OLD_CONFIG_YAML,
-                '/manual/config.yaml': NEW_CONFIG_YAML,
+                '/config/.history/current.yaml': dedent('''\
+                    version: 1
+                    system-config-manager:
+                      editor: code --wait
+                    before:
+                      - echo old
+                    config: []
+                    '''),
+                '/manual/config.yaml': dedent('''\
+                    version: 1
+                    system-config-manager:
+                      editor: code --wait
+                    before:
+                      - echo new
+                    config: []
+                    '''),
             },
             input_parsed_arguments=Namespace(
-                config_file=NEW_PATH,
+                config_file=fpath('/manual/config.yaml'),
                 last_config=None,
             ),
-            expected_old_path=OLD_PATH,
-            expected_new_path=NEW_PATH,
+            expected_old_path=fpath('/config/.history/current.yaml'),
+            expected_new_path=fpath('/manual/config.yaml'),
             expected_should_override_config_path=True,
         ),
         'config file from the config location': CreateFromArgumentsDataset(
             fixture_defaults=MockDefaults(
-                old_config_path=OLD_PATH,
+                old_config_path=fpath('/config/.history/current.yaml'),
                 new_config_path=fpath('/config/config/config.yaml'),
                 config_location_path=dpath('/config/config'),
             ),
             fixture_files={
-                '/config/.history/current.yaml': OLD_CONFIG_YAML,
-                '/config/config/config.yaml': NEW_CONFIG_YAML,
+                '/config/.history/current.yaml': dedent('''\
+                    version: 1
+                    system-config-manager:
+                      editor: code --wait
+                    before:
+                      - echo old
+                    config: []
+                    '''),
+                '/config/config/config.yaml': dedent('''\
+                    version: 1
+                    system-config-manager:
+                      editor: code --wait
+                    before:
+                      - echo new
+                    config: []
+                    '''),
             },
             input_parsed_arguments=Namespace(
                 config_file=None,
                 last_config=None,
             ),
-            expected_old_path=OLD_PATH,
+            expected_old_path=fpath('/config/.history/current.yaml'),
             expected_new_path=fpath('/config/config/config.yaml'),
             expected_should_override_config_path=False,
         ),
@@ -294,15 +293,29 @@ class TestEditCommand(TestCase):
                 old_config_path=MockPath('/config/.history/current.yaml'),
             ),
             fixture_files={
-                '/manual/old.yaml': OLD_CONFIG_YAML,
-                '/manual/config.yaml': NEW_CONFIG_YAML,
+                '/manual/old.yaml': dedent('''\
+                    version: 1
+                    system-config-manager:
+                      editor: code --wait
+                    before:
+                      - echo old
+                    config: []
+                    '''),
+                '/manual/config.yaml': dedent('''\
+                    version: 1
+                    system-config-manager:
+                      editor: code --wait
+                    before:
+                      - echo new
+                    config: []
+                    '''),
             },
             input_parsed_arguments=Namespace(
-                config_file=NEW_PATH,
+                config_file=fpath('/manual/config.yaml'),
                 last_config=fpath('/manual/old.yaml'),
             ),
             expected_old_path=fpath('/manual/old.yaml'),
-            expected_new_path=NEW_PATH,
+            expected_new_path=fpath('/manual/config.yaml'),
             expected_should_override_config_path=True,
         ),
     })
@@ -386,14 +399,21 @@ class TestEditCommand(TestCase):
         fixture_user_inputs: tuple[str, ...]
         expected_next_command: NextCommand
         fixture_old_config: SystemConfig = field(
-            default_factory=lambda: OLD_CONFIG)
-        expected_editor_command: tuple[str, ...] = CODE
+            default_factory=lambda: SystemConfig.create_from_entries(
+                (ShellAction('echo old'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
+        )
+        expected_editor_command: tuple[str, ...] = ('/usr/bin/code', '--wait')
         expected_preview_runs: int = 0
         expected_prints: list[str] = field(default_factory=lambda: [])
 
     @datasets({
         'apply with y': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('y',),
             expected_next_command=NextCommand.APPLY,
             expected_prints=[
@@ -405,68 +425,104 @@ class TestEditCommand(TestCase):
             ],
         ),
         'apply with yes': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('yes',),
             expected_next_command=NextCommand.APPLY,
         ),
         'apply with apply': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('apply',),
             expected_next_command=NextCommand.APPLY,
         ),
         'apply with a': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('a',),
             expected_next_command=NextCommand.APPLY,
         ),
         'apply with padded uppercase y': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=(' Y ',),
             expected_next_command=NextCommand.APPLY,
         ),
         'edit with e': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('e',),
             expected_next_command=NextCommand.SELF,
         ),
         'edit with edit': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('edit',),
             expected_next_command=NextCommand.SELF,
         ),
         'exit with n': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('n',),
             expected_next_command=NextCommand.NONE,
             expected_prints=['The edited config was not applied.'],
         ),
         'exit with no': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('no',),
             expected_next_command=NextCommand.NONE,
             expected_prints=['The edited config was not applied.'],
         ),
         'exit with x': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('x',),
             expected_next_command=NextCommand.NONE,
             expected_prints=['The edited config was not applied.'],
         ),
         'exit with exit': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('exit',),
             expected_next_command=NextCommand.NONE,
             expected_prints=['The edited config was not applied.'],
         ),
         'preview with p then apply': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('p', 'y'),
             expected_next_command=NextCommand.APPLY,
             expected_preview_runs=1,
             expected_prints=['Planned actions:'],
         ),
         'preview with preview twice then exit': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('preview', 'preview', 'n'),
             expected_next_command=NextCommand.NONE,
             expected_preview_runs=2,
@@ -476,40 +532,58 @@ class TestEditCommand(TestCase):
             ],
         ),
         'invalid choice then apply': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('z', 'y'),
             expected_next_command=NextCommand.APPLY,
             expected_prints=['Invalid choice. Please try again.'],
         ),
         'five invalid choices': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('z',) * 5,
             expected_next_command=NextCommand.NONE,
             expected_prints=['The edited config was not applied.'],
         ),
         'four invalid choices and a preview then apply': RunDataset(
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('z', 'z', 'p', 'z', 'z', 'y'),
             expected_next_command=NextCommand.APPLY,
             expected_preview_runs=1,
         ),
         'unchanged config': RunDataset(
-            fixture_new_config=OLD_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo old'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=(),
             expected_next_command=NextCommand.NONE,
             expected_prints=['# No changes.'],
         ),
         'only settings changed': RunDataset(
-            fixture_new_config=NANO_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo old'),), (), (), (),
+                ToolSettings(editor='nano'),
+            ),
             fixture_user_inputs=('y',),
             expected_next_command=NextCommand.APPLY,
         ),
         'no old config': RunDataset(
-            fixture_old_config=EMPTY_CONFIG,
-            fixture_new_config=NEW_CONFIG,
+            fixture_old_config=SystemConfig.create_from_entries((), (), (), ()),
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             fixture_user_inputs=('y',),
             expected_next_command=NextCommand.APPLY,
-            expected_editor_command=NANO,
+            expected_editor_command=('/usr/bin/nano',),
         ),
         'invalid config edited again': RunDataset(
             fixture_new_config=ValidationError('Undefined domain: not-a-domain'),
@@ -540,12 +614,20 @@ class TestEditCommand(TestCase):
             old_config=dataset.fixture_old_config,
             new_config=dataset.fixture_new_config,
         )
-        which = MockWhich(PATHS_BY_NAME)
+        paths_by_name = {
+            'code': '/usr/bin/code',
+            'nano': '/usr/bin/nano',
+        }
+        which = MockWhich(paths_by_name)
         editor_resolver = EditorResolver('linux', which)
         edit_results = (EditResult.CLOSED,)
         editor_launcher = MockEditorLauncher(edit_results)
 
-        preview_result = RunActionsResult[None](NEW_CONFIG)
+        preview_config = SystemConfig.create_from_entries(
+            (ShellAction('echo new'),), (), (), (),
+            ToolSettings(editor='code --wait'),
+        )
+        preview_result = RunActionsResult[None](preview_config)
         preview_manager = MockSystemManager[None].default(result=preview_result)
         system_config_renderer = SystemConfigRenderer()
         yaml_serializer = YamlSerializer()
@@ -562,10 +644,12 @@ class TestEditCommand(TestCase):
         def apply_command_factory() -> ApplyCommand:
             return apply_command
 
+        old_path = fpath('/config/.history/current.yaml')
+        new_path = fpath('/manual/config.yaml')
         edit_command = EditCommand(
             config_reader=config_reader,
-            old_path=OLD_PATH,
-            new_path=NEW_PATH,
+            old_path=old_path,
+            new_path=new_path,
             editor_resolver=editor_resolver,
             editor_launcher=editor_launcher,
             preview_command_factory=preview_command_factory,
@@ -587,9 +671,9 @@ class TestEditCommand(TestCase):
         self.assertIs(expected_next_command, actual)
         self.assertEqual(
             editor_launcher.calls,
-            [(dataset.expected_editor_command, NEW_PATH)],
+            [(dataset.expected_editor_command, new_path)],
         )
-        self.assertEqual(config_reader.loaded_paths, [OLD_PATH, NEW_PATH])
+        self.assertEqual(config_reader.loaded_paths, [old_path, new_path])
         self.assertEqual(
             mock_input.call_count,
             len(dataset.fixture_user_inputs),
@@ -607,15 +691,26 @@ class TestEditCommand(TestCase):
         fixture_new_config: SystemConfig | ValidationError
         expected_message: str
         fixture_old_config: SystemConfig = field(
-            default_factory=lambda: OLD_CONFIG)
+            default_factory=lambda: SystemConfig.create_from_entries(
+                (ShellAction('echo old'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
+        )
         fixture_paths_by_name: dict[str, str] = field(
-            default_factory=lambda: dict(PATHS_BY_NAME))
+            default_factory=lambda: {
+                'code': '/usr/bin/code',
+                'nano': '/usr/bin/nano',
+            },
+        )
         fixture_user_inputs: tuple[str, ...] = ()
 
     @datasets({
         'editor exits with an error': RaiseDataset(
             fixture_edit_results=(EditResult.CANCELLED,),
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             expected_message='The editor exited with an error, '
             + 'the edited config was not applied',
         ),
@@ -632,17 +727,23 @@ class TestEditCommand(TestCase):
             expected_message='The invalid config was not applied',
         ),
         'no editor found': RaiseDataset(
-            fixture_old_config=EMPTY_CONFIG,
+            fixture_old_config=SystemConfig.create_from_entries((), (), (), ()),
             fixture_paths_by_name={},
             fixture_edit_results=(),
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             expected_message='No editor found (tried editor, nano, vim, vi), '
             + "set one with 'system-config-manager.editor' in your config",
         ),
         'configured editor not found': RaiseDataset(
             fixture_paths_by_name={},
             fixture_edit_results=(),
-            fixture_new_config=NEW_CONFIG,
+            fixture_new_config=SystemConfig.create_from_entries(
+                (ShellAction('echo new'),), (), (), (),
+                ToolSettings(editor='code --wait'),
+            ),
             expected_message="Editor 'code' from "
             + "'system-config-manager.editor' was not found",
         ),
@@ -658,10 +759,12 @@ class TestEditCommand(TestCase):
         which = MockWhich(dataset.fixture_paths_by_name)
         editor_resolver = EditorResolver('linux', which)
         editor_launcher = MockEditorLauncher(dataset.fixture_edit_results)
+        old_path = fpath('/config/.history/current.yaml')
+        new_path = fpath('/manual/config.yaml')
         edit_command = EditCommand(
             config_reader=config_reader,
-            old_path=OLD_PATH,
-            new_path=NEW_PATH,
+            old_path=old_path,
+            new_path=new_path,
             editor_resolver=editor_resolver,
             editor_launcher=editor_launcher,
             preview_command_factory=unexpected_preview_command_factory,
@@ -704,17 +807,15 @@ class TestEditCommand(TestCase):
             input_other=make_edit_command(new_path=Path('/other/config.yaml')),
             expected_equal=False,
         ),
-        'different config reader': EqualityDataset(
-            input_command=make_edit_command(),
-            input_other=make_edit_command(file_reader=FileReader()),
-            expected_equal=False,
-        ),
         'different editor resolver': EqualityDataset(
             input_command=make_edit_command(),
             input_other=make_edit_command(
                 editor_resolver=EditorResolver(
                     'win32',
-                    EDITOR_RESOLVER.which,
+                    MockWhich({
+                        'code': '/usr/bin/code',
+                        'nano': '/usr/bin/nano',
+                    }),
                 ),
             ),
             expected_equal=False,
@@ -737,8 +838,8 @@ class TestEditCommand(TestCase):
     def test_equality(self, dataset: EqualityDataset) -> None:
         """Test that commands compare by paths and collaborators."""
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(dataset.input_command, dataset.input_other)
-        else:
-            self.assertNotEqual(dataset.input_command, dataset.input_other)
+        # Act
+        actual = dataset.input_command == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)

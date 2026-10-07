@@ -178,12 +178,14 @@ class ApplyCommand (Command):
         if not isinstance(value, ApplyCommand):
             return False
 
-        return self.manager == value.manager \
-            and self.old_path == value.old_path \
-            and self.new_path == value.new_path \
-            and self.config_writer == value.config_writer \
-            and self.config_location_writer == value.config_location_writer \
+        return (
+            self.manager == value.manager
+            and self.old_path == value.old_path
+            and self.new_path == value.new_path
+            and self.config_writer == value.config_writer
+            and self.config_location_writer == value.config_location_writer
             and self.should_override_config_path == value.should_override_config_path
+        )
         # exclude:
         # and self.edit_command_factory == value.edit_command_factory
 

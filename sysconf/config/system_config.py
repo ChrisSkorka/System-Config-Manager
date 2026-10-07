@@ -68,11 +68,13 @@ class SystemConfig:
         if not isinstance(other, SystemConfig):
             return False
 
-        return self.config_entries == other.config_entries \
-            and self.before_actions == other.before_actions \
-            and self.after_actions == other.after_actions \
-            and self.domains == other.domains \
+        return (
+            self.config_entries == other.config_entries
+            and self.before_actions == other.before_actions
+            and self.after_actions == other.after_actions
+            and self.domains == other.domains
             and self.settings == other.settings
+        )
 
     def __repr__(self) -> str:
         return f'SystemConfig({self.config_entries})'
@@ -101,8 +103,10 @@ class SystemManager(Generic[FR]):
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, SystemManager):
             return False
-        return self.old_config == value.old_config \
+        return (
+            self.old_config == value.old_config
             and self.new_config == value.new_config
+        )
 
     def get_domain_actions(self) -> Iterable[DomainAction]:
         """
@@ -168,9 +172,11 @@ class SystemManager(Generic[FR]):
 
         # Without system changes there is nothing for the before & after
         # actions to run around, so they are skipped too
-        has_config_actions = diff_before_actions.old != diff_before_actions.new \
-            or diff_after_actions.old != diff_after_actions.new \
+        has_config_actions = (
+            diff_before_actions.old != diff_before_actions.new
+            or diff_after_actions.old != diff_after_actions.new
             or any(not isinstance(action, NoDomainAction) for action in actions)
+        )
 
         if not has_config_actions:
             print(
@@ -394,9 +400,11 @@ class SystemConfigTransitioner:
                 user_domains[domain_key] = self.new_domains[domain_key]
         # add used old not builtin domains second
         for domain_key in self.old_domains.keys():
-            if domain_key in used_domain_keys \
-                    and domain_key not in self.new_domains \
-                    and domain_key not in self.builtin_domains:
+            if (
+                domain_key in used_domain_keys
+                and domain_key not in self.new_domains
+                and domain_key not in self.builtin_domains
+            ):
                 user_domains[domain_key] = self.old_domains[domain_key]
 
         return SystemConfig.create_from_entries(

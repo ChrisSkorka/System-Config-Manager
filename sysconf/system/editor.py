@@ -47,8 +47,10 @@ class EditorResolver:
         if not isinstance(value, EditorResolver):
             return False
 
-        return self.platform == value.platform \
+        return (
+            self.platform == value.platform
             and self.which == value.which
+        )
 
     def get_editor_command(self, editor: str | None) -> tuple[str, ...]:
         """

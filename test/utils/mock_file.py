@@ -25,7 +25,14 @@ class MockFileReader (FileReader):
         def get_file_contents(path: Path) -> str:
             return files[self._get_normalized_path(path)]
 
+        self.files = files
         self.get_file_contents = MagicMock(side_effect=get_file_contents)
+
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, MockFileReader):
+            return False
+
+        return self.files == value.files
 
     def _get_normalized_path(self, path: str | Path) -> str:
         return Path(path).expanduser().resolve().as_posix()
@@ -52,6 +59,12 @@ class MockFileWriter (FileWriter):
             self.written_files[path.as_posix()] = contents
 
         self.write_file_contents = MagicMock(side_effect=write_file_contents)
+
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, MockFileWriter):
+            return False
+
+        return self.written_files == value.written_files
 
     def __call__(self) -> Self:
         """

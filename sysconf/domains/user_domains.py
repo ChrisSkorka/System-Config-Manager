@@ -150,11 +150,13 @@ class UserMapDomain(UserDomain):
         if not isinstance(value, UserMapDomain):
             return False
 
-        return self.key == value.key \
-            and self.path_depth == value.path_depth \
-            and self.add_script == value.add_script \
-            and self.update_script == value.update_script \
+        return (
+            self.key == value.key
+            and self.path_depth == value.path_depth
+            and self.add_script == value.add_script
+            and self.update_script == value.update_script
             and self.remove_script == value.remove_script
+        )
 
     def get_key(self) -> str:
         return self.map_domain.get_key()

@@ -27,14 +27,6 @@ from test.system.mock_system_executor import (
 from test.test_case import TestCase
 
 
-ENTRY_A = MockDomainConfigEntry(('a',), MockUserDomain('test-a'))
-ENTRY_B = MockDomainConfigEntry(('b',), MockUserDomain('test-b'))
-DOMAIN_A = MockUserDomain('test-a')
-DOMAIN_B = MockUserDomain('test-b')
-BEFORE_ACTION = ShellAction('echo before')
-AFTER_ACTION = ShellAction('echo after')
-
-
 def make_system_config(
     before_actions: tuple[Action, ...] = (),
     after_actions: tuple[Action, ...] = (),
@@ -262,8 +254,13 @@ class TestSystemConfig(TestCase):
         ),
     })
     def test_equality(self, dataset: EqualityDataset) -> None:
-        self.assertEqual(dataset.expected_equal,
-                         dataset.input_a == dataset.input_b)
+        """Test that configs compare by their contents."""
+
+        # Act
+        actual = dataset.input_a == dataset.input_b
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)
 
     @dataclass
     class ReprDataset:
@@ -276,7 +273,9 @@ class TestSystemConfig(TestCase):
             expected_repr='SystemConfig({})',
         ),
         'config with one entry': ReprDataset(
-            input_config=make_system_config(config_entries=[ENTRY_A]),
+            input_config=make_system_config(
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+            ),
             expected_repr="SystemConfig({('a',): MockDomainConfigEntry(('a',))})",
         ),
     })
@@ -451,54 +450,54 @@ class TestSystemManager(TestCase):
         ),
         'failed action still carries new settings': RunActionsDataset(
             input_old_config=make_system_config(
-                config_entries=[ENTRY_A],
-                user_domains=[DOMAIN_A],
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                user_domains=[MockUserDomain('test-a')],
                 settings=ToolSettings(editor='nano'),
             ),
             input_new_config=make_system_config(
-                config_entries=[ENTRY_B],
-                user_domains=[DOMAIN_B],
+                config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                user_domains=[MockUserDomain('test-b')],
                 settings=ToolSettings(editor='vim'),
             ),
             input_error_handler=MockFailErrorHandler(),
             expected_config=make_system_config(
-                config_entries=[ENTRY_A],
-                user_domains=[DOMAIN_A],
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                user_domains=[MockUserDomain('test-a')],
                 settings=ToolSettings(editor='vim'),
             ),
         ),
         'failed action returns the chosen resolution': RunActionsDataset(
             input_old_config=make_system_config(
-                config_entries=[ENTRY_A],
-                user_domains=[DOMAIN_A],
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                user_domains=[MockUserDomain('test-a')],
             ),
             input_new_config=make_system_config(
-                config_entries=[ENTRY_B],
-                user_domains=[DOMAIN_B],
+                config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                user_domains=[MockUserDomain('test-b')],
             ),
             input_error_handler=MockFailErrorHandler(
                 MockFailureResolution.EDIT,
             ),
             expected_config=make_system_config(
-                config_entries=[ENTRY_A],
-                user_domains=[DOMAIN_A],
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                user_domains=[MockUserDomain('test-a')],
             ),
             expected_failure_resolution=MockFailureResolution.EDIT,
         ),
         'removed settings are removed': RunActionsDataset(
             input_old_config=make_system_config(
-                config_entries=[ENTRY_A],
-                user_domains=[DOMAIN_A],
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                user_domains=[MockUserDomain('test-a')],
                 settings=ToolSettings(editor='nano'),
             ),
             input_new_config=make_system_config(
-                config_entries=[ENTRY_B],
-                user_domains=[DOMAIN_B],
+                config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                user_domains=[MockUserDomain('test-b')],
             ),
             input_error_handler=MockSuccessErrorHandler(),
             expected_config=make_system_config(
-                config_entries=[ENTRY_B],
-                user_domains=[DOMAIN_B],
+                config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                user_domains=[MockUserDomain('test-b')],
             ),
         ),
     })
@@ -533,64 +532,64 @@ class TestSystemManager(TestCase):
         'before action added': BeforeAndAfterActionsDataset(
             input_old_config=make_system_config(),
             input_new_config=make_system_config(
-                before_actions=(BEFORE_ACTION,),
+                before_actions=(ShellAction('echo before'),),
             ),
-            expected=make_system_config(before_actions=(BEFORE_ACTION,)),
+            expected=make_system_config(before_actions=(ShellAction('echo before'),)),
             expected_scripts=['echo before'],
         ),
         'after action added': BeforeAndAfterActionsDataset(
             input_old_config=make_system_config(),
-            input_new_config=make_system_config(after_actions=(AFTER_ACTION,)),
-            expected=make_system_config(after_actions=(AFTER_ACTION,)),
+            input_new_config=make_system_config(after_actions=(ShellAction('echo after'),)),
+            expected=make_system_config(after_actions=(ShellAction('echo after'),)),
             expected_scripts=['echo after'],
         ),
         'before action removed is not run': BeforeAndAfterActionsDataset(
             input_old_config=make_system_config(
-                before_actions=(BEFORE_ACTION,)),
+                before_actions=(ShellAction('echo before'),)),
             input_new_config=make_system_config(),
             expected=make_system_config(),
             expected_scripts=[],
         ),
         'after action removed is not run': BeforeAndAfterActionsDataset(
-            input_old_config=make_system_config(after_actions=(AFTER_ACTION,)),
+            input_old_config=make_system_config(after_actions=(ShellAction('echo after'),)),
             input_new_config=make_system_config(),
             expected=make_system_config(),
             expected_scripts=[],
         ),
         'unchanged before action is re-run when the config changes': BeforeAndAfterActionsDataset(
             input_old_config=make_system_config(
-                before_actions=(BEFORE_ACTION,),
-                config_entries=[ENTRY_A],
-                user_domains=[DOMAIN_A],
+                before_actions=(ShellAction('echo before'),),
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                user_domains=[MockUserDomain('test-a')],
             ),
             input_new_config=make_system_config(
-                before_actions=(BEFORE_ACTION,),
-                config_entries=[ENTRY_B],
-                user_domains=[DOMAIN_B],
+                before_actions=(ShellAction('echo before'),),
+                config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                user_domains=[MockUserDomain('test-b')],
             ),
             expected=make_system_config(
-                before_actions=(BEFORE_ACTION,),
-                config_entries=[ENTRY_B],
-                user_domains=[DOMAIN_B],
+                before_actions=(ShellAction('echo before'),),
+                config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                user_domains=[MockUserDomain('test-b')],
             ),
             expected_scripts=['echo before'],
         ),
         'before and after around a domain change': BeforeAndAfterActionsDataset(
             input_old_config=make_system_config(
-                config_entries=[ENTRY_A],
-                user_domains=[DOMAIN_A],
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                user_domains=[MockUserDomain('test-a')],
             ),
             input_new_config=make_system_config(
-                before_actions=(BEFORE_ACTION,),
-                after_actions=(AFTER_ACTION,),
-                config_entries=[ENTRY_B],
-                user_domains=[DOMAIN_B],
+                before_actions=(ShellAction('echo before'),),
+                after_actions=(ShellAction('echo after'),),
+                config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                user_domains=[MockUserDomain('test-b')],
             ),
             expected=make_system_config(
-                before_actions=(BEFORE_ACTION,),
-                after_actions=(AFTER_ACTION,),
-                config_entries=[ENTRY_B],
-                user_domains=[DOMAIN_B],
+                before_actions=(ShellAction('echo before'),),
+                after_actions=(ShellAction('echo after'),),
+                config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                user_domains=[MockUserDomain('test-b')],
             ),
             expected_scripts=['echo before', 'echo after'],
         ),
@@ -632,8 +631,8 @@ class TestSystemManager(TestCase):
         'before action fails, nothing is committed': ErrorRecoveryDataset(
             input_statuses=(ErrorHandler.Status.FAILED,),
             expected=make_system_config(
-                config_entries=[ENTRY_A],
-                user_domains=[DOMAIN_A],
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                user_domains=[MockUserDomain('test-a')],
             ),
             expected_handler_calls=1,
             expected_failure_resolution=MockFailureResolution.EDIT,
@@ -646,9 +645,9 @@ class TestSystemManager(TestCase):
                 ErrorHandler.Status.SUCCESS,
             ),
             expected=make_system_config(
-                after_actions=(AFTER_ACTION,),
-                config_entries=[ENTRY_B],
-                user_domains=[DOMAIN_B],
+                after_actions=(ShellAction('echo after'),),
+                config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                user_domains=[MockUserDomain('test-b')],
             ),
             expected_handler_calls=4,
         ),
@@ -658,9 +657,9 @@ class TestSystemManager(TestCase):
                 ErrorHandler.Status.FAILED,
             ),
             expected=make_system_config(
-                before_actions=(BEFORE_ACTION,),
-                config_entries=[ENTRY_A],
-                user_domains=[DOMAIN_A],
+                before_actions=(ShellAction('echo before'),),
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                user_domains=[MockUserDomain('test-a')],
             ),
             expected_handler_calls=2,
             expected_failure_resolution=MockFailureResolution.EDIT,
@@ -673,10 +672,13 @@ class TestSystemManager(TestCase):
                 ErrorHandler.Status.SUCCESS,
             ),
             expected=make_system_config(
-                before_actions=(BEFORE_ACTION,),
-                after_actions=(AFTER_ACTION,),
-                config_entries=[ENTRY_B, ENTRY_A],
-                user_domains=[DOMAIN_B, DOMAIN_A],
+                before_actions=(ShellAction('echo before'),),
+                after_actions=(ShellAction('echo after'),),
+                config_entries=[
+                    MockDomainConfigEntry(('b',), MockUserDomain('test-b')),
+                    MockDomainConfigEntry(('a',), MockUserDomain('test-a')),
+                ],
+                user_domains=[MockUserDomain('test-b'), MockUserDomain('test-a')],
             ),
             expected_handler_calls=4,
         ),
@@ -687,7 +689,7 @@ class TestSystemManager(TestCase):
                 ErrorHandler.Status.FAILED,
             ),
             expected=make_system_config(
-                before_actions=(BEFORE_ACTION,),
+                before_actions=(ShellAction('echo before'),),
             ),
             expected_handler_calls=3,
             expected_failure_resolution=MockFailureResolution.EDIT,
@@ -700,9 +702,9 @@ class TestSystemManager(TestCase):
                 ErrorHandler.Status.FAILED,
             ),
             expected=make_system_config(
-                before_actions=(BEFORE_ACTION,),
-                config_entries=[ENTRY_B],
-                user_domains=[DOMAIN_B],
+                before_actions=(ShellAction('echo before'),),
+                config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                user_domains=[MockUserDomain('test-b')],
             ),
             expected_handler_calls=4,
             expected_failure_resolution=MockFailureResolution.EDIT,
@@ -715,19 +717,19 @@ class TestSystemManager(TestCase):
                 ErrorHandler.Status.SKIPPED,
             ),
             expected=make_system_config(
-                before_actions=(BEFORE_ACTION,),
-                config_entries=[ENTRY_B],
-                user_domains=[DOMAIN_B],
+                before_actions=(ShellAction('echo before'),),
+                config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                user_domains=[MockUserDomain('test-b')],
             ),
             expected_handler_calls=4,
         ),
         'everything succeeds': ErrorRecoveryDataset(
             input_statuses=(ErrorHandler.Status.SUCCESS,),
             expected=make_system_config(
-                before_actions=(BEFORE_ACTION,),
-                after_actions=(AFTER_ACTION,),
-                config_entries=[ENTRY_B],
-                user_domains=[DOMAIN_B],
+                before_actions=(ShellAction('echo before'),),
+                after_actions=(ShellAction('echo after'),),
+                config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                user_domains=[MockUserDomain('test-b')],
             ),
             expected_handler_calls=4,
         ),
@@ -742,14 +744,14 @@ class TestSystemManager(TestCase):
         )
         manager = SystemManager(
             old_config=make_system_config(
-                config_entries=[ENTRY_A],
-                user_domains=[DOMAIN_A],
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                user_domains=[MockUserDomain('test-a')],
             ),
             new_config=make_system_config(
-                before_actions=(BEFORE_ACTION,),
-                after_actions=(AFTER_ACTION,),
-                config_entries=[ENTRY_B],
-                user_domains=[DOMAIN_B],
+                before_actions=(ShellAction('echo before'),),
+                after_actions=(ShellAction('echo after'),),
+                config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                user_domains=[MockUserDomain('test-b')],
             ),
             executor=MockSystemExecutor(),
             error_handler=error_handler,
@@ -792,13 +794,13 @@ class TestSystemManager(TestCase):
         # Arrange
         manager = SystemManager(
             old_config=make_system_config(
-                config_entries=[ENTRY_A],
-                user_domains=[DOMAIN_A],
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                user_domains=[MockUserDomain('test-a')],
             ),
             new_config=make_system_config(
-                before_actions=(BEFORE_ACTION,),
-                config_entries=[ENTRY_A],
-                user_domains=[DOMAIN_A],
+                before_actions=(ShellAction('echo before'),),
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                user_domains=[MockUserDomain('test-a')],
             ),
             executor=MockRaisingSystemExecutor(dataset.fixture_exception),
             error_handler=MockSuccessErrorHandler(),
@@ -811,8 +813,8 @@ class TestSystemManager(TestCase):
         # Assert
         self.assertEqual(
             make_system_config(
-                config_entries=[ENTRY_A],
-                user_domains=[DOMAIN_A],
+                config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                user_domains=[MockUserDomain('test-a')],
             ),
             actual.system_config,
         )
@@ -831,14 +833,22 @@ class TestSystemManager(TestCase):
     @datasets({
         'same configs': EqualityDataset(
             input_manager=SystemManager(
-                old_config=make_system_config(config_entries=[ENTRY_A]),
-                new_config=make_system_config(config_entries=[ENTRY_B]),
+                old_config=make_system_config(
+                    config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                ),
+                new_config=make_system_config(
+                    config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                ),
                 executor=MockSystemExecutor(),
                 error_handler=MockSuccessErrorHandler(),
             ),
             input_other=SystemManager(
-                old_config=make_system_config(config_entries=[ENTRY_A]),
-                new_config=make_system_config(config_entries=[ENTRY_B]),
+                old_config=make_system_config(
+                    config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                ),
+                new_config=make_system_config(
+                    config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                ),
                 executor=MockSystemExecutor(),
                 error_handler=MockFailErrorHandler(),
             ),
@@ -846,14 +856,20 @@ class TestSystemManager(TestCase):
         ),
         'different old config': EqualityDataset(
             input_manager=SystemManager(
-                old_config=make_system_config(config_entries=[ENTRY_A]),
-                new_config=make_system_config(config_entries=[ENTRY_B]),
+                old_config=make_system_config(
+                    config_entries=[MockDomainConfigEntry(('a',), MockUserDomain('test-a'))],
+                ),
+                new_config=make_system_config(
+                    config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                ),
                 executor=MockSystemExecutor(),
                 error_handler=MockSuccessErrorHandler(),
             ),
             input_other=SystemManager(
                 old_config=make_system_config(),
-                new_config=make_system_config(config_entries=[ENTRY_B]),
+                new_config=make_system_config(
+                    config_entries=[MockDomainConfigEntry(('b',), MockUserDomain('test-b'))],
+                ),
                 executor=MockSystemExecutor(),
                 error_handler=MockSuccessErrorHandler(),
             ),
@@ -873,11 +889,11 @@ class TestSystemManager(TestCase):
     def test_equality(self, dataset: EqualityDataset) -> None:
         """Test that managers compare by their old and new configs only."""
 
-        # Act & Assert
-        if dataset.expected_equal:
-            self.assertEqual(dataset.input_manager, dataset.input_other)
-        else:
-            self.assertNotEqual(dataset.input_manager, dataset.input_other)
+        # Act
+        actual = dataset.input_manager == dataset.input_other
+
+        # Assert
+        self.assertEqual(actual, dataset.expected_equal)
 
 
 class TestSystemConfigTransitioner(TestCase):
